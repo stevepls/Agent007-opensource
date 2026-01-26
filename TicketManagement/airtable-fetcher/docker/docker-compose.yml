@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  airtable-fetcher:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: airtable-fetcher
+    volumes:
+      - ../output:/app/output
+      - ../config:/app/config
+      - ../src:/app/src
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - airtable-network
+    # Uncomment and modify these if you want to run the container interactively
+    # command: tail -f /dev/null
+    # stdin_open: true
+    # tty: true
+
+  # Optional: Add a lightweight web interface for monitoring
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: airtable-portainer
+    ports:
+      - "9000:9000"  # Different port from Magento to avoid conflicts
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - airtable-network
+    restart: unless-stopped
+
+networks:
+  airtable-network:
+    driver: bridge
+    name: airtable-network
+
+volumes:
+  portainer_data: 

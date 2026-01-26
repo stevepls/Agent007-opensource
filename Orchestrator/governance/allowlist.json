@@ -1,0 +1,391 @@
+{
+  "environments": [
+    {
+      "pattern": "local",
+      "permission": "admin",
+      "description": "Local development environment",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358652",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "dev",
+      "permission": "write",
+      "description": "Development environment",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358666",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "staging",
+      "permission": "read",
+      "description": "Staging - read only by default",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358670",
+      "expires_at": null,
+      "conditions": null
+    }
+  ],
+  "paths": [
+    {
+      "pattern": "/home/steve/Agent007/**/*.py",
+      "permission": "read",
+      "description": "Python source files",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358685",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "/home/steve/Agent007/**/*.md",
+      "permission": "read",
+      "description": "Documentation",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358688",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "/home/steve/Agent007/**/*.json",
+      "permission": "read",
+      "description": "JSON config files",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358692",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "/home/steve/Agent007/**/*.yml",
+      "permission": "read",
+      "description": "YAML config files",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358695",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "/home/steve/Agent007/**/*.yaml",
+      "permission": "read",
+      "description": "YAML config files",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358697",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "/home/steve/Agent007/**/*.txt",
+      "permission": "read",
+      "description": "Text files",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358700",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "/home/steve/Agent007/**/*.sh",
+      "permission": "read",
+      "description": "Shell scripts",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358702",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "/home/steve/Agent007/**/*.php",
+      "permission": "read",
+      "description": "PHP source files",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358704",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "/home/steve/Agent007/**/*.js",
+      "permission": "read",
+      "description": "JavaScript files",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358707",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "/home/steve/Agent007/**/*.ts",
+      "permission": "read",
+      "description": "TypeScript files",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358709",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "/home/steve/Agent007/**/*.css",
+      "permission": "read",
+      "description": "CSS files",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358712",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "/home/steve/Agent007/**/*.html",
+      "permission": "read",
+      "description": "HTML files",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358715",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "/home/steve/Agent007/Orchestrator/**",
+      "permission": "write",
+      "description": "Orchestrator project",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358717",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "/home/steve/Agent007/SyncAudit/**",
+      "permission": "write",
+      "description": "SyncAudit project",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358720",
+      "expires_at": null,
+      "conditions": null
+    }
+  ],
+  "commands": [
+    {
+      "pattern": "ls *",
+      "permission": "execute",
+      "description": "List directory contents",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358723",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "cat *",
+      "permission": "execute",
+      "description": "View file contents",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358726",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "head *",
+      "permission": "execute",
+      "description": "View file start",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358728",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "tail *",
+      "permission": "execute",
+      "description": "View file end",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358731",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "grep *",
+      "permission": "execute",
+      "description": "Search in files",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358733",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "find *",
+      "permission": "execute",
+      "description": "Find files",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358736",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "wc *",
+      "permission": "execute",
+      "description": "Count lines/words",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358738",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "file *",
+      "permission": "execute",
+      "description": "Check file type",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358741",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "tree *",
+      "permission": "execute",
+      "description": "Directory tree",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358757",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "git status*",
+      "permission": "execute",
+      "description": "Git status",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358760",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "git log*",
+      "permission": "execute",
+      "description": "Git history",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358763",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "git diff*",
+      "permission": "execute",
+      "description": "Git diff",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358765",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "git branch*",
+      "permission": "execute",
+      "description": "Git branches",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358767",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "git show*",
+      "permission": "execute",
+      "description": "Git show",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358770",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "python3 --version",
+      "permission": "execute",
+      "description": "Python version",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358772",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "node --version",
+      "permission": "execute",
+      "description": "Node version",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358774",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "pip list*",
+      "permission": "execute",
+      "description": "List Python packages",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358777",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "npm list*",
+      "permission": "execute",
+      "description": "List Node packages",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358779",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "python3 -m pytest*",
+      "permission": "execute",
+      "description": "Run Python tests",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358781",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "npm test*",
+      "permission": "execute",
+      "description": "Run Node tests",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358784",
+      "expires_at": null,
+      "conditions": null
+    }
+  ],
+  "tools": [
+    {
+      "pattern": "tickets",
+      "permission": "execute",
+      "description": "Ticket management",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358787",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "focus",
+      "permission": "execute",
+      "description": "Focus mode",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358789",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "init-tests",
+      "permission": "execute",
+      "description": "Initialize tests",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358792",
+      "expires_at": null,
+      "conditions": null
+    }
+  ],
+  "apis": [
+    {
+      "pattern": "localhost:*",
+      "permission": "read",
+      "description": "Local services",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358794",
+      "expires_at": null,
+      "conditions": null
+    },
+    {
+      "pattern": "127.0.0.1:*",
+      "permission": "read",
+      "description": "Local services",
+      "added_by": "system",
+      "added_at": "2026-01-25T03:14:38.358797",
+      "expires_at": null,
+      "conditions": null
+    }
+  ],
+  "proposed": []
+}

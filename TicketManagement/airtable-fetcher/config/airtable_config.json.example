@@ -1,0 +1,13 @@
+{
+  "personal_access_token": "YOUR_PERSONAL_ACCESS_TOKEN_HERE",
+  "base_id": "YOUR_BASE_ID_HERE",
+  "table_name": "Tickets",
+  "target_email": "cw-testing@theforgelab.com",
+  "output_directory": "airtable-tickets",
+  "common_field_mappings": {
+    "title_fields": ["Title", "Subject", "Name", "Summary"],
+    "date_fields": ["Created", "Date Created", "Created Time"],
+    "assignee_fields": ["Assigned Email", "Assignee", "Assigned To"],
+    "status_fields": ["Status", "State", "Current Status"]
+  }
+} 
