@@ -1225,74 +1225,74 @@ with tab10:
         else:
             db_manager = get_database_manager()
             connections = db_manager.list_connections()
-            
+
             # Pending Query Approvals
             st.markdown("#### Pending Query Approvals")
-            
+
             pending_queries = db_manager.get_pending_approvals()
-        if pending_queries:
-            for req in pending_queries:
-                risk_color = {
-                    "safe": "green", "low": "green",
-                    "medium": "orange", "high": "red", "critical": "red"
-                }.get(req.risk_level.value, "gray")
-                
-                with st.expander(f"⚠️ {req.id}: {req.query_type.value.upper()} on {req.connection_name}", expanded=True):
-                    st.markdown(f"**Risk Level:** :{risk_color}[{req.risk_level.value.upper()}]")
-                    st.markdown(f"**Requested By:** {req.created_by}")
-                    st.markdown(f"**Requested At:** {req.created_at[:16]}")
-                    
-                    if req.risk_reasons:
-                        st.markdown("**Risk Factors:**")
-                        for reason in req.risk_reasons:
-                            st.markdown(f"  • ⚠️ {reason}")
-                    
-                    st.markdown("**Query:**")
-                    st.code(req.query, language="sql")
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("✅ Approve & Execute", key=f"approve_q_{req.id}"):
-                            db_manager.approve_query(req.id, "human")
-                            result = db_manager.execute_approved_query(req.id)
-                            if result.success:
-                                st.success(f"Query executed. {result.rows_affected} rows affected.")
-                            else:
-                                st.error(f"Query failed: {result.error}")
-                            st.rerun()
-                    with col2:
-                        reject_reason = st.text_input("Rejection reason", key=f"reject_reason_{req.id}")
-                        if st.button("❌ Reject", key=f"reject_q_{req.id}"):
-                            if reject_reason:
-                                db_manager.reject_query(req.id, "human", reject_reason)
-                                st.warning("Query rejected.")
+            if pending_queries:
+                for req in pending_queries:
+                    risk_color = {
+                        "safe": "green", "low": "green",
+                        "medium": "orange", "high": "red", "critical": "red"
+                    }.get(req.risk_level.value, "gray")
+
+                    with st.expander(f"⚠️ {req.id}: {req.query_type.value.upper()} on {req.connection_name}", expanded=True):
+                        st.markdown(f"**Risk Level:** :{risk_color}[{req.risk_level.value.upper()}]")
+                        st.markdown(f"**Requested By:** {req.created_by}")
+                        st.markdown(f"**Requested At:** {req.created_at[:16]}")
+
+                        if req.risk_reasons:
+                            st.markdown("**Risk Factors:**")
+                            for reason in req.risk_reasons:
+                                st.markdown(f"  • ⚠️ {reason}")
+
+                        st.markdown("**Query:**")
+                        st.code(req.query, language="sql")
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("✅ Approve & Execute", key=f"approve_q_{req.id}"):
+                                db_manager.approve_query(req.id, "human")
+                                result = db_manager.execute_approved_query(req.id)
+                                if result.success:
+                                    st.success(f"Query executed. {result.rows_affected} rows affected.")
+                                else:
+                                    st.error(f"Query failed: {result.error}")
                                 st.rerun()
-                            else:
-                                st.error("Please provide a rejection reason.")
-        else:
-            st.info("No pending query approvals.")
-        
-        # Quick Query (read-only)
-        st.markdown("#### Quick Query (SELECT only)")
-        
-        conn_options = {c.id: f"{c.name} ({c.type})" for c in connections}
-        if conn_options:
-            selected_conn = st.selectbox("Connection", options=list(conn_options.keys()), format_func=lambda x: conn_options[x])
-            query = st.text_area("SQL Query", placeholder="SELECT * FROM users LIMIT 10")
-            
-            if st.button("▶️ Execute Query"):
-                if query:
-                    result = db_manager.execute_query(selected_conn, query, limit=100)
-                    if result.success:
-                        st.success(f"✓ {len(result.data)} rows in {result.execution_time_ms:.1f}ms")
-                        if result.data:
-                            import pandas as pd
-                            df = pd.DataFrame(result.data)
-                            st.dataframe(df)
+                        with col2:
+                            reject_reason = st.text_input("Rejection reason", key=f"reject_reason_{req.id}")
+                            if st.button("❌ Reject", key=f"reject_q_{req.id}"):
+                                if reject_reason:
+                                    db_manager.reject_query(req.id, "human", reject_reason)
+                                    st.warning("Query rejected.")
+                                    st.rerun()
+                                else:
+                                    st.error("Please provide a rejection reason.")
+            else:
+                st.info("No pending query approvals.")
+
+            # Quick Query (read-only)
+            st.markdown("#### Quick Query (SELECT only)")
+
+            conn_options = {c.id: f"{c.name} ({c.type})" for c in connections}
+            if conn_options:
+                selected_conn = st.selectbox("Connection", options=list(conn_options.keys()), format_func=lambda x: conn_options[x])
+                query = st.text_area("SQL Query", placeholder="SELECT * FROM users LIMIT 10")
+
+                if st.button("▶️ Execute Query"):
+                    if query:
+                        result = db_manager.execute_query(selected_conn, query, limit=100)
+                        if result.success:
+                            st.success(f"✓ {len(result.data)} rows in {result.execution_time_ms:.1f}ms")
+                            if result.data:
+                                import pandas as pd
+                                df = pd.DataFrame(result.data)
+                                st.dataframe(df)
+                        else:
+                            st.error(f"Query failed: {result.error}")
                     else:
-                        st.error(f"Query failed: {result.error}")
-                else:
-                    st.warning("Please enter a query.")
+                        st.warning("Please enter a query.")
 
 
 # =============================================================================
