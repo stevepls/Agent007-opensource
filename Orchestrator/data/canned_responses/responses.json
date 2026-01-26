@@ -1,0 +1,189 @@
+{
+  "updated_at": "2026-01-26T03:52:21.221957",
+  "responses": [
+    {
+      "id": "ack-received",
+      "name": "Acknowledge Receipt",
+      "category": "acknowledgment",
+      "channel": "both",
+      "subject_template": "Re: {original_subject}",
+      "body_template": "Hi {recipient_name},\n\nThank you for your message. I've received it and will review shortly.\n\nBest,\n{sender_name}",
+      "variables": [
+        "recipient_name",
+        "sender_name",
+        "original_subject"
+      ],
+      "created_at": "2026-01-26T03:52:21.221780",
+      "created_by": "system",
+      "approved": true,
+      "use_count": 0,
+      "last_used": null,
+      "notes": ""
+    },
+    {
+      "id": "status-working",
+      "name": "Status Update - Working On It",
+      "category": "status_update",
+      "channel": "both",
+      "subject_template": "Update: {project_name}",
+      "body_template": "Hi {recipient_name},\n\nQuick update on {project_name}: I'm currently working on {task_description}. Expected completion: {eta}.\n\nLet me know if you have any questions.\n\nBest,\n{sender_name}",
+      "variables": [
+        "recipient_name",
+        "project_name",
+        "task_description",
+        "eta",
+        "sender_name"
+      ],
+      "created_at": "2026-01-26T03:52:21.221823",
+      "created_by": "system",
+      "approved": true,
+      "use_count": 0,
+      "last_used": null,
+      "notes": ""
+    },
+    {
+      "id": "status-completed",
+      "name": "Task Completed",
+      "category": "completion_notice",
+      "channel": "both",
+      "subject_template": "Completed: {task_name}",
+      "body_template": "Hi {recipient_name},\n\nI've completed {task_name} for {project_name}.\n\n{details}\n\nPlease review and let me know if any changes are needed.\n\nBest,\n{sender_name}",
+      "variables": [
+        "recipient_name",
+        "task_name",
+        "project_name",
+        "details",
+        "sender_name"
+      ],
+      "created_at": "2026-01-26T03:52:21.221840",
+      "created_by": "system",
+      "approved": true,
+      "use_count": 0,
+      "last_used": null,
+      "notes": ""
+    },
+    {
+      "id": "delay-notify",
+      "name": "Delay Notification",
+      "category": "delay_notification",
+      "channel": "both",
+      "subject_template": "Update: {project_name} - Timeline Adjustment",
+      "body_template": "Hi {recipient_name},\n\nI wanted to let you know about a timeline adjustment for {project_name}.\n\nOriginal deadline: {original_deadline}\nNew expected completion: {new_deadline}\nReason: {reason}\n\nI apologize for any inconvenience. Please let me know if this impacts your plans.\n\nBest,\n{sender_name}",
+      "variables": [
+        "recipient_name",
+        "project_name",
+        "original_deadline",
+        "new_deadline",
+        "reason",
+        "sender_name"
+      ],
+      "created_at": "2026-01-26T03:52:21.221856",
+      "created_by": "system",
+      "approved": true,
+      "use_count": 0,
+      "last_used": null,
+      "notes": ""
+    },
+    {
+      "id": "meeting-request",
+      "name": "Meeting Request",
+      "category": "meeting_request",
+      "channel": "email",
+      "subject_template": "Meeting Request: {topic}",
+      "body_template": "Hi {recipient_name},\n\nI'd like to schedule a meeting to discuss {topic}.\n\nProposed times:\n{proposed_times}\n\nDuration: {duration}\n\nPlease let me know which time works best for you.\n\nBest,\n{sender_name}",
+      "variables": [
+        "recipient_name",
+        "topic",
+        "proposed_times",
+        "duration",
+        "sender_name"
+      ],
+      "created_at": "2026-01-26T03:52:21.221871",
+      "created_by": "system",
+      "approved": true,
+      "use_count": 0,
+      "last_used": null,
+      "notes": ""
+    },
+    {
+      "id": "invoice-reminder",
+      "name": "Invoice Reminder",
+      "category": "invoice_reminder",
+      "channel": "email",
+      "subject_template": "Reminder: Invoice #{invoice_number}",
+      "body_template": "Hi {recipient_name},\n\nThis is a friendly reminder that Invoice #{invoice_number} for ${amount} is due on {due_date}.\n\nIf you've already sent payment, please disregard this message.\n\nPayment details are included in the original invoice. Please let me know if you have any questions.\n\nBest,\n{sender_name}",
+      "variables": [
+        "recipient_name",
+        "invoice_number",
+        "amount",
+        "due_date",
+        "sender_name"
+      ],
+      "created_at": "2026-01-26T03:52:21.221886",
+      "created_by": "system",
+      "approved": true,
+      "use_count": 0,
+      "last_used": null,
+      "notes": ""
+    },
+    {
+      "id": "thank-you-general",
+      "name": "Thank You - General",
+      "category": "thank_you",
+      "channel": "both",
+      "subject_template": "Thank you!",
+      "body_template": "Hi {recipient_name},\n\nThank you for {reason}. I really appreciate it!\n\nBest,\n{sender_name}",
+      "variables": [
+        "recipient_name",
+        "reason",
+        "sender_name"
+      ],
+      "created_at": "2026-01-26T03:52:21.221900",
+      "created_by": "system",
+      "approved": true,
+      "use_count": 0,
+      "last_used": null,
+      "notes": ""
+    },
+    {
+      "id": "slack-status",
+      "name": "Slack Status Update",
+      "category": "status_update",
+      "channel": "slack",
+      "subject_template": null,
+      "body_template": "\ud83d\udcca *{project_name} Update*\n\n{status_emoji} {task_name}: {status}\n\n{details}",
+      "variables": [
+        "project_name",
+        "task_name",
+        "status",
+        "status_emoji",
+        "details"
+      ],
+      "created_at": "2026-01-26T03:52:21.221915",
+      "created_by": "system",
+      "approved": true,
+      "use_count": 0,
+      "last_used": null,
+      "notes": ""
+    },
+    {
+      "id": "slack-question",
+      "name": "Slack Question",
+      "category": "question",
+      "channel": "slack",
+      "subject_template": null,
+      "body_template": "Hey {recipient_name}, quick question about {topic}:\n\n{question}",
+      "variables": [
+        "recipient_name",
+        "topic",
+        "question"
+      ],
+      "created_at": "2026-01-26T03:52:21.221931",
+      "created_by": "system",
+      "approved": true,
+      "use_count": 0,
+      "last_used": null,
+      "notes": ""
+    }
+  ]
+}

@@ -64,6 +64,20 @@ except ImportError:
     get_logger = lambda: None
     get_todo_manager = lambda: None
 
+# Dashboard and Briefing
+try:
+    from components.dashboard import (
+        render_full_dashboard,
+        create_action_handlers,
+        render_greeting,
+        render_stats,
+    )
+    from services.briefing import get_briefing_engine
+    DASHBOARD_AVAILABLE = True
+except ImportError:
+    DASHBOARD_AVAILABLE = False
+    render_full_dashboard = None
+
 # Load additional credentials from TicketManagement if not set
 CREDS_FILE = Path("/home/steve/Agent007/TicketManagement/airtable-fetcher/credentials.env")
 if CREDS_FILE.exists() and not os.getenv("HARVEST_ACCESS_TOKEN"):
@@ -224,11 +238,63 @@ with st.sidebar:
 st.markdown('<h1 class="main-header">🤖 Orchestrator</h1>', unsafe_allow_html=True)
 st.caption("AI-assisted development with human oversight")
 
-# Tabs - Focus, Time, Todo, and Settings available without API keys
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
-    "🚀 New Task", "🎯 Focus", "⏱️ Time", "📝 Todo", 
-    "🎙️ Voice", "📋 History", "🛡️ Governance", "🔍 Debug", "⚙️ Settings"
+# Tabs - Command Center first for dynamic briefings
+tab0, tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12 = st.tabs([
+    "📊 Command Center", "🚀 New Task", "🎯 Focus", "⏱️ Time", "📝 Todo", 
+    "🎙️ Voice", "📋 History", "🛡️ Governance", 
+    "💻 Code Review", "🗄️ Database", "📬 Messages", "🔍 Debug", "⚙️ Settings"
 ])
+
+# =============================================================================
+# Tab 0: Command Center (Dynamic Briefing Dashboard)
+# =============================================================================
+
+with tab0:
+    if DASHBOARD_AVAILABLE:
+        action_handlers = create_action_handlers()
+        render_full_dashboard(action_handlers)
+    else:
+        st.warning("Dashboard not available. Check imports.")
+        
+        # Fallback: Show basic stats
+        st.markdown("### Quick Overview")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        # Pending approvals count
+        pending_count = 0
+        try:
+            from services.message_queue import get_message_queue, MessageStatus
+            queue = get_message_queue()
+            pending_count = len([m for m in queue.list_pending() if m.status == MessageStatus.PENDING_APPROVAL])
+        except ImportError:
+            pass
+        
+        with col1:
+            st.metric("📬 Pending Messages", pending_count)
+        
+        # Todos count
+        todo_count = 0
+        if UTILS_AVAILABLE:
+            try:
+                summary = get_todo_summary()
+                todo_count = summary.get("pending", 0) + summary.get("in_progress", 0)
+            except:
+                pass
+        
+        with col2:
+            st.metric("📝 Open Todos", todo_count)
+        
+        # Git status
+        try:
+            from services.github.client import get_github_client
+            gh = get_github_client()
+            changes = "Yes" if gh.has_uncommitted_changes else "No"
+        except ImportError:
+            changes = "Unknown"
+        
+        with col3:
+            st.metric("💻 Uncommitted Changes", changes)
 
 # Check API keys (only blocks task execution, not viewing tabs)
 api_keys_configured = st.session_state.api_keys_set
@@ -984,10 +1050,338 @@ with tab8:
 
 
 # =============================================================================
-# Tab 9: Settings
+# Tab 9: Code Review
 # =============================================================================
 
 with tab9:
+    st.markdown("### Code Review & Version Control")
+    
+    # Import GitHub tools
+    try:
+        from services.github.client import get_github_client
+        GITHUB_AVAILABLE = True
+    except ImportError:
+        GITHUB_AVAILABLE = False
+    
+    if not GITHUB_AVAILABLE:
+        st.warning("GitHub integration not available. Check dependencies.")
+    else:
+        client = get_github_client()
+        
+        # Status section
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Repository", client.current_repo or "Not detected")
+        with col2:
+            st.metric("Branch", client.current_branch)
+        with col3:
+            st.metric("Uncommitted Changes", "Yes" if client.has_uncommitted_changes else "No")
+        
+        # Pending reviews section
+        st.markdown("#### Pending Reviews")
+        
+        pending_reviews = client.get_pending_reviews()
+        if pending_reviews:
+            for review in pending_reviews:
+                with st.expander(f"📝 {review.title} ({review.id})", expanded=True):
+                    st.markdown(f"**Type:** {review.type}")
+                    st.markdown(f"**Files:** {review.files_changed} | **Changes:** +{review.additions}/-{review.deletions}")
+                    st.markdown(f"**Branch:** {review.branch}")
+                    st.markdown("**Diff Preview:**")
+                    st.code(review.diff_preview[:2000], language="diff")
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        if st.button("✅ Approve", key=f"approve_{review.id}"):
+                            client.complete_review(review.id, True, "human")
+                            st.success("Review approved!")
+                            st.rerun()
+                    with col2:
+                        if st.button("❌ Reject", key=f"reject_{review.id}"):
+                            client.complete_review(review.id, False, "human")
+                            st.warning("Review rejected.")
+                            st.rerun()
+                    with col3:
+                        if st.button("🔄 Refresh", key=f"refresh_{review.id}"):
+                            st.rerun()
+        else:
+            st.info("No pending code reviews.")
+        
+        # Pull Requests section
+        st.markdown("#### Pull Requests")
+        
+        if st.button("🔄 Refresh PRs"):
+            st.rerun()
+        
+        try:
+            prs = client.list_prs(limit=5)
+            if prs:
+                for pr in prs:
+                    status = "⚠️ Conflicts" if pr.has_conflicts else "✅ Mergeable" if pr.mergeable else "❓"
+                    with st.expander(f"#{pr.number}: {pr.title} [{status}]"):
+                        st.markdown(f"**Author:** {pr.author}")
+                        st.markdown(f"**Branch:** {pr.head_branch} → {pr.base_branch}")
+                        st.markdown(f"**Changes:** +{pr.additions}/-{pr.deletions} ({pr.changed_files} files)")
+                        st.markdown(f"[View on GitHub]({pr.url})")
+                        
+                        if pr.has_conflicts:
+                            st.error("This PR has merge conflicts that need to be resolved.")
+            else:
+                st.info("No open pull requests.")
+        except Exception as e:
+            st.error(f"Error loading PRs: {e}")
+        
+        # Quick Actions
+        st.markdown("#### Quick Actions")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📊 View Current Diff"):
+                diffs = client.get_unstaged_diff()
+                if diffs:
+                    st.code(client.format_diff_for_review(diffs), language="diff")
+                else:
+                    st.info("No unstaged changes.")
+        with col2:
+            if st.button("📋 View Staged Changes"):
+                diffs = client.get_staged_diff()
+                if diffs:
+                    st.code(client.format_diff_for_review(diffs), language="diff")
+                else:
+                    st.info("No staged changes.")
+
+
+# =============================================================================
+# Tab 10: Database Management
+# =============================================================================
+
+with tab10:
+    st.markdown("### Database Management")
+    
+    # Sub-tabs for different database features
+    db_tab1, db_tab2, db_tab3 = st.tabs(["📊 Schema Review", "🗄️ Connections", "⚙️ Queries"])
+    
+    # Schema Review Tab
+    with db_tab1:
+        try:
+            from components.schema_review import render_schema_review_panel
+            render_schema_review_panel()
+        except ImportError:
+            st.warning("Schema review component not available.")
+    
+    # Connections Tab
+    with db_tab2:
+        # Import database tools
+        try:
+            from services.database.client import get_database_manager, RiskLevel
+            DB_AVAILABLE = True
+        except ImportError:
+            DB_AVAILABLE = False
+    
+    if not DB_AVAILABLE:
+        st.warning("Database integration not available. Check dependencies.")
+    else:
+        db_manager = get_database_manager()
+        
+        # Connection list
+        st.markdown("#### Connections")
+        
+        connections = db_manager.list_connections()
+        if connections:
+            for conn in connections:
+                prod_tag = "🔴 PRODUCTION" if conn.is_production else ""
+                ro_tag = "🔒 Read-Only" if conn.read_only else "✏️ Read-Write"
+                with st.expander(f"🗄️ {conn.name} ({conn.type}) {prod_tag}"):
+                    st.markdown(f"**ID:** `{conn.id}`")
+                    st.markdown(f"**Host:** {conn.host}:{conn.port}")
+                    st.markdown(f"**Database:** {conn.database}")
+                    st.markdown(f"**Access:** {ro_tag}")
+                    st.markdown(f"**Project:** {conn.project or 'N/A'}")
+                    
+                    # Show tables
+                    if st.button(f"📋 List Tables", key=f"tables_{conn.id}"):
+                        tables = db_manager.get_tables(conn.id)
+                        if tables:
+                            for table in tables:
+                                row_count = db_manager.get_row_count(conn.id, table)
+                                st.markdown(f"  • `{table}` ({row_count:,} rows)")
+                        else:
+                            st.info("No tables found or connection failed.")
+        else:
+            st.info("No database connections configured.")
+            st.markdown("""
+            To add a connection, add to your `.env`:
+            ```
+            DB_MYDB_PASSWORD=your_password
+            ```
+            Then configure in `data/database_connections.json`.
+            """)
+        
+    # Queries Tab
+    with db_tab3:
+        if not DB_AVAILABLE:
+            st.warning("Database integration not available.")
+        else:
+            db_manager = get_database_manager()
+            connections = db_manager.list_connections()
+            
+            # Pending Query Approvals
+            st.markdown("#### Pending Query Approvals")
+            
+            pending_queries = db_manager.get_pending_approvals()
+        if pending_queries:
+            for req in pending_queries:
+                risk_color = {
+                    "safe": "green", "low": "green",
+                    "medium": "orange", "high": "red", "critical": "red"
+                }.get(req.risk_level.value, "gray")
+                
+                with st.expander(f"⚠️ {req.id}: {req.query_type.value.upper()} on {req.connection_name}", expanded=True):
+                    st.markdown(f"**Risk Level:** :{risk_color}[{req.risk_level.value.upper()}]")
+                    st.markdown(f"**Requested By:** {req.created_by}")
+                    st.markdown(f"**Requested At:** {req.created_at[:16]}")
+                    
+                    if req.risk_reasons:
+                        st.markdown("**Risk Factors:**")
+                        for reason in req.risk_reasons:
+                            st.markdown(f"  • ⚠️ {reason}")
+                    
+                    st.markdown("**Query:**")
+                    st.code(req.query, language="sql")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("✅ Approve & Execute", key=f"approve_q_{req.id}"):
+                            db_manager.approve_query(req.id, "human")
+                            result = db_manager.execute_approved_query(req.id)
+                            if result.success:
+                                st.success(f"Query executed. {result.rows_affected} rows affected.")
+                            else:
+                                st.error(f"Query failed: {result.error}")
+                            st.rerun()
+                    with col2:
+                        reject_reason = st.text_input("Rejection reason", key=f"reject_reason_{req.id}")
+                        if st.button("❌ Reject", key=f"reject_q_{req.id}"):
+                            if reject_reason:
+                                db_manager.reject_query(req.id, "human", reject_reason)
+                                st.warning("Query rejected.")
+                                st.rerun()
+                            else:
+                                st.error("Please provide a rejection reason.")
+        else:
+            st.info("No pending query approvals.")
+        
+        # Quick Query (read-only)
+        st.markdown("#### Quick Query (SELECT only)")
+        
+        conn_options = {c.id: f"{c.name} ({c.type})" for c in connections}
+        if conn_options:
+            selected_conn = st.selectbox("Connection", options=list(conn_options.keys()), format_func=lambda x: conn_options[x])
+            query = st.text_area("SQL Query", placeholder="SELECT * FROM users LIMIT 10")
+            
+            if st.button("▶️ Execute Query"):
+                if query:
+                    result = db_manager.execute_query(selected_conn, query, limit=100)
+                    if result.success:
+                        st.success(f"✓ {len(result.data)} rows in {result.execution_time_ms:.1f}ms")
+                        if result.data:
+                            import pandas as pd
+                            df = pd.DataFrame(result.data)
+                            st.dataframe(df)
+                    else:
+                        st.error(f"Query failed: {result.error}")
+                else:
+                    st.warning("Please enter a query.")
+
+
+# =============================================================================
+# Tab 11: Messages (Queue & Canned Responses)
+# =============================================================================
+
+with tab11:
+    st.markdown("### Message Queue & Responses")
+    
+    # Import message queue
+    try:
+        from services.message_queue import get_message_queue, MessageStatus
+        from services.canned_responses import get_response_registry
+        MESSAGING_AVAILABLE = True
+    except ImportError:
+        MESSAGING_AVAILABLE = False
+    
+    if not MESSAGING_AVAILABLE:
+        st.warning("Messaging integration not available.")
+    else:
+        queue = get_message_queue()
+        registry = get_response_registry()
+        
+        # Message Queue
+        st.markdown("#### Pending Messages")
+        
+        pending_msgs = queue.list_pending()
+        if pending_msgs:
+            for msg in pending_msgs:
+                status_icon = {
+                    MessageStatus.PENDING_APPROVAL: "⏳ Pending Approval",
+                    MessageStatus.QUEUED: "📤 Queued",
+                    MessageStatus.APPROVED: "✅ Approved",
+                }.get(msg.status, "❓")
+                
+                with st.expander(f"{status_icon} | {msg.type.value} → {msg.channel}", expanded=msg.status == MessageStatus.PENDING_APPROVAL):
+                    st.markdown(f"**ID:** `{msg.id}`")
+                    st.markdown(f"**Created By:** {msg.created_by}")
+                    st.markdown(f"**Send In:** {msg.seconds_until_send}s")
+                    
+                    if msg.subject:
+                        st.markdown(f"**Subject:** {msg.subject}")
+                    
+                    st.markdown("**Content:**")
+                    st.text(msg.content)
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        if msg.status == MessageStatus.PENDING_APPROVAL:
+                            if st.button("✅ Approve", key=f"approve_msg_{msg.id}"):
+                                queue.approve(msg.id, "human")
+                                st.success("Message approved and queued for sending.")
+                                st.rerun()
+                    with col2:
+                        if msg.is_cancellable:
+                            if st.button("❌ Cancel", key=f"cancel_msg_{msg.id}"):
+                                queue.cancel(msg.id, "human", "Cancelled by user")
+                                st.warning("Message cancelled.")
+                                st.rerun()
+                    with col3:
+                        if msg.is_cancellable:
+                            new_content = st.text_area("Edit content", value=msg.content, key=f"edit_{msg.id}")
+                            if st.button("💾 Update", key=f"update_{msg.id}"):
+                                queue.edit(msg.id, content=new_content)
+                                st.success("Message updated.")
+                                st.rerun()
+        else:
+            st.info("No pending messages.")
+        
+        # Canned Responses
+        st.markdown("#### Canned Response Templates")
+        
+        responses = registry.list_all()
+        if responses:
+            for resp in responses:
+                channel_icon = "📧" if resp.channel.value == "email" else "💬" if resp.channel.value == "slack" else "📧💬"
+                with st.expander(f"{channel_icon} {resp.name} (`{resp.id}`)"):
+                    st.markdown(f"**Category:** {resp.category.value}")
+                    st.markdown(f"**Variables:** {', '.join(resp.variables) if resp.variables else 'None'}")
+                    if resp.subject_template:
+                        st.markdown(f"**Subject:** {resp.subject_template}")
+                    st.markdown("**Body:**")
+                    st.code(resp.body_template)
+                    st.caption(f"Used {resp.use_count} times")
+
+
+# =============================================================================
+# Tab 12: Settings
+# =============================================================================
+
+with tab12:
     st.markdown("### Agent Configuration")
     
     st.markdown("#### Available Agents")

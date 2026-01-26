@@ -10,10 +10,13 @@ langchain-openai>=0.0.5
 
 # UI
 streamlit==1.31.0
+streamlit-extras>=0.3.0
 
 # Utilities
 python-dotenv==1.0.0
 pydantic==2.6.0
+requests>=2.31.0
+pandas>=2.0.0
 
 # File operations
 pathlib2==2.3.7
@@ -24,3 +27,14 @@ psycopg2-binary>=2.9.0  # PostgreSQL driver (optional, for production)
 
 # Security
 bandit==1.7.7
+
+# Google APIs (Gmail, Drive)
+google-api-python-client>=2.100.0
+google-auth-oauthlib>=1.1.0
+google-auth>=2.23.0
+
+# Slack
+slack-sdk>=3.23.0
+
+# Text quality (Grammarly alternative)
+# Uses LanguageTool API - no additional deps needed (uses requests)

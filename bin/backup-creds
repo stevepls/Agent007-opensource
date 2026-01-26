@@ -1,0 +1,135 @@
+#!/bin/bash
+# Backup/Restore Agent007 credentials
+# Stores credentials in ~/.config/agent007/ (outside git)
+
+set -e
+
+BACKUP_DIR="$HOME/.config/agent007"
+AGENT007_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+mkdir -p "$BACKUP_DIR"
+
+usage() {
+    echo "Usage: $(basename "$0") [backup|restore|status]"
+    echo ""
+    echo "Commands:"
+    echo "  backup   - Save current .env files to ~/.config/agent007/"
+    echo "  restore  - Restore .env files from backup"
+    echo "  status   - Show current credential status"
+    echo ""
+}
+
+backup() {
+    echo "📦 Backing up credentials..."
+    
+    if [[ -f "$AGENT007_ROOT/Orchestrator/.env" ]]; then
+        cp "$AGENT007_ROOT/Orchestrator/.env" "$BACKUP_DIR/orchestrator.env"
+        echo "  ✓ Orchestrator/.env"
+    fi
+    
+    if [[ -f "$AGENT007_ROOT/Accounting/upwork-sync/.env" ]]; then
+        cp "$AGENT007_ROOT/Accounting/upwork-sync/.env" "$BACKUP_DIR/upwork-sync.env"
+        echo "  ✓ Accounting/upwork-sync/.env"
+    fi
+    
+    if [[ -f "$AGENT007_ROOT/TicketManagement/airtable-fetcher/credentials.env" ]]; then
+        cp "$AGENT007_ROOT/TicketManagement/airtable-fetcher/credentials.env" "$BACKUP_DIR/ticket-management.env"
+        echo "  ✓ TicketManagement/airtable-fetcher/credentials.env"
+    fi
+    
+    echo ""
+    echo "✅ Backup complete: $BACKUP_DIR/"
+    ls -la "$BACKUP_DIR/"
+}
+
+restore() {
+    echo "📥 Restoring credentials..."
+    
+    if [[ -f "$BACKUP_DIR/orchestrator.env" ]]; then
+        cp "$BACKUP_DIR/orchestrator.env" "$AGENT007_ROOT/Orchestrator/.env"
+        echo "  ✓ Orchestrator/.env"
+    else
+        echo "  ⚠ No backup for Orchestrator/.env"
+    fi
+    
+    if [[ -f "$BACKUP_DIR/upwork-sync.env" ]]; then
+        cp "$BACKUP_DIR/upwork-sync.env" "$AGENT007_ROOT/Accounting/upwork-sync/.env"
+        echo "  ✓ Accounting/upwork-sync/.env"
+    else
+        echo "  ⚠ No backup for Accounting/upwork-sync/.env"
+    fi
+    
+    if [[ -f "$BACKUP_DIR/ticket-management.env" ]]; then
+        cp "$BACKUP_DIR/ticket-management.env" "$AGENT007_ROOT/TicketManagement/airtable-fetcher/credentials.env"
+        echo "  ✓ TicketManagement/airtable-fetcher/credentials.env"
+    else
+        echo "  ⚠ No backup for TicketManagement credentials"
+    fi
+    
+    echo ""
+    echo "✅ Restore complete"
+}
+
+status() {
+    echo "📋 Credential Status"
+    echo "===================="
+    echo ""
+    echo "Project files (.env):"
+    
+    for f in \
+        "$AGENT007_ROOT/Orchestrator/.env" \
+        "$AGENT007_ROOT/Accounting/upwork-sync/.env" \
+        "$AGENT007_ROOT/TicketManagement/airtable-fetcher/credentials.env"
+    do
+        if [[ -f "$f" ]]; then
+            age=$(stat -c %y "$f" 2>/dev/null | cut -d' ' -f1,2 | cut -d'.' -f1)
+            echo "  ✓ ${f#$AGENT007_ROOT/} ($age)"
+        else
+            echo "  ✗ ${f#$AGENT007_ROOT/} (MISSING)"
+        fi
+    done
+    
+    echo ""
+    echo "Backup files (~/.config/agent007/):"
+    
+    for f in orchestrator.env upwork-sync.env ticket-management.env; do
+        if [[ -f "$BACKUP_DIR/$f" ]]; then
+            age=$(stat -c %y "$BACKUP_DIR/$f" 2>/dev/null | cut -d' ' -f1,2 | cut -d'.' -f1)
+            echo "  ✓ $f ($age)"
+        else
+            echo "  ✗ $f (no backup)"
+        fi
+    done
+    
+    echo ""
+    
+    # Check for missing API keys
+    echo "Required API keys:"
+    if grep -q '^ANTHROPIC_API_KEY=.' "$AGENT007_ROOT/Orchestrator/.env" 2>/dev/null; then
+        echo "  ✓ ANTHROPIC_API_KEY is set"
+    else
+        echo "  ✗ ANTHROPIC_API_KEY is MISSING - add to Orchestrator/.env"
+    fi
+    
+    if grep -q '^HARVEST_ACCESS_TOKEN=.' "$AGENT007_ROOT/Orchestrator/.env" 2>/dev/null; then
+        echo "  ✓ HARVEST_ACCESS_TOKEN is set"
+    else
+        echo "  ⚠ HARVEST_ACCESS_TOKEN not set (optional)"
+    fi
+}
+
+case "${1:-status}" in
+    backup)
+        backup
+        ;;
+    restore)
+        restore
+        ;;
+    status)
+        status
+        ;;
+    *)
+        usage
+        exit 1
+        ;;
+esac
