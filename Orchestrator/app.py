@@ -18,6 +18,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+import json
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -52,6 +53,27 @@ try:
 except ImportError:
     HARVEST_AVAILABLE = False
     harvest_get_status = lambda: {"configured": False}
+
+# Logger and Todo system
+try:
+    from utils.logger import get_logger, LogEntry
+    from utils.todos import get_todo_manager, add_todo, complete_todo, list_todos, get_todo_summary
+    UTILS_AVAILABLE = True
+except ImportError:
+    UTILS_AVAILABLE = False
+    get_logger = lambda: None
+    get_todo_manager = lambda: None
+
+# Load additional credentials from TicketManagement if not set
+CREDS_FILE = Path("/home/steve/Agent007/TicketManagement/airtable-fetcher/credentials.env")
+if CREDS_FILE.exists() and not os.getenv("HARVEST_ACCESS_TOKEN"):
+    with open(CREDS_FILE) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                if key.startswith("HARVEST_") and not os.getenv(key):
+                    os.environ[key] = value.strip()
 
 # Voice interface
 try:
@@ -202,8 +224,11 @@ with st.sidebar:
 st.markdown('<h1 class="main-header">🤖 Orchestrator</h1>', unsafe_allow_html=True)
 st.caption("AI-assisted development with human oversight")
 
-# Tabs - Focus, Time, and Settings available without API keys
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["🚀 New Task", "🎯 Focus", "⏱️ Time", "🎙️ Voice", "📋 History", "🛡️ Governance", "⚙️ Settings"])
+# Tabs - Focus, Time, Todo, and Settings available without API keys
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+    "🚀 New Task", "🎯 Focus", "⏱️ Time", "📝 Todo", 
+    "🎙️ Voice", "📋 History", "🛡️ Governance", "🔍 Debug", "⚙️ Settings"
+])
 
 # Check API keys (only blocks task execution, not viewing tabs)
 api_keys_configured = st.session_state.api_keys_set
@@ -548,10 +573,133 @@ with tab3:
 
 
 # =============================================================================
-# Tab 4: Voice Interface
+# Tab 4: Shared Todo List
 # =============================================================================
 
 with tab4:
+    st.markdown("### 📝 Shared Todo List")
+    st.caption("Manage tasks - editable by you and AI agents")
+    
+    if not UTILS_AVAILABLE:
+        st.warning("Todo system not available. Check utils/todos.py import.")
+    else:
+        todo_manager = get_todo_manager()
+        summary = get_todo_summary()
+        
+        # Summary metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Pending", summary.get("pending", 0))
+        with col2:
+            st.metric("In Progress", summary.get("in_progress", 0))
+        with col3:
+            st.metric("Completed", summary.get("completed", 0))
+        with col4:
+            urgent = summary.get("urgent", 0)
+            st.metric("🔴 Urgent", urgent, delta="!" if urgent > 0 else None)
+        
+        st.divider()
+        
+        # Add new todo
+        st.markdown("#### Add New Task")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            new_title = st.text_input("Task", placeholder="What needs to be done?", key="new_todo_title")
+        with col2:
+            new_priority = st.selectbox("Priority", ["medium", "high", "urgent", "low"], key="new_todo_priority")
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            new_project = st.text_input("Project (optional)", placeholder="e.g., APDriving", key="new_todo_project")
+        with col2:
+            new_ticket = st.text_input("Ticket ID (optional)", placeholder="e.g., 4962", key="new_todo_ticket")
+        
+        if st.button("➕ Add Task", disabled=not new_title):
+            todo = add_todo(
+                title=new_title,
+                priority=new_priority,
+                project=new_project if new_project else None,
+                ticket_id=new_ticket if new_ticket else None,
+                created_by="human",
+            )
+            st.success(f"Added: {todo.title} (ID: {todo.id})")
+            st.rerun()
+        
+        st.divider()
+        
+        # Filter options
+        st.markdown("#### Task List")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            filter_status = st.selectbox("Status", ["all", "pending", "in_progress", "blocked"], key="filter_status")
+        with col2:
+            filter_priority = st.selectbox("Priority", ["all", "urgent", "high", "medium", "low"], key="filter_priority")
+        with col3:
+            show_completed = st.checkbox("Show completed", value=False, key="show_completed")
+        
+        # Get filtered todos
+        todos = list_todos(
+            status=filter_status if filter_status != "all" else None,
+            priority=filter_priority if filter_priority != "all" else None,
+            include_completed=show_completed,
+        )
+        
+        if not todos:
+            st.info("No tasks found. Add one above!")
+        else:
+            for todo in todos:
+                status_emoji = {
+                    "pending": "⏳",
+                    "in_progress": "🔄",
+                    "completed": "✅",
+                    "blocked": "🚫",
+                    "cancelled": "❌",
+                }.get(todo.status.value, "❓")
+                
+                priority_color = {
+                    "urgent": "🔴",
+                    "high": "🟠",
+                    "medium": "🟡",
+                    "low": "🟢",
+                }.get(todo.priority.value, "⚪")
+                
+                with st.expander(f"{status_emoji} {priority_color} {todo.title}", expanded=False):
+                    st.caption(f"ID: {todo.id} | Created: {todo.created_at[:10]} | By: {todo.created_by}")
+                    
+                    if todo.project:
+                        st.markdown(f"**Project:** {todo.project}")
+                    if todo.ticket_id:
+                        st.markdown(f"**Ticket:** #{todo.ticket_id}")
+                    if todo.description:
+                        st.markdown(f"**Description:** {todo.description}")
+                    
+                    # Actions
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        if todo.status.value != "completed":
+                            if st.button("✅ Complete", key=f"complete_{todo.id}"):
+                                complete_todo(todo.id, "human")
+                                st.rerun()
+                    with col2:
+                        if todo.status.value == "pending":
+                            if st.button("🔄 Start", key=f"start_{todo.id}"):
+                                todo_manager.update(todo.id, status="in_progress")
+                                st.rerun()
+                    with col3:
+                        if st.button("🚫 Block", key=f"block_{todo.id}"):
+                            todo_manager.update(todo.id, status="blocked")
+                            st.rerun()
+                    with col4:
+                        if st.button("🗑️ Delete", key=f"delete_{todo.id}"):
+                            todo_manager.delete(todo.id)
+                            st.rerun()
+
+
+# =============================================================================
+# Tab 5: Voice Interface
+# =============================================================================
+
+with tab5:
     if VOICE_AVAILABLE:
         st.markdown("### 🎙️ Voice Interface")
         st.caption("Use your voice to interact with the orchestrator")
@@ -581,10 +729,10 @@ with tab4:
 
 
 # =============================================================================
-# Tab 5: History
+# Tab 6: History
 # =============================================================================
 
-with tab5:
+with tab6:
     st.markdown("### Task History")
     
     if not st.session_state.task_history:
@@ -597,10 +745,10 @@ with tab5:
 
 
 # =============================================================================
-# Tab 6: Governance
+# Tab 7: Governance
 # =============================================================================
 
-with tab6:
+with tab7:
     st.markdown("### Governance Dashboard")
     
     # Cost Tracker
@@ -730,10 +878,116 @@ with tab6:
 
 
 # =============================================================================
-# Tab 7: Settings
+# Tab 8: Debug & Logs
 # =============================================================================
 
-with tab7:
+with tab8:
+    st.markdown("### 🔍 Debug & Logs")
+    st.caption("View system logs and debug information")
+    
+    if not UTILS_AVAILABLE:
+        st.warning("Logger not available. Check utils/logger.py import.")
+    else:
+        logger = get_logger()
+        
+        if logger:
+            # Log controls
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                log_level = st.selectbox("Level", ["all", "DEBUG", "INFO", "WARNING", "ERROR"], key="log_level")
+            with col2:
+                log_source = st.text_input("Source filter", placeholder="e.g., harvest", key="log_source")
+            with col3:
+                log_count = st.number_input("Lines", min_value=10, max_value=500, value=50, key="log_count")
+            
+            # Get logs
+            entries = logger.get_recent(
+                n=log_count,
+                level=log_level if log_level != "all" else None,
+                source=log_source if log_source else None,
+            )
+            
+            # Log stats
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Entries", len(logger.entries))
+            with col2:
+                errors = len([e for e in logger.entries if e.level in ("ERROR", "CRITICAL")])
+                st.metric("Errors", errors, delta="!" if errors > 0 else None)
+            with col3:
+                warnings = len([e for e in logger.entries if e.level == "WARNING"])
+                st.metric("Warnings", warnings)
+            
+            st.divider()
+            
+            # Display logs
+            if not entries:
+                st.info("No log entries yet.")
+            else:
+                for entry in reversed(entries):
+                    level_color = {
+                        "DEBUG": "gray",
+                        "INFO": "blue",
+                        "WARNING": "orange",
+                        "ERROR": "red",
+                        "CRITICAL": "red",
+                    }.get(entry.level, "gray")
+                    
+                    st.markdown(
+                        f"<span style='color:{level_color}'>"
+                        f"**{entry.timestamp[:19]}** [{entry.level}] "
+                        f"*{entry.source}*: {entry.message}"
+                        f"</span>",
+                        unsafe_allow_html=True
+                    )
+                    if entry.data:
+                        with st.expander("Data"):
+                            st.json(entry.data)
+            
+            st.divider()
+            
+            # Actions
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🔄 Refresh Logs"):
+                    st.rerun()
+            with col2:
+                if st.button("🗑️ Clear Memory Buffer"):
+                    logger.clear()
+                    st.success("Cleared in-memory logs")
+                    st.rerun()
+            
+            # Export
+            st.markdown("#### Export Logs")
+            export_format = st.radio("Format", ["JSON", "Text"], horizontal=True, key="export_format")
+            if st.button("📥 Export"):
+                content = logger.export("json" if export_format == "JSON" else "text")
+                st.download_button(
+                    label="Download Logs",
+                    data=content,
+                    file_name=f"orchestrator_logs.{export_format.lower()}",
+                    mime="application/json" if export_format == "JSON" else "text/plain",
+                )
+        else:
+            st.error("Logger not initialized")
+    
+    # System info
+    st.divider()
+    st.markdown("#### System Info")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f"**Python:** {sys.version.split()[0]}")
+        st.markdown(f"**Workspace:** `{os.getenv('WORKSPACE_ROOT', 'Not set')}`")
+    with col2:
+        st.markdown(f"**Harvest:** {'✅ Configured' if harvest_get_status().get('configured') else '❌ Not configured'}")
+        st.markdown(f"**API Keys:** {'✅ Set' if api_keys_configured else '❌ Not set'}")
+
+
+# =============================================================================
+# Tab 9: Settings
+# =============================================================================
+
+with tab9:
     st.markdown("### Agent Configuration")
     
     st.markdown("#### Available Agents")

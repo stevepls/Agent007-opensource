@@ -24,9 +24,14 @@ def get_llm(model: str = None) -> LLM:
     Get configured LLM instance.
     
     Supports both Anthropic and OpenAI.
-    Defaults to Claude for better code understanding.
+    Defaults to Claude Opus 4 for maximum capability.
+    
+    Available models:
+    - claude-opus-4-20250514 (most capable, best for complex orchestration)
+    - claude-sonnet-4-20250514 (fast, great for most tasks)
+    - claude-3-5-sonnet-20241022 (previous generation)
     """
-    model = model or os.getenv("DEFAULT_MODEL", "claude-3-5-sonnet-20241022")
+    model = model or os.getenv("DEFAULT_MODEL", "claude-opus-4-20250514")
     
     # Determine provider from model name
     if "claude" in model.lower():
