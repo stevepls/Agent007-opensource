@@ -61,20 +61,69 @@ class RiskLevel(Enum):
     CRITICAL = "critical"   # DROP, TRUNCATE, no WHERE clause
 
 
-# Dangerous patterns
+# Dangerous patterns - comprehensive SQL injection detection
 DANGEROUS_PATTERNS = [
-    (r'\bDROP\s+(TABLE|DATABASE|INDEX|VIEW)', RiskLevel.CRITICAL, "DROP statement detected"),
+    # DDL statements
+    (r'\bDROP\s+(TABLE|DATABASE|INDEX|VIEW|SCHEMA|PROCEDURE|FUNCTION)', RiskLevel.CRITICAL, "DROP statement detected"),
     (r'\bTRUNCATE\s+', RiskLevel.CRITICAL, "TRUNCATE statement detected"),
-    (r'\bDELETE\s+FROM\s+\w+\s*$', RiskLevel.CRITICAL, "DELETE without WHERE clause"),
-    (r'\bDELETE\s+FROM\s+\w+\s*;?\s*$', RiskLevel.CRITICAL, "DELETE without WHERE clause"),
-    (r'\bUPDATE\s+\w+\s+SET\s+.*(?!WHERE)', RiskLevel.HIGH, "UPDATE without WHERE clause"),
-    (r'\bALTER\s+TABLE', RiskLevel.HIGH, "Schema modification"),
+    (r'\bALTER\s+(TABLE|DATABASE|SCHEMA)', RiskLevel.HIGH, "Schema modification"),
+    (r'\bCREATE\s+(TABLE|DATABASE|INDEX|VIEW|SCHEMA|PROCEDURE|FUNCTION)', RiskLevel.HIGH, "CREATE statement detected"),
+
+    # Dangerous DML without WHERE
+    (r'\bDELETE\s+FROM\s+[^\s]+\s*(?:;|$)(?!\s*WHERE)', RiskLevel.CRITICAL, "DELETE without WHERE clause"),
+    (r'\bUPDATE\s+[^\s]+\s+SET\s+(?:(?!\bWHERE\b).)*$', RiskLevel.HIGH, "UPDATE without WHERE clause"),
+
+    # Permission changes
     (r'\bGRANT\s+', RiskLevel.CRITICAL, "Permission change"),
     (r'\bREVOKE\s+', RiskLevel.CRITICAL, "Permission change"),
-    (r';\s*DROP\s+', RiskLevel.CRITICAL, "SQL injection pattern"),
-    (r';\s*DELETE\s+', RiskLevel.CRITICAL, "SQL injection pattern"),
-    (r'--.*DROP', RiskLevel.CRITICAL, "Commented DROP detected"),
-    (r"'\s*OR\s+'1'\s*=\s*'1", RiskLevel.CRITICAL, "SQL injection pattern"),
+
+    # SQL injection patterns - stacked queries
+    (r';\s*(DROP|DELETE|UPDATE|INSERT|ALTER|CREATE|TRUNCATE|GRANT|REVOKE)\s+', RiskLevel.CRITICAL, "Stacked query injection"),
+
+    # SQL injection - comment-based
+    (r'--\s*.*(DROP|DELETE|UPDATE|TRUNCATE)', RiskLevel.CRITICAL, "Comment-based injection"),
+    (r'/\*.*\*/.*(DROP|DELETE|UPDATE|TRUNCATE)', RiskLevel.CRITICAL, "Block comment injection"),
+    (r'#.*(DROP|DELETE|UPDATE|TRUNCATE)', RiskLevel.CRITICAL, "MySQL comment injection"),
+
+    # SQL injection - boolean-based
+    (r"['\"]\s*OR\s+['\"0-9]\s*=\s*['\"0-9]", RiskLevel.CRITICAL, "Boolean-based injection"),
+    (r"['\"]\s*OR\s+\d+\s*=\s*\d+", RiskLevel.CRITICAL, "Boolean-based injection"),
+    (r"['\"]\s*OR\s+TRUE", RiskLevel.CRITICAL, "Boolean-based injection"),
+    (r"['\"]\s*AND\s+['\"0-9]\s*=\s*['\"0-9]", RiskLevel.HIGH, "Boolean-based injection attempt"),
+
+    # SQL injection - UNION-based
+    (r'\bUNION\s+(ALL\s+)?SELECT\s+', RiskLevel.CRITICAL, "UNION injection"),
+
+    # SQL injection - time-based blind
+    (r'\bSLEEP\s*\(\s*\d+\s*\)', RiskLevel.CRITICAL, "Time-based blind injection (SLEEP)"),
+    (r'\bBENCHMARK\s*\(', RiskLevel.CRITICAL, "Time-based blind injection (BENCHMARK)"),
+    (r'\bWAITFOR\s+DELAY', RiskLevel.CRITICAL, "Time-based blind injection (WAITFOR)"),
+    (r'\bPG_SLEEP\s*\(', RiskLevel.CRITICAL, "Time-based blind injection (pg_sleep)"),
+
+    # SQL injection - error-based
+    (r'\bEXTRACTVALUE\s*\(', RiskLevel.CRITICAL, "Error-based injection (EXTRACTVALUE)"),
+    (r'\bUPDATEXML\s*\(', RiskLevel.CRITICAL, "Error-based injection (UPDATEXML)"),
+
+    # SQL injection - out-of-band
+    (r'\bLOAD_FILE\s*\(', RiskLevel.CRITICAL, "File access attempt"),
+    (r'\bINTO\s+(OUT|DUMP)FILE', RiskLevel.CRITICAL, "File write attempt"),
+    (r'\bUTL_HTTP', RiskLevel.CRITICAL, "Oracle HTTP request"),
+    (r'\bDBMS_PIPE', RiskLevel.CRITICAL, "Oracle pipe access"),
+
+    # Encoded/obfuscated attacks
+    (r'0x[0-9a-fA-F]{10,}', RiskLevel.HIGH, "Hex-encoded content detected"),
+    (r'CHAR\s*\(\s*\d+\s*\)', RiskLevel.HIGH, "CHAR encoding detected"),
+    (r'CHR\s*\(\s*\d+\s*\)', RiskLevel.HIGH, "CHR encoding detected"),
+
+    # System command execution
+    (r'\bEXEC\s+(SP_|XP_)', RiskLevel.CRITICAL, "SQL Server system procedure"),
+    (r'\bXP_CMDSHELL', RiskLevel.CRITICAL, "Command shell access"),
+    (r'\bSP_OACREATE', RiskLevel.CRITICAL, "OLE automation"),
+
+    # Information disclosure
+    (r'\bINFORMATION_SCHEMA\b', RiskLevel.HIGH, "Schema enumeration"),
+    (r'\bSYS\.(ALL_|DBA_|USER_)', RiskLevel.HIGH, "Oracle system table access"),
+    (r'\bPG_CATALOG\b', RiskLevel.HIGH, "PostgreSQL catalog access"),
 ]
 
 
