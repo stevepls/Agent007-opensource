@@ -100,7 +100,6 @@ class ClaudeCLITool(BaseTool):
         """Find the claude CLI executable."""
         # Check common locations
         paths = [
-            "/home/steve/.local/bin/claude",
             os.path.expanduser("~/.local/bin/claude"),
             "/usr/local/bin/claude",
             "claude",  # In PATH

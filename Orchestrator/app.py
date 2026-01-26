@@ -79,7 +79,9 @@ except ImportError:
     render_full_dashboard = None
 
 # Load additional credentials from TicketManagement if not set
-CREDS_FILE = Path("/home/steve/Agent007/TicketManagement/airtable-fetcher/credentials.env")
+_orchestrator_root = Path(__file__).parent
+_agent007_root = _orchestrator_root.parent
+CREDS_FILE = _agent007_root / "TicketManagement/airtable-fetcher/credentials.env"
 if CREDS_FILE.exists() and not os.getenv("HARVEST_ACCESS_TOKEN"):
     with open(CREDS_FILE) as f:
         for line in f:
@@ -205,7 +207,7 @@ with st.sidebar:
     # Workspace
     workspace = st.text_input(
         "Workspace Root",
-        value=os.getenv("WORKSPACE_ROOT", "/home/steve/Agent007"),
+        value=os.getenv("WORKSPACE_ROOT", str(_agent007_root)),
         help="Root directory for file operations"
     )
     os.environ["WORKSPACE_ROOT"] = workspace
@@ -1418,7 +1420,7 @@ with tab12:
     st.divider()
     
     st.markdown("#### Workspace Files")
-    workspace_path = Path(os.getenv("WORKSPACE_ROOT", "/home/steve/Agent007"))
+    workspace_path = Path(os.getenv("WORKSPACE_ROOT", str(_agent007_root)))
     
     if workspace_path.exists():
         dirs = [d.name for d in workspace_path.iterdir() if d.is_dir() and not d.name.startswith('.')]

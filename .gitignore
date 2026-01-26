@@ -35,9 +35,13 @@ env/
 # IDE
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
 *~
+
+# Claude Code local settings (contains session-specific paths)
+.claude/settings.local.json
 
 # Environment files (contain secrets)
 .env
