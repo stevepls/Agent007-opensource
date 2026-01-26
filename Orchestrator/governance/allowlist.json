@@ -419,6 +419,22 @@
       "proposed_by": "agent",
       "proposed_at": "2026-01-26T03:01:00.226432",
       "status": "pending"
+    },
+    {
+      "entry": {
+        "pattern": "pwd && ls -la",
+        "permission": "execute",
+        "description": "Auto-proposed: pwd && ls -la",
+        "added_by": "system",
+        "added_at": "2026-01-26T03:06:03.255355",
+        "expires_at": null,
+        "conditions": null
+      },
+      "reason": "Agent requested command execution: pwd && ls -la...",
+      "risk_assessment": "ELEVATED RISK: Requests EXECUTE permission; Command execution is inherently risky",
+      "proposed_by": "agent",
+      "proposed_at": "2026-01-26T03:06:03.255377",
+      "status": "pending"
     }
   ]
 }
