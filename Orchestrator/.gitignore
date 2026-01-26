@@ -17,3 +17,6 @@ logs/
 .cursor/
 .vscode/
 .env
+
+# AppMap recordings
+tmp/appmap/

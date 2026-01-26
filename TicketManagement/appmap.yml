@@ -1,0 +1,17 @@
+# AppMap Configuration
+name: ticket-management
+language: python
+
+packages:
+  - path: airtable-fetcher
+    exclude:
+      - __pycache__
+      - venv
+
+appmap_dir: tmp/appmap
+
+sql:
+  enabled: true
+  
+http:
+  enabled: true

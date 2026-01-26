@@ -1,0 +1,23 @@
+# AppMap Configuration
+name: orchestrator
+language: python
+
+packages:
+  - path: .
+    exclude:
+      - tests
+      - __pycache__
+      - .venv
+      - venv
+
+appmap_dir: tmp/appmap
+
+sql:
+  enabled: true
+  
+http:
+  enabled: true
+
+pruning:
+  max_events: 50000
+  max_size: 10

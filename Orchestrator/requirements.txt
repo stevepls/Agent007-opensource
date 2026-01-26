@@ -38,3 +38,4 @@ slack-sdk>=3.23.0
 
 # Text quality (Grammarly alternative)
 # Uses LanguageTool API - no additional deps needed (uses requests)
+appmap>=2.0.0

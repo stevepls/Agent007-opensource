@@ -1,0 +1,18 @@
+# AppMap Configuration
+name: syncaudit
+language: python
+
+packages:
+  - path: api
+  - path: models
+  - path: integrations
+    exclude:
+      - __pycache__
+
+appmap_dir: tmp/appmap
+
+sql:
+  enabled: true
+  
+http:
+  enabled: true
