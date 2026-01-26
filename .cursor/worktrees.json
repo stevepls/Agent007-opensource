@@ -2,6 +2,9 @@
   "setup-worktree": [
     "echo '🔧 Setting up Agent007 worktree...'",
     
+    "# Resolve the main repository root dynamically",
+    "MAIN_REPO=$(git rev-parse --git-dir | sed 's|/\\.git.*|/|' | xargs dirname 2>/dev/null || pwd)",
+    
     "# Create Python virtual environment if not exists",
     "if [ ! -d Orchestrator/.venv ]; then python3 -m venv Orchestrator/.venv; fi",
     
@@ -9,11 +12,11 @@
     "Orchestrator/.venv/bin/pip install -q -r Orchestrator/requirements.txt",
     
     "# Copy .env if it exists in main repo but not in worktree",
-    "if [ -f /home/steve/Agent007/Orchestrator/.env ] && [ ! -f Orchestrator/.env ]; then cp /home/steve/Agent007/Orchestrator/.env Orchestrator/.env; fi",
+    "if [ -f \"$MAIN_REPO/Orchestrator/.env\" ] && [ ! -f Orchestrator/.env ]; then cp \"$MAIN_REPO/Orchestrator/.env\" Orchestrator/.env; fi",
     
-    "# Ensure DevOps tools are accessible",
-    "export DEVOPS_ROOT=/home/steve/Agent007/DevOps",
-    "export PATH=$DEVOPS_ROOT/bin:$PATH",
+    "# Ensure DevOps tools are accessible (use repo-relative path)",
+    "export DEVOPS_ROOT=\"$(pwd)/DevOps\"",
+    "export PATH=\"$DEVOPS_ROOT/bin:$PATH\"",
     
     "echo '✓ Worktree ready'"
   ],
