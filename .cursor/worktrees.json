@@ -1,5 +1,107 @@
 {
   "setup-worktree": [
-    "npm install"
-  ]
+    "echo '🔧 Setting up Agent007 worktree...'",
+    
+    "# Create Python virtual environment if not exists",
+    "if [ ! -d Orchestrator/.venv ]; then python3 -m venv Orchestrator/.venv; fi",
+    
+    "# Install Orchestrator dependencies",
+    "Orchestrator/.venv/bin/pip install -q -r Orchestrator/requirements.txt",
+    
+    "# Copy .env if it exists in main repo but not in worktree",
+    "if [ -f /home/steve/Agent007/Orchestrator/.env ] && [ ! -f Orchestrator/.env ]; then cp /home/steve/Agent007/Orchestrator/.env Orchestrator/.env; fi",
+    
+    "# Ensure DevOps tools are accessible",
+    "export DEVOPS_ROOT=/home/steve/Agent007/DevOps",
+    "export PATH=$DEVOPS_ROOT/bin:$PATH",
+    
+    "echo '✓ Worktree ready'"
+  ],
+  
+  "worktree-paths": {
+    "orchestrator": "Orchestrator",
+    "services": "Orchestrator/services",
+    "tools": "Orchestrator/tools",
+    "governance": "Orchestrator/governance",
+    "agents": "Orchestrator/agents",
+    "crews": "Orchestrator/crews",
+    "devops": "DevOps",
+    "accounting": "Accounting",
+    "sync-audit": "SyncAudit",
+    "tickets": "TicketManagement",
+    "time-logger": "TimeLogger"
+  },
+  
+  "project-contexts": {
+    "orchestrator": {
+      "description": "Main AI agent orchestration system",
+      "language": "python",
+      "entry-point": "Orchestrator/app.py",
+      "venv": "Orchestrator/.venv",
+      "test-command": "cd Orchestrator && python -m pytest",
+      "run-command": "cd Orchestrator && streamlit run app.py",
+      "key-files": [
+        "Orchestrator/app.py",
+        "Orchestrator/crews/dev_crew.py",
+        "Orchestrator/agents/*.py",
+        "Orchestrator/tools/*.py",
+        "Orchestrator/services/**/*.py",
+        "Orchestrator/governance/*.py"
+      ]
+    },
+    "devops": {
+      "description": "DevOps tools, standards, and infrastructure",
+      "language": "bash/python",
+      "key-files": [
+        "DevOps/bin/*",
+        "DevOps/lib/**/*.sh",
+        "DevOps/standards/**/*",
+        "DevOps/security/*",
+        "DevOps/observability/*"
+      ]
+    },
+    "accounting": {
+      "description": "Upwork to QuickBooks sync service",
+      "language": "php",
+      "entry-point": "Accounting/upwork-sync/public/index.php",
+      "key-files": [
+        "Accounting/upwork-sync/src/*.php"
+      ]
+    },
+    "sync-audit": {
+      "description": "Universal sync audit and monitoring service",
+      "language": "python",
+      "entry-point": "SyncAudit/run_api.py",
+      "key-files": [
+        "SyncAudit/api/*.py",
+        "SyncAudit/models/*.py"
+      ]
+    }
+  },
+  
+  "shared-resources": {
+    "env-files": [
+      "Orchestrator/.env",
+      "TicketManagement/airtable-fetcher/credentials.env"
+    ],
+    "config-files": [
+      "DevOps/config/tickets/org-mapping.yml",
+      "DevOps/config/projects.yml"
+    ]
+  },
+  
+  "agent-assignments": {
+    "coder": {
+      "focus": ["orchestrator", "services", "tools"],
+      "can-write": true
+    },
+    "reviewer": {
+      "focus": ["governance", "agents"],
+      "can-write": false
+    },
+    "devops": {
+      "focus": ["devops", "accounting"],
+      "can-write": true
+    }
+  }
 }
