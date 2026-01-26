@@ -33,24 +33,33 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS configuration (allow all for local dev, restrict in production)
+# CORS configuration - restrict to configured origins
+ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8501").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["X-API-Key", "Content-Type"],
 )
 
-# API Key authentication (simple, expand for production)
-API_KEY = os.getenv("API_KEY", "dev-key-change-in-production")
+# API Key authentication - REQUIRED (no default key)
+API_KEY = os.getenv("API_KEY")
+if not API_KEY:
+    import warnings
+    warnings.warn("API_KEY not set - API authentication will reject all requests", RuntimeWarning)
 
 
 def verify_api_key(x_api_key: Optional[str] = Header(None)):
-    """Simple API key verification. Optional in dev mode."""
-    if os.getenv("REQUIRE_API_KEY", "false").lower() == "true":
-        if x_api_key != API_KEY:
-            raise HTTPException(status_code=401, detail="Invalid API key")
+    """API key verification - always required."""
+    if not API_KEY:
+        raise HTTPException(status_code=500, detail="Server misconfigured: API_KEY not set")
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="Missing X-API-Key header")
+    # Use constant-time comparison to prevent timing attacks
+    import hmac
+    if not hmac.compare_digest(x_api_key, API_KEY):
+        raise HTTPException(status_code=401, detail="Invalid API key")
     return x_api_key
 
 

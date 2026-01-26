@@ -405,9 +405,10 @@ with tab1:
                             st.error("Changes rejected. Files will be reverted.")
                 
             except Exception as e:
-                st.error(f"Error: {e}")
-                import traceback
-                st.code(traceback.format_exc())
+                st.error(f"Error executing task: {type(e).__name__}")
+                if os.getenv("DEBUG", "").lower() == "true":
+                    import traceback
+                    st.code(traceback.format_exc())
 
 
 # =============================================================================
