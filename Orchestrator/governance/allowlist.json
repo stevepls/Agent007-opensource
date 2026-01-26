@@ -30,7 +30,7 @@
   ],
   "paths": [
     {
-      "pattern": "/home/steve/Agent007/**/*.py",
+      "pattern": "./**/*.py",
       "permission": "read",
       "description": "Python source files",
       "added_by": "system",
@@ -39,7 +39,7 @@
       "conditions": null
     },
     {
-      "pattern": "/home/steve/Agent007/**/*.md",
+      "pattern": "./**/*.md",
       "permission": "read",
       "description": "Documentation",
       "added_by": "system",
@@ -48,7 +48,7 @@
       "conditions": null
     },
     {
-      "pattern": "/home/steve/Agent007/**/*.json",
+      "pattern": "./**/*.json",
       "permission": "read",
       "description": "JSON config files",
       "added_by": "system",
@@ -57,7 +57,7 @@
       "conditions": null
     },
     {
-      "pattern": "/home/steve/Agent007/**/*.yml",
+      "pattern": "./**/*.yml",
       "permission": "read",
       "description": "YAML config files",
       "added_by": "system",
@@ -66,7 +66,7 @@
       "conditions": null
     },
     {
-      "pattern": "/home/steve/Agent007/**/*.yaml",
+      "pattern": "./**/*.yaml",
       "permission": "read",
       "description": "YAML config files",
       "added_by": "system",
@@ -75,7 +75,7 @@
       "conditions": null
     },
     {
-      "pattern": "/home/steve/Agent007/**/*.txt",
+      "pattern": "./**/*.txt",
       "permission": "read",
       "description": "Text files",
       "added_by": "system",
@@ -84,7 +84,7 @@
       "conditions": null
     },
     {
-      "pattern": "/home/steve/Agent007/**/*.sh",
+      "pattern": "./**/*.sh",
       "permission": "read",
       "description": "Shell scripts",
       "added_by": "system",
@@ -93,7 +93,7 @@
       "conditions": null
     },
     {
-      "pattern": "/home/steve/Agent007/**/*.php",
+      "pattern": "./**/*.php",
       "permission": "read",
       "description": "PHP source files",
       "added_by": "system",
@@ -102,7 +102,7 @@
       "conditions": null
     },
     {
-      "pattern": "/home/steve/Agent007/**/*.js",
+      "pattern": "./**/*.js",
       "permission": "read",
       "description": "JavaScript files",
       "added_by": "system",
@@ -111,7 +111,7 @@
       "conditions": null
     },
     {
-      "pattern": "/home/steve/Agent007/**/*.ts",
+      "pattern": "./**/*.ts",
       "permission": "read",
       "description": "TypeScript files",
       "added_by": "system",
@@ -120,7 +120,7 @@
       "conditions": null
     },
     {
-      "pattern": "/home/steve/Agent007/**/*.css",
+      "pattern": "./**/*.css",
       "permission": "read",
       "description": "CSS files",
       "added_by": "system",
@@ -129,7 +129,7 @@
       "conditions": null
     },
     {
-      "pattern": "/home/steve/Agent007/**/*.html",
+      "pattern": "./**/*.html",
       "permission": "read",
       "description": "HTML files",
       "added_by": "system",
@@ -138,7 +138,7 @@
       "conditions": null
     },
     {
-      "pattern": "/home/steve/Agent007/Orchestrator/**",
+      "pattern": "./Orchestrator/**",
       "permission": "write",
       "description": "Orchestrator project",
       "added_by": "system",
@@ -147,7 +147,7 @@
       "conditions": null
     },
     {
-      "pattern": "/home/steve/Agent007/SyncAudit/**",
+      "pattern": "./SyncAudit/**",
       "permission": "write",
       "description": "SyncAudit project",
       "added_by": "system",

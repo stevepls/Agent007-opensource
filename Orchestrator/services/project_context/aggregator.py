@@ -135,9 +135,11 @@ class ProjectContextAggregator:
     
     def _load_project_config(self) -> Dict[str, Dict]:
         """Load project configurations from DevOps config."""
+        # Default to DevOps sibling directory relative to Agent007 root
+        agent007_root = Path(__file__).parent.parent.parent.parent
         config_path = Path(os.getenv(
-            'DEVOPS_ROOT', 
-            '/home/steve/Agent007/DevOps'
+            'DEVOPS_ROOT',
+            str(agent007_root / 'DevOps')
         )) / 'config' / 'tickets' / 'org-mapping.yml'
         
         projects = {}
