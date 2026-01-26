@@ -69,8 +69,8 @@ OPENAI_API_KEY=your-openai-key
 # Optional: Default model
 DEFAULT_MODEL=claude-3-5-sonnet-20241022
 
-# Workspace: Where agents can read/write
-WORKSPACE_ROOT=/home/steve/Agent007
+# Workspace: Where agents can read/write (auto-detected if unset)
+# WORKSPACE_ROOT=/path/to/your/workspace
 
 # Safety: Require human approval for file writes
 REQUIRE_APPROVAL=true

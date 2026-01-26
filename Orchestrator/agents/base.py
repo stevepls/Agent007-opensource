@@ -11,8 +11,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 from crewai import LLM
 
+# Paths - relative to this file for portability
+ORCHESTRATOR_ROOT = Path(__file__).parent.parent
+AGENT007_ROOT = ORCHESTRATOR_ROOT.parent
+
 # Add parent to path for governance imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(ORCHESTRATOR_ROOT))
 
 from governance.policies import inject_policies_into_prompt
 
@@ -73,5 +77,5 @@ AGENT_CONFIG = {
 
 
 # Workspace configuration
-WORKSPACE_ROOT = os.getenv("WORKSPACE_ROOT", "/home/steve/Agent007")
+WORKSPACE_ROOT = os.getenv("WORKSPACE_ROOT", str(AGENT007_ROOT))
 REQUIRE_APPROVAL = os.getenv("REQUIRE_APPROVAL", "true").lower() == "true"

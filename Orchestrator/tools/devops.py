@@ -19,16 +19,20 @@ from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 from crewai.tools import BaseTool
 
+# Paths - relative to this file for portability
+ORCHESTRATOR_ROOT = Path(__file__).parent.parent
+AGENT007_ROOT = ORCHESTRATOR_ROOT.parent
+
 # Add parent to path for governance imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(ORCHESTRATOR_ROOT))
 
 from governance.allowlist import get_allowlist, Permission, propose_if_safe
 from governance.audit import get_audit_logger, AuditEvent, ActionType
 from governance.cost_tracker import get_cost_tracker
 
 
-# DevOps bin directory
-DEVOPS_BIN = Path(os.getenv("DEVOPS_BIN", "/home/steve/Agent007/DevOps/bin"))
+# DevOps bin directory (default to relative path for portability)
+DEVOPS_BIN = Path(os.getenv("DEVOPS_BIN", str(AGENT007_ROOT / "DevOps" / "bin")))
 
 
 @dataclass
@@ -339,7 +343,7 @@ class DevOpsListTool(BaseTool):
 
 WORKSPACES_DIR = Path(os.getenv(
     "CURSOR_WORKSPACES_DIR",
-    "/home/steve/Agent007/DevOps/.cursor/workspaces"
+    str(AGENT007_ROOT / "DevOps" / ".cursor" / "workspaces")
 ))
 
 # Project descriptions (mirrors the focus script)

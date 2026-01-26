@@ -22,6 +22,11 @@ from pathlib import Path
 import fnmatch
 import re
 
+# Paths - relative to this file for portability
+GOVERNANCE_ROOT = Path(__file__).parent
+ORCHESTRATOR_ROOT = GOVERNANCE_ROOT.parent
+AGENT007_ROOT = ORCHESTRATOR_ROOT.parent
+
 
 class Permission(Enum):
     """Permission levels from least to most privileged."""
@@ -75,17 +80,23 @@ class AllowlistEntry:
     
     def matches(self, value: str) -> bool:
         """Check if this entry matches a value."""
+        # Expand $WORKSPACE placeholder to actual workspace path
+        pattern = self.pattern
+        if "$WORKSPACE" in pattern:
+            workspace = os.getenv("WORKSPACE_ROOT", str(AGENT007_ROOT))
+            pattern = pattern.replace("$WORKSPACE", workspace)
+        
         # Try glob match first
-        if fnmatch.fnmatch(value, self.pattern):
+        if fnmatch.fnmatch(value, pattern):
             return True
         # Try regex match
         try:
-            if re.match(self.pattern, value):
+            if re.match(pattern, value):
                 return True
         except re.error:
             pass
         # Exact match
-        return value == self.pattern
+        return value == pattern
     
     def is_expired(self) -> bool:
         """Check if entry has expired."""
@@ -158,8 +169,8 @@ class Allowlist:
             # production is NOT in the list - blocked by default
         ]
         
-        # Paths: Workspace paths only
-        workspace = os.getenv("WORKSPACE_ROOT", "/home/steve/Agent007")
+        # Paths: Workspace paths only (default to relative path for portability)
+        workspace = os.getenv("WORKSPACE_ROOT", str(AGENT007_ROOT))
         self.paths = [
             # Readable
             AllowlistEntry(f"{workspace}/**/*.py", Permission.READ, "Python source files"),

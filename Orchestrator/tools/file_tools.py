@@ -17,17 +17,21 @@ from typing import Optional, Tuple
 from crewai.tools import BaseTool
 from pydantic import Field
 
+# Paths - relative to this file for portability
+ORCHESTRATOR_ROOT = Path(__file__).parent.parent
+AGENT007_ROOT = ORCHESTRATOR_ROOT.parent
+
 # Import governance modules
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(ORCHESTRATOR_ROOT))
 
 from governance.policies import is_path_blocked, is_production_path, contains_blocked_pattern
 from governance.validators import PreValidator, PostValidator, ValidationStatus
 from governance.audit import get_audit_logger, ActionType, AuditEvent
 from governance.cost_tracker import get_cost_tracker
 
-# Get workspace root from environment
-WORKSPACE_ROOT = Path(os.getenv("WORKSPACE_ROOT", "/home/steve/Agent007"))
+# Get workspace root from environment (default to relative path for portability)
+WORKSPACE_ROOT = Path(os.getenv("WORKSPACE_ROOT", str(AGENT007_ROOT)))
 
 # Validators
 _pre_validator = PreValidator()

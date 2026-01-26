@@ -25,8 +25,12 @@ from dataclasses import dataclass
 from enum import Enum
 from crewai.tools import BaseTool
 
+# Paths - relative to this file for portability
+ORCHESTRATOR_ROOT = Path(__file__).parent.parent
+AGENT007_ROOT = ORCHESTRATOR_ROOT.parent
+
 # Add parent to path for governance imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(ORCHESTRATOR_ROOT))
 
 from governance.policies import is_path_blocked, is_production_path
 from governance.validators import validate_before_execution, validate_after_execution, ValidationStatus
@@ -186,7 +190,7 @@ class ClaudeCLITool(BaseTool):
         # =======================================================================
         
         cmd = self._build_command(task)
-        working_dir = self.config.working_directory or os.getenv("WORKSPACE_ROOT", "/home/steve/Agent007")
+        working_dir = self.config.working_directory or os.getenv("WORKSPACE_ROOT", str(AGENT007_ROOT))
         
         logger.log(AuditEvent(
             action_type=ActionType.TOOL_USE,
