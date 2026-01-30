@@ -273,9 +273,13 @@ class GmailToClickUp:
                     "id": c.id,
                     "name": c.name,
                     "domains": c.domains,
+                    "emails": c.emails,
+                    "vip_emails": c.vip_emails,
                     "clickup_list_id": c.clickup_list_id,
                     "clickup_space_id": c.clickup_space_id,
                     "keywords": c.keywords,
+                    "exclude_subjects": c.exclude_subjects,
+                    "exclude_senders": c.exclude_senders,
                     "priority": c.priority,
                     "auto_create": c.auto_create,
                 }
@@ -487,7 +491,7 @@ class GmailToClickUp:
         try:
             analysis = self.ticket_manager.check_duplicate(
                 subject=email.subject,
-                body=email.body or email.description,
+                body=email.body or "",
                 sender=email.sender_email,
                 clickup_list_id=client.clickup_list_id,
                 days_back=30,
