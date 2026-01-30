@@ -444,6 +444,284 @@ def slack_get_recent_messages(channel: str, limit: int = 10) -> Dict[str, Any]:
 
 
 # ============================================================================
+# ClickUp Tools
+# ============================================================================
+
+def clickup_list_tasks(list_id: str = None, include_closed: bool = False) -> Dict[str, Any]:
+    """List tasks from ClickUp."""
+    try:
+        from services.tickets.clickup_client import get_clickup_client
+        
+        api_token = os.getenv("CLICKUP_API_TOKEN")
+        if not api_token:
+            return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+        
+        client = get_clickup_client()
+        
+        # If no list_id provided, get the default list
+        if not list_id:
+            list_id = os.getenv("CLICKUP_DEFAULT_LIST_ID")
+            if not list_id:
+                # Try to find a list
+                workspaces = client.get_workspaces()
+                if workspaces:
+                    spaces = client.get_spaces(workspaces[0]["id"])
+                    if spaces:
+                        lists = client.get_folderless_lists(spaces[0]["id"])
+                        if lists:
+                            list_id = lists[0]["id"]
+        
+        if not list_id:
+            return {"error": "No list_id provided and no default configured. Set CLICKUP_DEFAULT_LIST_ID."}
+        
+        tasks = client.list_tasks(list_id, include_closed=include_closed)
+        
+        return {
+            "list_id": list_id,
+            "count": len(tasks),
+            "tasks": [
+                {
+                    "id": t.id,
+                    "name": t.name,
+                    "status": t.status,
+                    "priority": t.priority_name,
+                    "assignees": t.assignees,
+                    "due_date": t.date_due.isoformat() if t.date_due else None,
+                    "url": t.url,
+                }
+                for t in tasks[:20]  # Limit to 20 tasks
+            ]
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def clickup_create_task(
+    name: str,
+    description: str = "",
+    priority: int = 3,
+    list_id: str = None,
+    status: str = None,
+    tags: List[str] = None,
+) -> Dict[str, Any]:
+    """Create a new task in ClickUp."""
+    try:
+        from services.tickets.clickup_client import get_clickup_client
+        
+        api_token = os.getenv("CLICKUP_API_TOKEN")
+        if not api_token:
+            return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+        
+        client = get_clickup_client()
+        
+        # Get default list if not provided
+        if not list_id:
+            list_id = os.getenv("CLICKUP_DEFAULT_LIST_ID")
+        
+        if not list_id:
+            return {"error": "No list_id provided. Set CLICKUP_DEFAULT_LIST_ID or provide list_id."}
+        
+        task = client.create_task(
+            list_id=list_id,
+            name=name,
+            description=description,
+            priority=priority,
+            status=status,
+            tags=tags or [],
+        )
+        
+        if task:
+            return {
+                "success": True,
+                "task": {
+                    "id": task.id,
+                    "name": task.name,
+                    "status": task.status,
+                    "priority": task.priority_name,
+                    "url": task.url,
+                }
+            }
+        return {"error": "Failed to create task"}
+    
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def clickup_update_task(
+    task_id: str,
+    name: str = None,
+    description: str = None,
+    status: str = None,
+    priority: int = None,
+) -> Dict[str, Any]:
+    """Update an existing ClickUp task."""
+    try:
+        from services.tickets.clickup_client import get_clickup_client
+        
+        api_token = os.getenv("CLICKUP_API_TOKEN")
+        if not api_token:
+            return {"error": "ClickUp not configured"}
+        
+        client = get_clickup_client()
+        task = client.update_task(
+            task_id=task_id,
+            name=name,
+            description=description,
+            status=status,
+            priority=priority,
+        )
+        
+        if task:
+            return {
+                "success": True,
+                "task": {
+                    "id": task.id,
+                    "name": task.name,
+                    "status": task.status,
+                    "priority": task.priority_name,
+                    "url": task.url,
+                }
+            }
+        return {"error": "Failed to update task"}
+    
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def clickup_add_comment(task_id: str, comment: str) -> Dict[str, Any]:
+    """Add a comment to a ClickUp task."""
+    try:
+        from services.tickets.clickup_client import get_clickup_client
+        
+        api_token = os.getenv("CLICKUP_API_TOKEN")
+        if not api_token:
+            return {"error": "ClickUp not configured"}
+        
+        client = get_clickup_client()
+        success = client.add_comment(task_id, comment)
+        
+        return {"success": success, "task_id": task_id}
+    
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def clickup_get_task(task_id: str) -> Dict[str, Any]:
+    """Get details of a specific ClickUp task."""
+    try:
+        from services.tickets.clickup_client import get_clickup_client
+        
+        api_token = os.getenv("CLICKUP_API_TOKEN")
+        if not api_token:
+            return {"error": "ClickUp not configured"}
+        
+        client = get_clickup_client()
+        task = client.get_task(task_id, include_subtasks=True)
+        
+        if task:
+            comments = client.get_comments(task_id)
+            return {
+                "task": {
+                    "id": task.id,
+                    "name": task.name,
+                    "description": task.description[:500] if task.description else "",
+                    "status": task.status,
+                    "priority": task.priority_name,
+                    "assignees": task.assignees,
+                    "tags": task.tags,
+                    "due_date": task.date_due.isoformat() if task.date_due else None,
+                    "created": task.date_created.isoformat(),
+                    "url": task.url,
+                },
+                "comments": [
+                    {"user": c.user, "text": c.text[:200], "date": c.date.isoformat()}
+                    for c in comments[:5]
+                ]
+            }
+        return {"error": "Task not found"}
+    
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def clickup_list_spaces() -> Dict[str, Any]:
+    """List ClickUp workspaces, spaces, and lists to find list IDs."""
+    try:
+        from services.tickets.clickup_client import get_clickup_client
+        
+        api_token = os.getenv("CLICKUP_API_TOKEN")
+        if not api_token:
+            return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+        
+        client = get_clickup_client()
+        workspaces = client.get_workspaces()
+        
+        result = {"workspaces": []}
+        for ws in workspaces[:3]:  # Limit to 3 workspaces
+            ws_data = {"id": ws["id"], "name": ws["name"], "spaces": []}
+            
+            spaces = client.get_spaces(ws["id"])
+            for space in spaces[:5]:  # Limit to 5 spaces per workspace
+                space_data = {"id": space["id"], "name": space["name"], "lists": []}
+                
+                # Get folderless lists
+                lists = client.get_folderless_lists(space["id"])
+                for lst in lists[:10]:
+                    space_data["lists"].append({"id": lst["id"], "name": lst["name"]})
+                
+                # Get folders and their lists
+                folders = client.get_folders(space["id"])
+                for folder in folders[:5]:
+                    folder_lists = client.get_lists_in_folder(folder["id"])
+                    for lst in folder_lists[:10]:
+                        space_data["lists"].append({
+                            "id": lst["id"],
+                            "name": f"{folder['name']} / {lst['name']}"
+                        })
+                
+                ws_data["spaces"].append(space_data)
+            
+            result["workspaces"].append(ws_data)
+        
+        return result
+    
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ============================================================================
+# Memory Tools (for storing context)
+# ============================================================================
+
+def memory_remember(category: str, key: str, value: str) -> Dict[str, Any]:
+    """Store a fact or context in memory for future reference."""
+    try:
+        from services.memory import get_memory_service
+        memory = get_memory_service()
+        entry_id = memory.add_context(category, key, value, source="assistant")
+        return {"success": True, "id": entry_id, "message": f"Remembered: {category}/{key}"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def memory_recall(query: str) -> Dict[str, Any]:
+    """Search memory for relevant context."""
+    try:
+        from services.memory import get_memory_service
+        memory = get_memory_service()
+        results = memory.search_context(query, limit=5)
+        return {
+            "count": len(results),
+            "results": [
+                {"category": r.category, "key": r.key, "value": r.content}
+                for r in results
+            ]
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ============================================================================
 # Tool Definitions (for Claude)
 # ============================================================================
 
@@ -582,6 +860,166 @@ TOOL_DEFINITIONS = [
             },
             "required": ["channel"]
         }
+    },
+    # ClickUp Tools
+    {
+        "name": "clickup_list_tasks",
+        "description": "List tasks from a ClickUp list. Use this to see open tasks, their status, and priorities.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "list_id": {
+                    "type": "string",
+                    "description": "ClickUp list ID. If not provided, uses default list."
+                },
+                "include_closed": {
+                    "type": "boolean",
+                    "description": "Whether to include closed tasks (default: false)"
+                }
+            }
+        }
+    },
+    {
+        "name": "clickup_create_task",
+        "description": "Create a new task in ClickUp. Use this when asked to create tickets, tasks, or to-dos.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Task title/name"
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Task description (supports markdown)"
+                },
+                "priority": {
+                    "type": "integer",
+                    "description": "Priority: 1=Urgent, 2=High, 3=Normal (default), 4=Low"
+                },
+                "list_id": {
+                    "type": "string",
+                    "description": "ClickUp list ID. Uses default if not provided."
+                },
+                "status": {
+                    "type": "string",
+                    "description": "Task status (e.g., 'to do', 'in progress')"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Tags to add to the task"
+                }
+            },
+            "required": ["name"]
+        }
+    },
+    {
+        "name": "clickup_update_task",
+        "description": "Update an existing ClickUp task. Change status, priority, name, or description.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "ClickUp task ID"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "New task name"
+                },
+                "description": {
+                    "type": "string",
+                    "description": "New description"
+                },
+                "status": {
+                    "type": "string",
+                    "description": "New status"
+                },
+                "priority": {
+                    "type": "integer",
+                    "description": "New priority (1-4)"
+                }
+            },
+            "required": ["task_id"]
+        }
+    },
+    {
+        "name": "clickup_add_comment",
+        "description": "Add a comment to a ClickUp task.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "ClickUp task ID"
+                },
+                "comment": {
+                    "type": "string",
+                    "description": "Comment text"
+                }
+            },
+            "required": ["task_id", "comment"]
+        }
+    },
+    {
+        "name": "clickup_get_task",
+        "description": "Get detailed information about a specific ClickUp task including comments.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "ClickUp task ID"
+                }
+            },
+            "required": ["task_id"]
+        }
+    },
+    {
+        "name": "clickup_list_spaces",
+        "description": "List ClickUp workspaces, spaces, and lists. Use this to find list IDs for creating tasks.",
+        "input_schema": {
+            "type": "object",
+            "properties": {}
+        }
+    },
+    # Memory Tools
+    {
+        "name": "memory_remember",
+        "description": "Store a fact, preference, or context for future reference. Use this to remember things the user tells you.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "description": "Category: 'project', 'preference', 'fact', 'person', 'workflow'"
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Unique identifier (e.g., project name, preference name)"
+                },
+                "value": {
+                    "type": "string",
+                    "description": "The information to remember"
+                }
+            },
+            "required": ["category", "key", "value"]
+        }
+    },
+    {
+        "name": "memory_recall",
+        "description": "Search memory for relevant context. Use this to recall stored information.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query to find relevant memories"
+                }
+            },
+            "required": ["query"]
+        }
     }
 ]
 
@@ -593,14 +1031,28 @@ TOOL_DEFINITIONS = [
 def execute_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Execute a tool by name with the given arguments."""
     tools = {
+        # Gmail
         "gmail_search": gmail_search,
         "gmail_get_unread_count": gmail_get_unread_count,
+        # Calendar
         "calendar_get_events": calendar_get_events,
+        # Harvest
         "harvest_get_time_entries": harvest_get_time_entries,
         "harvest_log_time": harvest_log_time,
         "harvest_list_projects": harvest_list_projects,
+        # Slack
         "slack_search_messages": slack_search_messages,
         "slack_get_recent_messages": slack_get_recent_messages,
+        # ClickUp
+        "clickup_list_tasks": clickup_list_tasks,
+        "clickup_create_task": clickup_create_task,
+        "clickup_update_task": clickup_update_task,
+        "clickup_add_comment": clickup_add_comment,
+        "clickup_get_task": clickup_get_task,
+        "clickup_list_spaces": clickup_list_spaces,
+        # Memory
+        "memory_remember": memory_remember,
+        "memory_recall": memory_recall,
     }
     
     if name not in tools:
