@@ -218,11 +218,11 @@ async def chat(request: ChatRequest):
     if not session_id:
         session_id = memory.create_session()
     
-    # Store user message in memory
-    memory.add_message(session_id, role="user", content=last_message.content)
-    
-    # Get relevant context from memory
+    # Get relevant context from memory (before response, for injection)
     memory_context = memory.get_relevant_context(last_message.content, limit=5)
+    
+    # Note: Messages are persisted at the END of the response via persist_turn_context
+    # This is more efficient than persisting before we have the full response
     
     # Check for Claude API key
     api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -331,9 +331,11 @@ async def stream_claude_response(
             "content": tool_results,
         })
     
-    # Store assistant response in memory
+    # Persist conversation turn efficiently (batched write + fact extraction)
     if session_id and full_response:
-        memory.add_message(session_id, role="assistant", content=full_response)
+        # Get the user message from the original messages list
+        user_content = messages[-1].content if messages else ""
+        memory.persist_turn_context(session_id, user_content, full_response)
 
 
 async def stream_mock_response(
@@ -597,9 +599,9 @@ Just tell me what you'd like to do - deploy, track time, check tickets, or somet
         yield chunk
         await asyncio.sleep(0.05)
     
-    # Store assistant response in memory
+    # Persist conversation turn efficiently (batched write + fact extraction)
     if session_id:
-        memory.add_message(session_id, role="assistant", content=full_response)
+        memory.persist_turn_context(session_id, user_message, full_response)
 
 
 async def build_context() -> str:

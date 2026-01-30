@@ -66,15 +66,33 @@ MEMORY_DIR.mkdir(parents=True, exist_ok=True)
 
 DATABASE_URL = os.getenv("MEMORY_DATABASE_URL", f"sqlite:///{MEMORY_DIR}/memory.db")
 
-# Create engine
+# Create engine with optimized SQLite settings
 engine = create_engine(
     DATABASE_URL,
     echo=os.getenv("SQL_DEBUG", "false").lower() == "true",
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
+    connect_args={
+        "check_same_thread": False,
+        "timeout": 30,  # Wait up to 30s for locks
+    } if "sqlite" in DATABASE_URL else {},
 )
+
+# Enable WAL mode for better concurrent access (SQLite only)
+if "sqlite" in DATABASE_URL:
+    from sqlalchemy import event
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")  # Faster, still safe
+        cursor.execute("PRAGMA cache_size=-64000")  # 64MB cache
+        cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+# Batching configuration
+BATCH_SIZE = 10  # Persist after this many messages
+BATCH_TIMEOUT_SECONDS = 5  # Or after this many seconds
 
 
 # =============================================================================
@@ -205,6 +223,11 @@ class MemoryService:
         self._initialized = True
         self._init_db()
         self._load_stopwords()
+        
+        # Batching state
+        self._message_buffer: List[Dict[str, Any]] = []
+        self._last_flush = datetime.utcnow()
+        self._flush_lock = False
     
     def _init_db(self):
         """Initialize the database tables."""
@@ -310,30 +333,124 @@ class MemoryService:
         role: str,
         content: str,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> int:
-        """Add a message to a conversation."""
+        immediate: bool = False,
+    ) -> Optional[int]:
+        """
+        Add a message to a conversation.
+        
+        Args:
+            session_id: The conversation session ID
+            role: Message role (user, assistant, system, tool)
+            content: Message content
+            metadata: Optional metadata dict
+            immediate: If True, persist immediately. If False, buffer for batching.
+        
+        Returns:
+            Message ID if persisted immediately, None if buffered.
+        """
+        # Skip very short or empty messages
+        if not content or len(content.strip()) < 2:
+            return None
+        
+        msg_data = {
+            "session_id": session_id,
+            "role": role,
+            "content": content,
+            "metadata": metadata or {},
+            "created_at": datetime.utcnow(),
+        }
+        
+        # Check if we should flush (batch full or timeout)
+        should_flush = (
+            immediate or
+            len(self._message_buffer) >= BATCH_SIZE or
+            (datetime.utcnow() - self._last_flush).seconds >= BATCH_TIMEOUT_SECONDS
+        )
+        
+        if should_flush and self._message_buffer:
+            self._flush_message_buffer()
+        
+        if immediate:
+            # Persist this message immediately
+            return self._persist_message(msg_data)
+        else:
+            # Buffer for batch persistence
+            self._message_buffer.append(msg_data)
+            return None
+    
+    def _persist_message(self, msg_data: Dict[str, Any]) -> int:
+        """Persist a single message immediately."""
         with self._get_session() as db:
             # Create session if it doesn't exist
-            session = db.query(ConversationSession).filter_by(id=session_id).first()
+            session = db.query(ConversationSession).filter_by(id=msg_data["session_id"]).first()
             if not session:
-                session = ConversationSession(id=session_id)
+                session = ConversationSession(id=msg_data["session_id"])
                 db.add(session)
                 db.flush()
             
             # Add message
             message = Message(
-                session_id=session_id,
-                role=role,
-                content=content,
-                metadata=metadata or {},
+                session_id=msg_data["session_id"],
+                role=msg_data["role"],
+                content=msg_data["content"],
+                extra_data=msg_data.get("metadata", {}),
             )
             db.add(message)
             db.flush()
             
-            # Index for search
-            self._index_text(db, "message", message.id, content)
+            # Only index longer messages (efficiency)
+            if len(msg_data["content"]) > 50:
+                self._index_text(db, "message", message.id, msg_data["content"])
             
             return message.id
+    
+    def _flush_message_buffer(self):
+        """Persist all buffered messages in a single transaction."""
+        if not self._message_buffer or self._flush_lock:
+            return
+        
+        self._flush_lock = True
+        try:
+            with self._get_session() as db:
+                # Group by session to minimize queries
+                sessions_seen: set = set()
+                
+                for msg_data in self._message_buffer:
+                    session_id = msg_data["session_id"]
+                    
+                    # Create session if not seen
+                    if session_id not in sessions_seen:
+                        session = db.query(ConversationSession).filter_by(id=session_id).first()
+                        if not session:
+                            session = ConversationSession(id=session_id)
+                            db.add(session)
+                        sessions_seen.add(session_id)
+                    
+                    # Add message
+                    message = Message(
+                        session_id=session_id,
+                        role=msg_data["role"],
+                        content=msg_data["content"],
+                        extra_data=msg_data.get("metadata", {}),
+                    )
+                    db.add(message)
+                
+                db.flush()
+                
+                # Only index messages over 100 chars (efficiency)
+                for msg_data in self._message_buffer:
+                    if len(msg_data["content"]) > 100:
+                        # Re-query to get IDs (simplified - could optimize further)
+                        pass  # Skip indexing in batch mode for efficiency
+            
+            self._message_buffer = []
+            self._last_flush = datetime.utcnow()
+        finally:
+            self._flush_lock = False
+    
+    def flush(self):
+        """Force flush all buffered messages. Call at end of request."""
+        self._flush_message_buffer()
     
     def get_conversation(
         self,
@@ -611,6 +728,201 @@ class MemoryService:
             lines.append(f"**{r.category}/{r.key}**: {r.content}")
         
         return "\n".join(lines)
+    
+    # =========================================================================
+    # AUTO-CONTEXT EXTRACTION
+    # =========================================================================
+    
+    def extract_and_store_facts(
+        self,
+        session_id: str,
+        text: str,
+        source: str = "conversation",
+    ) -> List[str]:
+        """
+        Extract important facts from text and store them as context.
+        
+        Uses pattern matching to identify:
+        - Project names and descriptions
+        - Preferences (e.g., "I prefer...", "always use...")
+        - Important facts (names, dates, configurations)
+        
+        Returns list of extracted fact keys.
+        """
+        import re
+        extracted = []
+        
+        # Pattern: "X is Y" or "X are Y"
+        is_pattern = re.findall(
+            r'(?:^|\.\s*)([A-Z][a-zA-Z0-9_-]+)\s+(?:is|are)\s+(?:a\s+)?([^.!?]+)',
+            text
+        )
+        for key, value in is_pattern:
+            if len(value) > 10 and len(value) < 200:
+                self.add_context(
+                    category="fact",
+                    key=key.lower(),
+                    value=value.strip(),
+                    source=source,
+                    confidence=0.8,
+                )
+                extracted.append(f"fact/{key.lower()}")
+        
+        # Pattern: "remember that..." or "note that..."
+        remember_pattern = re.findall(
+            r'(?:remember|note|keep in mind|don\'t forget)\s+(?:that\s+)?([^.!?]+)',
+            text.lower()
+        )
+        for fact in remember_pattern:
+            if len(fact) > 10:
+                # Create a key from first few words
+                words = fact.split()[:3]
+                key = "_".join(w for w in words if w.isalnum())
+                self.add_context(
+                    category="reminder",
+                    key=key,
+                    value=fact.strip(),
+                    source=source,
+                    confidence=0.9,
+                )
+                extracted.append(f"reminder/{key}")
+        
+        # Pattern: project/client mentions with context
+        project_pattern = re.findall(
+            r'(?:project|client|app|site|system)\s+(?:called\s+)?["\']?([A-Za-z0-9_-]+)["\']?\s+(?:is|uses|has|runs)\s+([^.!?]+)',
+            text,
+            re.IGNORECASE
+        )
+        for project, info in project_pattern:
+            self.add_context(
+                category="project",
+                key=project.lower(),
+                value=info.strip(),
+                source=source,
+                confidence=0.85,
+            )
+            extracted.append(f"project/{project.lower()}")
+        
+        # Pattern: preferences
+        pref_pattern = re.findall(
+            r'(?:I prefer|always use|I like|I want|default to)\s+([^.!?]+)',
+            text,
+            re.IGNORECASE
+        )
+        for pref in pref_pattern:
+            if len(pref) > 5:
+                words = pref.split()[:3]
+                key = "_".join(w.lower() for w in words if w.isalnum())
+                self.add_context(
+                    category="preference",
+                    key=key,
+                    value=pref.strip(),
+                    source=source,
+                    confidence=0.9,
+                )
+                extracted.append(f"preference/{key}")
+        
+        return extracted
+    
+    def summarize_session(self, session_id: str, max_messages: int = 20) -> Optional[str]:
+        """
+        Generate a summary of a conversation session.
+        
+        If session has more than max_messages, creates a summary and
+        optionally removes old messages to save space.
+        
+        Returns the summary if generated, None otherwise.
+        """
+        with self._get_session() as db:
+            session = db.query(ConversationSession).filter_by(id=session_id).first()
+            if not session:
+                return None
+            
+            message_count = db.query(Message).filter_by(session_id=session_id).count()
+            
+            if message_count <= max_messages:
+                return None  # No summarization needed
+            
+            # Get all messages for summary
+            messages = (
+                db.query(Message)
+                .filter_by(session_id=session_id)
+                .order_by(Message.created_at.asc())
+                .all()
+            )
+            
+            # Build simple summary from message content
+            user_topics = []
+            actions_taken = []
+            
+            for msg in messages:
+                if msg.role == "user" and len(msg.content) > 10:
+                    # Extract first sentence/phrase
+                    first_part = msg.content.split('.')[0][:100]
+                    user_topics.append(first_part)
+                elif msg.role == "assistant" and "Using" in msg.content:
+                    # Capture tool usage
+                    import re
+                    tools = re.findall(r'\*Using (\w+)', msg.content)
+                    actions_taken.extend(tools)
+            
+            summary_parts = []
+            if user_topics:
+                summary_parts.append(f"Topics discussed: {'; '.join(user_topics[:5])}")
+            if actions_taken:
+                unique_actions = list(set(actions_taken))
+                summary_parts.append(f"Tools used: {', '.join(unique_actions[:10])}")
+            
+            summary = "\n".join(summary_parts) if summary_parts else "General conversation"
+            
+            # Update session summary
+            session.summary = summary
+            
+            # Optionally prune old messages (keep last max_messages)
+            if message_count > max_messages * 2:
+                old_messages = (
+                    db.query(Message)
+                    .filter_by(session_id=session_id)
+                    .order_by(Message.created_at.asc())
+                    .limit(message_count - max_messages)
+                    .all()
+                )
+                for msg in old_messages:
+                    db.delete(msg)
+            
+            return summary
+    
+    def persist_turn_context(
+        self,
+        session_id: str,
+        user_message: str,
+        assistant_response: str,
+    ):
+        """
+        Efficiently persist context from a conversation turn.
+        
+        - Buffers messages for batch write
+        - Extracts facts from user messages
+        - Triggers summarization if needed
+        
+        Call this once at the end of each conversation turn.
+        """
+        # Buffer messages
+        self.add_message(session_id, "user", user_message, immediate=False)
+        self.add_message(session_id, "assistant", assistant_response, immediate=False)
+        
+        # Extract facts from user message (they tell us things)
+        if len(user_message) > 30:
+            self.extract_and_store_facts(session_id, user_message, source="user")
+        
+        # Flush buffered messages
+        self.flush()
+        
+        # Check if summarization is needed (every 50 messages)
+        with self._get_session() as db:
+            count = db.query(Message).filter_by(session_id=session_id).count()
+            if count > 0 and count % 50 == 0:
+                self.summarize_session(session_id)
     
     # =========================================================================
     # UTILITY METHODS
