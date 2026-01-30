@@ -72,8 +72,14 @@ class DriveClient:
     def is_authenticated(self) -> bool:
         return self._credentials is not None and self._credentials.valid
     
-    def authenticate(self) -> bool:
-        """Authenticate with Drive API."""
+    def authenticate(self, headless: bool = False) -> bool:
+        """
+        Authenticate with Drive API.
+        
+        Args:
+            headless: If True, fail if interactive OAuth is needed.
+                      If False, open browser for OAuth flow.
+        """
         if not GOOGLE_API_AVAILABLE:
             raise ImportError(
                 "Google API libraries not installed. Run: "
@@ -94,6 +100,12 @@ class DriveClient:
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
+            elif headless:
+                # In headless mode, fail if we need interactive auth
+                raise RuntimeError(
+                    "Google Drive OAuth token not found or expired. "
+                    "Run 'python -m services.google_auth' to authenticate interactively."
+                )
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     str(CREDENTIALS_FILE), DRIVE_SCOPES

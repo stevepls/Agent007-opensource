@@ -1006,8 +1006,24 @@ class ToolRegistry:
     # =========================================================================
     
     def _register_sheets_tools(self):
+        def _check_google_auth():
+            """Check if Google auth is available without blocking."""
+            try:
+                from services.google_auth import get_google_auth
+                auth = get_google_auth()
+                auth.authenticate_headless()
+                return None  # No error
+            except RuntimeError as e:
+                return str(e)
+            except Exception as e:
+                return f"Google authentication failed: {e}"
+        
         def sheets_get_info(spreadsheet_id: str) -> Dict[str, Any]:
             """Get spreadsheet metadata and list of sheets."""
+            auth_error = _check_google_auth()
+            if auth_error:
+                return {"error": auth_error}
+            
             try:
                 from services.sheets import get_sheets_client
                 client = get_sheets_client()
@@ -1015,7 +1031,7 @@ class ToolRegistry:
                 if not client.is_available:
                     return {"error": "Google Sheets not configured. Install google-api-python-client."}
                 
-                client.authenticate()
+                client.authenticate(headless=True)
                 info = client.get_spreadsheet(spreadsheet_id)
                 
                 return {
@@ -1032,6 +1048,10 @@ class ToolRegistry:
         
         def sheets_read_range(spreadsheet_id: str, range_notation: str) -> Dict[str, Any]:
             """Read values from a spreadsheet range."""
+            auth_error = _check_google_auth()
+            if auth_error:
+                return {"error": auth_error}
+            
             try:
                 from services.sheets import get_sheets_client
                 client = get_sheets_client()
@@ -1039,7 +1059,7 @@ class ToolRegistry:
                 if not client.is_available:
                     return {"error": "Google Sheets not configured"}
                 
-                client.authenticate()
+                client.authenticate(headless=True)
                 values = client.get_values(spreadsheet_id, range_notation)
                 
                 return {
@@ -1057,6 +1077,10 @@ class ToolRegistry:
             values: List[List[Any]],
         ) -> Dict[str, Any]:
             """Update values in a spreadsheet range."""
+            auth_error = _check_google_auth()
+            if auth_error:
+                return {"error": auth_error}
+            
             try:
                 from services.sheets import get_sheets_client
                 client = get_sheets_client()
@@ -1064,7 +1088,7 @@ class ToolRegistry:
                 if not client.is_available:
                     return {"error": "Google Sheets not configured"}
                 
-                client.authenticate()
+                client.authenticate(headless=True)
                 result = client.update_values(spreadsheet_id, range_notation, values)
                 
                 return {
@@ -1081,6 +1105,10 @@ class ToolRegistry:
             rows: List[List[Any]],
         ) -> Dict[str, Any]:
             """Append rows to a spreadsheet."""
+            auth_error = _check_google_auth()
+            if auth_error:
+                return {"error": auth_error}
+            
             try:
                 from services.sheets import get_sheets_client
                 client = get_sheets_client()
@@ -1088,7 +1116,7 @@ class ToolRegistry:
                 if not client.is_available:
                     return {"error": "Google Sheets not configured"}
                 
-                client.authenticate()
+                client.authenticate(headless=True)
                 result = client.append_values(spreadsheet_id, f"'{sheet_name}'", rows)
                 
                 return {
@@ -1104,6 +1132,10 @@ class ToolRegistry:
             search_value: str,
         ) -> Dict[str, Any]:
             """Find a value in a spreadsheet."""
+            auth_error = _check_google_auth()
+            if auth_error:
+                return {"error": auth_error}
+            
             try:
                 from services.sheets import get_sheets_client
                 client = get_sheets_client()
@@ -1111,7 +1143,7 @@ class ToolRegistry:
                 if not client.is_available:
                     return {"error": "Google Sheets not configured"}
                 
-                client.authenticate()
+                client.authenticate(headless=True)
                 result = client.find_value(spreadsheet_id, sheet_name, search_value)
                 
                 if result:
@@ -1207,14 +1239,30 @@ class ToolRegistry:
     # =========================================================================
     
     def _register_docs_tools(self):
+        def _check_google_auth():
+            """Check if Google auth is available without blocking."""
+            try:
+                from services.google_auth import get_google_auth
+                auth = get_google_auth()
+                auth.authenticate_headless()
+                return None  # No error
+            except RuntimeError as e:
+                return str(e)
+            except Exception as e:
+                return f"Google authentication failed: {e}"
+        
         def docs_list_files(query: str = "") -> Dict[str, Any]:
             """List files in Google Drive."""
+            auth_error = _check_google_auth()
+            if auth_error:
+                return {"error": auth_error}
+            
             try:
                 from services.drive.client import get_drive_client
                 client = get_drive_client()
                 
                 if not client.is_authenticated:
-                    client.authenticate()
+                    client.authenticate(headless=True)
                 
                 files = client.list_files(query=query or None, max_results=20)
                 
@@ -1235,12 +1283,16 @@ class ToolRegistry:
         
         def docs_search(search_term: str) -> Dict[str, Any]:
             """Search for files by name in Google Drive."""
+            auth_error = _check_google_auth()
+            if auth_error:
+                return {"error": auth_error}
+            
             try:
                 from services.drive.client import get_drive_client
                 client = get_drive_client()
                 
                 if not client.is_authenticated:
-                    client.authenticate()
+                    client.authenticate(headless=True)
                 
                 files = client.search(search_term, max_results=15)
                 
@@ -1256,12 +1308,16 @@ class ToolRegistry:
         
         def docs_read_file(file_id: str) -> Dict[str, Any]:
             """Read text content from a Google Drive file (Docs, text files)."""
+            auth_error = _check_google_auth()
+            if auth_error:
+                return {"error": auth_error}
+            
             try:
                 from services.drive.client import get_drive_client
                 client = get_drive_client()
                 
                 if not client.is_authenticated:
-                    client.authenticate()
+                    client.authenticate(headless=True)
                 
                 content = client.read_file_content(file_id)
                 
@@ -1283,12 +1339,16 @@ class ToolRegistry:
         
         def docs_get_file_info(file_id: str) -> Dict[str, Any]:
             """Get metadata about a Google Drive file."""
+            auth_error = _check_google_auth()
+            if auth_error:
+                return {"error": auth_error}
+            
             try:
                 from services.drive.client import get_drive_client
                 client = get_drive_client()
                 
                 if not client.is_authenticated:
-                    client.authenticate()
+                    client.authenticate(headless=True)
                 
                 f = client.get_file(file_id)
                 

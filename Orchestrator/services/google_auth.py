@@ -174,12 +174,14 @@ class GoogleAuth:
             with open(TOKEN_FILE, 'w') as f:
                 f.write(self._credentials.to_json())
     
-    def authenticate(self, scopes: List[str] = None) -> bool:
+    def authenticate(self, scopes: List[str] = None, interactive: bool = True) -> bool:
         """
         Authenticate with Google APIs.
         
         Args:
             scopes: Optional list of scopes. Defaults to ALL_SCOPES.
+            interactive: If True, open browser for OAuth if needed.
+                         If False, fail if token doesn't exist or is invalid.
         
         Returns:
             True if authentication successful.
@@ -187,6 +189,7 @@ class GoogleAuth:
         Raises:
             ImportError: If Google API libraries not installed.
             FileNotFoundError: If credentials.json not found.
+            RuntimeError: If interactive=False and no valid token exists.
         """
         if not GOOGLE_API_AVAILABLE:
             raise ImportError(
@@ -215,17 +218,31 @@ class GoogleAuth:
         if not self._credentials or not self._credentials.valid:
             if self._credentials and self._credentials.expired and self._credentials.refresh_token:
                 self._credentials.refresh(Request())
-            else:
-                # Need new authorization
+            elif interactive:
+                # Need new authorization - only if interactive mode
                 flow = InstalledAppFlow.from_client_secrets_file(
                     str(CREDENTIALS_FILE), use_scopes
                 )
                 # Use fixed port for Web OAuth clients (must match Google Cloud Console redirect URI)
                 self._credentials = flow.run_local_server(port=8080)
+            else:
+                # Non-interactive mode and no valid token
+                raise RuntimeError(
+                    "Google OAuth token not found or expired. "
+                    "Run 'python -m services.google_auth' to authenticate interactively."
+                )
             
             self._save_token()
         
         return True
+    
+    def authenticate_headless(self, scopes: Optional[List[str]] = None) -> bool:
+        """
+        Authenticate using existing token only (no browser).
+        
+        Use this for API calls - will fail gracefully if auth is needed.
+        """
+        return self.authenticate(scopes=scopes, interactive=False)
     
     def revoke(self) -> bool:
         """Revoke current credentials and delete token file."""
