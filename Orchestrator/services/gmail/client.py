@@ -52,6 +52,14 @@ GMAIL_SCOPES = [
     'https://www.googleapis.com/auth/gmail.modify',
 ]
 
+# Try to use unified auth if available
+try:
+    from ..google_auth import get_google_auth
+    UNIFIED_AUTH_AVAILABLE = True
+except ImportError:
+    UNIFIED_AUTH_AVAILABLE = False
+    get_google_auth = None
+
 
 @dataclass
 class EmailMessage:
@@ -84,9 +92,14 @@ class GmailClient:
     def is_authenticated(self) -> bool:
         return self._credentials is not None and self._credentials.valid
     
-    def authenticate(self) -> bool:
+    def authenticate(self, use_unified: bool = True) -> bool:
         """
         Authenticate with Gmail API.
+        
+        Args:
+            use_unified: If True, use unified Google auth (shares creds with Sheets/Drive).
+                         If False, use Gmail-specific token.
+        
         Returns True if successful.
         """
         if not GOOGLE_API_AVAILABLE:
@@ -95,6 +108,17 @@ class GmailClient:
                 "pip install google-api-python-client google-auth-oauthlib"
             )
         
+        # Try unified auth first (shares credentials with Sheets, Drive, etc.)
+        if use_unified and UNIFIED_AUTH_AVAILABLE:
+            try:
+                auth = get_google_auth()
+                self._service = auth.get_gmail_service()
+                self._credentials = auth.credentials
+                return True
+            except Exception:
+                pass  # Fall back to standalone auth
+        
+        # Standalone authentication
         if not CREDENTIALS_FILE.exists():
             raise FileNotFoundError(
                 f"OAuth credentials not found at {CREDENTIALS_FILE}. "

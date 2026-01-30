@@ -21,9 +21,9 @@ This system provides a unified interface for managing tickets with both Airtable
 ```bash
 # Activate environment first
 source src/venv/bin/activate
-export AIRTABLE_PERSONAL_ACCESS_TOKEN=REDACTED_AIRTABLE_TOKEN
-export AIRTABLE_BASE_ID=REDACTED_BASE_ID
-export AIRTABLE_TABLE_ID=REDACTED_TABLE_ID
+export AIRTABLE_PERSONAL_ACCESS_TOKEN=REDACTED-AIRTABLE-PAT
+export AIRTABLE_BASE_ID=app37XFdl4xoMbvx3
+export AIRTABLE_TABLE_ID=tblFXfLF3tGjW9IXm
 
 # Add different types of comments
 python add_comment.py --ticket recABC123 --work-summary "Updated payment plan dates" --author "Your Name"
