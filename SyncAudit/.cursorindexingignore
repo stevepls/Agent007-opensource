@@ -1,0 +1,28 @@
+# SyncAudit - Cursor Indexing Ignore
+# Exclude runtime artifacts and non-essential files
+
+# Temporary files
+tmp/
+
+# Logs
+logs/
+*.log
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# AppMap recordings
+appmap/
+
+# Cache
+.pytest_cache/
+.mypy_cache/
+
+# Database files
+*.db
+*.sqlite

@@ -1,0 +1,1107 @@
+"""
+Unified Tool Registry
+
+Single source of truth for all tools in Agent007.
+Provides tools for both CrewAI agents and the Chat API.
+
+Usage:
+    from services.tool_registry import get_all_tools, execute_tool, TOOL_DEFINITIONS
+"""
+
+import os
+import json
+from datetime import datetime, timedelta
+from typing import Dict, Any, List, Optional, Callable
+from pathlib import Path
+from functools import wraps
+
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent.parent / ".env")
+
+
+# ============================================================================
+# Tool Registry
+# ============================================================================
+
+class ToolRegistry:
+    """Central registry for all tools."""
+    
+    def __init__(self):
+        self._tools: Dict[str, Dict[str, Any]] = {}
+        self._load_tools()
+    
+    def _load_tools(self):
+        """Load all tool implementations."""
+        # Gmail
+        self._register_gmail_tools()
+        # Calendar
+        self._register_calendar_tools()
+        # Harvest
+        self._register_harvest_tools()
+        # Slack
+        self._register_slack_tools()
+        # ClickUp
+        self._register_clickup_tools()
+        # Zendesk
+        self._register_zendesk_tools()
+        # Memory
+        self._register_memory_tools()
+        # Agents
+        self._register_agent_tools()
+    
+    def register(
+        self,
+        name: str,
+        description: str,
+        func: Callable,
+        parameters: Dict[str, Any],
+        category: str = "general",
+    ):
+        """Register a tool."""
+        self._tools[name] = {
+            "name": name,
+            "description": description,
+            "func": func,
+            "parameters": parameters,
+            "category": category,
+        }
+    
+    def execute(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a tool by name."""
+        if name not in self._tools:
+            return {"error": f"Unknown tool: {name}"}
+        
+        try:
+            return self._tools[name]["func"](**arguments)
+        except Exception as e:
+            return {"error": f"Tool execution failed: {str(e)}"}
+    
+    def get_definitions(self) -> List[Dict[str, Any]]:
+        """Get tool definitions for Claude API."""
+        return [
+            {
+                "name": t["name"],
+                "description": t["description"],
+                "input_schema": t["parameters"],
+            }
+            for t in self._tools.values()
+        ]
+    
+    def get_tools_by_category(self, category: str) -> List[str]:
+        """Get tool names by category."""
+        return [
+            name for name, tool in self._tools.items()
+            if tool["category"] == category
+        ]
+    
+    # =========================================================================
+    # Gmail Tools
+    # =========================================================================
+    
+    def _register_gmail_tools(self):
+        def gmail_search(query: str, max_results: int = 10) -> Dict[str, Any]:
+            """Search Gmail for emails matching the query."""
+            try:
+                from google.oauth2.credentials import Credentials
+                from googleapiclient.discovery import build
+                
+                token_path = os.path.expanduser("~/.config/agent007/google/token.json")
+                if not os.path.exists(token_path):
+                    return {"error": "Gmail not connected. Run Google OAuth setup."}
+                
+                with open(token_path) as f:
+                    token_data = json.load(f)
+                
+                creds = Credentials(
+                    token=token_data['token'],
+                    refresh_token=token_data.get('refresh_token'),
+                    token_uri=token_data.get('token_uri'),
+                    client_id=token_data.get('client_id'),
+                    client_secret=token_data.get('client_secret')
+                )
+                
+                service = build('gmail', 'v1', credentials=creds)
+                results = service.users().messages().list(
+                    userId='me', q=query, maxResults=max_results
+                ).execute()
+                
+                messages = results.get('messages', [])
+                emails = []
+                
+                for msg in messages:
+                    msg_data = service.users().messages().get(
+                        userId='me', id=msg['id'], format='metadata',
+                        metadataHeaders=['Subject', 'From', 'Date']
+                    ).execute()
+                    headers = {h['name']: h['value'] for h in msg_data['payload']['headers']}
+                    emails.append({
+                        "id": msg['id'],
+                        "subject": headers.get('Subject', 'No subject'),
+                        "from": headers.get('From', ''),
+                        "date": headers.get('Date', ''),
+                    })
+                
+                return {"count": len(emails), "emails": emails}
+            
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def gmail_get_unread_count() -> Dict[str, Any]:
+            """Get count of unread emails."""
+            try:
+                from google.oauth2.credentials import Credentials
+                from googleapiclient.discovery import build
+                
+                token_path = os.path.expanduser("~/.config/agent007/google/token.json")
+                if not os.path.exists(token_path):
+                    return {"error": "Gmail not connected"}
+                
+                with open(token_path) as f:
+                    token_data = json.load(f)
+                
+                creds = Credentials(
+                    token=token_data['token'],
+                    refresh_token=token_data.get('refresh_token'),
+                    token_uri=token_data.get('token_uri'),
+                    client_id=token_data.get('client_id'),
+                    client_secret=token_data.get('client_secret')
+                )
+                
+                service = build('gmail', 'v1', credentials=creds)
+                results = service.users().messages().list(
+                    userId='me', q='is:unread', maxResults=1
+                ).execute()
+                
+                return {"unread_count": results.get('resultSizeEstimate', 0)}
+            
+            except Exception as e:
+                return {"error": str(e)}
+        
+        self.register(
+            "gmail_search",
+            "Search Gmail for emails. Use Gmail search syntax: 'from:sender', 'subject:text', 'after:2024/01/01'",
+            gmail_search,
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Gmail search query"},
+                    "max_results": {"type": "integer", "description": "Max results (default: 10)", "default": 10}
+                },
+                "required": ["query"]
+            },
+            category="gmail"
+        )
+        
+        self.register(
+            "gmail_get_unread_count",
+            "Get the count of unread emails in the inbox.",
+            gmail_get_unread_count,
+            {"type": "object", "properties": {}},
+            category="gmail"
+        )
+    
+    # =========================================================================
+    # Calendar Tools
+    # =========================================================================
+    
+    def _register_calendar_tools(self):
+        def calendar_get_events(
+            days_back: int = 7,
+            days_ahead: int = 7,
+            query: Optional[str] = None
+        ) -> Dict[str, Any]:
+            """Get calendar events from Google Calendar."""
+            try:
+                from google.oauth2.credentials import Credentials
+                from googleapiclient.discovery import build
+                from datetime import timezone
+                
+                token_path = os.path.expanduser("~/.config/agent007/google/token.json")
+                if not os.path.exists(token_path):
+                    return {"error": "Google Calendar not connected."}
+                
+                with open(token_path) as f:
+                    token_data = json.load(f)
+                
+                creds = Credentials(
+                    token=token_data['token'],
+                    refresh_token=token_data.get('refresh_token'),
+                    token_uri=token_data.get('token_uri'),
+                    client_id=token_data.get('client_id'),
+                    client_secret=token_data.get('client_secret')
+                )
+                
+                service = build('calendar', 'v3', credentials=creds)
+                
+                now = datetime.now(timezone.utc)
+                time_min = (now - timedelta(days=days_back)).isoformat()
+                time_max = (now + timedelta(days=days_ahead)).isoformat()
+                
+                params = {
+                    "calendarId": "primary",
+                    "timeMin": time_min,
+                    "timeMax": time_max,
+                    "maxResults": 50,
+                    "singleEvents": True,
+                    "orderBy": "startTime"
+                }
+                
+                if query:
+                    params["q"] = query
+                
+                events_result = service.events().list(**params).execute()
+                events = events_result.get('items', [])
+                
+                result_events = []
+                for event in events:
+                    start = event['start'].get('dateTime', event['start'].get('date'))
+                    result_events.append({
+                        "date": start[:10],
+                        "time": start[11:16] if len(start) > 10 else "all-day",
+                        "summary": event.get('summary', 'No title'),
+                        "location": event.get('location', ''),
+                    })
+                
+                return {"count": len(result_events), "events": result_events}
+            
+            except Exception as e:
+                return {"error": str(e)}
+        
+        self.register(
+            "calendar_get_events",
+            "Get events from Google Calendar. Can search for specific events or get a date range.",
+            calendar_get_events,
+            {
+                "type": "object",
+                "properties": {
+                    "days_back": {"type": "integer", "description": "Days in the past to include (default: 7)"},
+                    "days_ahead": {"type": "integer", "description": "Days in the future to include (default: 7)"},
+                    "query": {"type": "string", "description": "Search query to filter events"}
+                }
+            },
+            category="calendar"
+        )
+    
+    # =========================================================================
+    # Harvest Tools
+    # =========================================================================
+    
+    def _register_harvest_tools(self):
+        # Import from existing implementation
+        try:
+            from tools.harvest import (
+                get_harvest_client,
+                get_status as harvest_get_status_impl,
+                get_projects as harvest_get_projects_impl,
+            )
+            
+            def harvest_get_time_entries(date: Optional[str] = None) -> Dict[str, Any]:
+                """Get time entries for a specific date."""
+                client = get_harvest_client()
+                if not client:
+                    return {"error": "Harvest not configured. Set HARVEST_ACCESS_TOKEN and HARVEST_ACCOUNT_ID."}
+                
+                import requests
+                if date is None:
+                    date = datetime.now().strftime("%Y-%m-%d")
+                
+                headers = {
+                    "Authorization": f"Bearer {client.config.access_token}",
+                    "Harvest-Account-Id": str(client.config.account_id),
+                    "User-Agent": "Agent007 Orchestrator"
+                }
+                
+                response = requests.get(
+                    f"https://api.harvestapp.com/v2/time_entries?from={date}&to={date}",
+                    headers=headers
+                )
+                response.raise_for_status()
+                data = response.json()
+                
+                entries = []
+                total_hours = 0
+                for entry in data.get("time_entries", []):
+                    entries.append({
+                        "id": entry["id"],
+                        "project": entry.get("project", {}).get("name", "Unknown"),
+                        "task": entry.get("task", {}).get("name", "Unknown"),
+                        "hours": entry["hours"],
+                        "notes": entry.get("notes", ""),
+                        "is_running": entry.get("is_running", False),
+                    })
+                    total_hours += entry["hours"]
+                
+                return {"date": date, "total_hours": total_hours, "entries": entries}
+            
+            def harvest_log_time(
+                project_name: str,
+                hours: float,
+                notes: str = "",
+                task_name: Optional[str] = None,
+                date: Optional[str] = None,
+            ) -> Dict[str, Any]:
+                """Log time to Harvest."""
+                client = get_harvest_client()
+                if not client:
+                    return {"error": "Harvest not configured"}
+                
+                import requests
+                headers = {
+                    "Authorization": f"Bearer {client.config.access_token}",
+                    "Harvest-Account-Id": str(client.config.account_id),
+                    "User-Agent": "Agent007 Orchestrator",
+                    "Content-Type": "application/json"
+                }
+                
+                # Get user's project assignments
+                response = requests.get(
+                    "https://api.harvestapp.com/v2/users/me/project_assignments",
+                    headers=headers
+                )
+                response.raise_for_status()
+                assignments = response.json().get("project_assignments", [])
+                
+                # Find matching project
+                project_assignment = None
+                for a in assignments:
+                    if project_name.lower() in a["project"]["name"].lower():
+                        project_assignment = a
+                        break
+                
+                if not project_assignment:
+                    available = [a["project"]["name"] for a in assignments[:10]]
+                    return {"error": f"Project '{project_name}' not found. Available: {available}"}
+                
+                project = project_assignment["project"]
+                task_assignments = project_assignment.get("task_assignments", [])
+                
+                if not task_assignments:
+                    return {"error": f"No tasks found for project {project['name']}"}
+                
+                task = task_assignments[0]["task"]
+                if task_name:
+                    for t in task_assignments:
+                        if task_name.lower() in t["task"]["name"].lower():
+                            task = t["task"]
+                            break
+                
+                spent_date = date or datetime.now().strftime("%Y-%m-%d")
+                entry_data = {
+                    "project_id": project["id"],
+                    "task_id": task["id"],
+                    "spent_date": spent_date,
+                    "hours": hours,
+                    "notes": notes or "Logged via Agent007"
+                }
+                
+                response = requests.post(
+                    "https://api.harvestapp.com/v2/time_entries",
+                    headers=headers,
+                    json=entry_data
+                )
+                response.raise_for_status()
+                
+                return {
+                    "success": True,
+                    "project": project["name"],
+                    "task": task["name"],
+                    "hours": hours,
+                    "date": spent_date
+                }
+            
+            def harvest_list_projects() -> Dict[str, Any]:
+                """List available Harvest projects."""
+                client = get_harvest_client()
+                if not client:
+                    return {"error": "Harvest not configured"}
+                
+                import requests
+                headers = {
+                    "Authorization": f"Bearer {client.config.access_token}",
+                    "Harvest-Account-Id": str(client.config.account_id),
+                    "User-Agent": "Agent007 Orchestrator"
+                }
+                
+                response = requests.get(
+                    "https://api.harvestapp.com/v2/users/me/project_assignments",
+                    headers=headers
+                )
+                response.raise_for_status()
+                assignments = response.json().get("project_assignments", [])
+                
+                return {
+                    "count": len(assignments),
+                    "projects": [
+                        {"id": a["project"]["id"], "name": a["project"]["name"]}
+                        for a in assignments if a.get("is_active", True)
+                    ]
+                }
+            
+            self.register(
+                "harvest_get_time_entries",
+                "Get time entries from Harvest for a specific date. Returns hours logged, projects, and tasks.",
+                harvest_get_time_entries,
+                {
+                    "type": "object",
+                    "properties": {
+                        "date": {"type": "string", "description": "Date in YYYY-MM-DD format. Defaults to today."}
+                    }
+                },
+                category="harvest"
+            )
+            
+            self.register(
+                "harvest_log_time",
+                "Log time to a Harvest project. Requires project name and hours.",
+                harvest_log_time,
+                {
+                    "type": "object",
+                    "properties": {
+                        "project_name": {"type": "string", "description": "Name of the project (partial match works)"},
+                        "hours": {"type": "number", "description": "Hours to log (e.g., 1.5)"},
+                        "notes": {"type": "string", "description": "Description of work done"},
+                        "task_name": {"type": "string", "description": "Optional task name"},
+                        "date": {"type": "string", "description": "Date in YYYY-MM-DD format"}
+                    },
+                    "required": ["project_name", "hours"]
+                },
+                category="harvest"
+            )
+            
+            self.register(
+                "harvest_list_projects",
+                "List all active Harvest projects you're assigned to.",
+                harvest_list_projects,
+                {"type": "object", "properties": {}},
+                category="harvest"
+            )
+            
+        except ImportError:
+            pass  # Harvest tools not available
+    
+    # =========================================================================
+    # Slack Tools
+    # =========================================================================
+    
+    def _register_slack_tools(self):
+        def slack_search_messages(query: str, channel: Optional[str] = None) -> Dict[str, Any]:
+            """Search Slack messages."""
+            try:
+                from slack_sdk import WebClient
+                
+                token = os.getenv("SLACK_BOT_TOKEN")
+                if not token:
+                    return {"error": "Slack not configured. Set SLACK_BOT_TOKEN."}
+                
+                client = WebClient(token=token)
+                search_query = f"in:{channel} {query}" if channel else query
+                response = client.search_messages(query=search_query, count=10)
+                
+                messages = []
+                for match in response.get("messages", {}).get("matches", []):
+                    messages.append({
+                        "text": match.get("text", "")[:200],
+                        "user": match.get("username", ""),
+                        "channel": match.get("channel", {}).get("name", ""),
+                    })
+                
+                return {"count": len(messages), "messages": messages}
+            
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def slack_get_recent_messages(channel: str, limit: int = 10) -> Dict[str, Any]:
+            """Get recent messages from a Slack channel."""
+            try:
+                from slack_sdk import WebClient
+                
+                token = os.getenv("SLACK_BOT_TOKEN")
+                if not token:
+                    return {"error": "Slack not configured"}
+                
+                client = WebClient(token=token)
+                if channel.startswith("#"):
+                    channel = channel[1:]
+                
+                channels_response = client.conversations_list(types="public_channel,private_channel")
+                channel_id = None
+                for ch in channels_response.get("channels", []):
+                    if ch["name"] == channel:
+                        channel_id = ch["id"]
+                        break
+                
+                if not channel_id:
+                    return {"error": f"Channel '{channel}' not found"}
+                
+                response = client.conversations_history(channel=channel_id, limit=limit)
+                
+                return {
+                    "channel": channel,
+                    "messages": [{"text": m.get("text", "")[:200]} for m in response.get("messages", [])]
+                }
+            
+            except Exception as e:
+                return {"error": str(e)}
+        
+        self.register(
+            "slack_search_messages",
+            "Search Slack messages across channels.",
+            slack_search_messages,
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"},
+                    "channel": {"type": "string", "description": "Optional channel name to search in"}
+                },
+                "required": ["query"]
+            },
+            category="slack"
+        )
+        
+        self.register(
+            "slack_get_recent_messages",
+            "Get recent messages from a specific Slack channel.",
+            slack_get_recent_messages,
+            {
+                "type": "object",
+                "properties": {
+                    "channel": {"type": "string", "description": "Channel name (with or without #)"},
+                    "limit": {"type": "integer", "description": "Number of messages (default: 10)"}
+                },
+                "required": ["channel"]
+            },
+            category="slack"
+        )
+    
+    # =========================================================================
+    # ClickUp Tools
+    # =========================================================================
+    
+    def _register_clickup_tools(self):
+        try:
+            from services.tickets.clickup_client import get_clickup_client, ClickUpClient
+            
+            def clickup_list_tasks(list_id: str = None, include_closed: bool = False) -> Dict[str, Any]:
+                """List tasks from ClickUp."""
+                api_token = os.getenv("CLICKUP_API_TOKEN")
+                if not api_token:
+                    return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+                
+                client = get_clickup_client()
+                
+                if not list_id:
+                    list_id = os.getenv("CLICKUP_DEFAULT_LIST_ID")
+                    if not list_id:
+                        workspaces = client.get_workspaces()
+                        if workspaces:
+                            spaces = client.get_spaces(workspaces[0]["id"])
+                            if spaces:
+                                lists = client.get_folderless_lists(spaces[0]["id"])
+                                if lists:
+                                    list_id = lists[0]["id"]
+                
+                if not list_id:
+                    return {"error": "No list_id provided. Set CLICKUP_DEFAULT_LIST_ID or use clickup_list_spaces to find one."}
+                
+                tasks = client.list_tasks(list_id, include_closed=include_closed)
+                
+                return {
+                    "list_id": list_id,
+                    "count": len(tasks),
+                    "tasks": [
+                        {
+                            "id": t.id,
+                            "name": t.name,
+                            "status": t.status,
+                            "priority": t.priority_name,
+                            "url": t.url,
+                        }
+                        for t in tasks[:20]
+                    ]
+                }
+            
+            def clickup_create_task(
+                name: str,
+                description: str = "",
+                priority: int = 3,
+                list_id: str = None,
+                status: str = None,
+                tags: List[str] = None,
+            ) -> Dict[str, Any]:
+                """Create a new task in ClickUp."""
+                api_token = os.getenv("CLICKUP_API_TOKEN")
+                if not api_token:
+                    return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+                
+                client = get_clickup_client()
+                
+                if not list_id:
+                    list_id = os.getenv("CLICKUP_DEFAULT_LIST_ID")
+                
+                if not list_id:
+                    return {"error": "No list_id provided. Set CLICKUP_DEFAULT_LIST_ID."}
+                
+                task = client.create_task(
+                    list_id=list_id,
+                    name=name,
+                    description=description,
+                    priority=priority,
+                    status=status,
+                    tags=tags or [],
+                )
+                
+                if task:
+                    return {
+                        "success": True,
+                        "task": {"id": task.id, "name": task.name, "url": task.url}
+                    }
+                return {"error": "Failed to create task"}
+            
+            def clickup_update_task(
+                task_id: str,
+                name: str = None,
+                description: str = None,
+                status: str = None,
+                priority: int = None,
+            ) -> Dict[str, Any]:
+                """Update an existing ClickUp task."""
+                api_token = os.getenv("CLICKUP_API_TOKEN")
+                if not api_token:
+                    return {"error": "ClickUp not configured"}
+                
+                client = get_clickup_client()
+                task = client.update_task(task_id, name, description, status, priority)
+                
+                if task:
+                    return {"success": True, "task": {"id": task.id, "name": task.name, "status": task.status}}
+                return {"error": "Failed to update task"}
+            
+            def clickup_get_task(task_id: str) -> Dict[str, Any]:
+                """Get details of a specific ClickUp task."""
+                api_token = os.getenv("CLICKUP_API_TOKEN")
+                if not api_token:
+                    return {"error": "ClickUp not configured"}
+                
+                client = get_clickup_client()
+                task = client.get_task(task_id)
+                
+                if task:
+                    return {
+                        "task": {
+                            "id": task.id,
+                            "name": task.name,
+                            "description": task.description[:500] if task.description else "",
+                            "status": task.status,
+                            "priority": task.priority_name,
+                            "url": task.url,
+                        }
+                    }
+                return {"error": "Task not found"}
+            
+            def clickup_add_comment(task_id: str, comment: str) -> Dict[str, Any]:
+                """Add a comment to a ClickUp task."""
+                api_token = os.getenv("CLICKUP_API_TOKEN")
+                if not api_token:
+                    return {"error": "ClickUp not configured"}
+                
+                client = get_clickup_client()
+                success = client.add_comment(task_id, comment)
+                
+                return {"success": success, "task_id": task_id}
+            
+            def clickup_list_spaces() -> Dict[str, Any]:
+                """List ClickUp workspaces, spaces, and lists."""
+                api_token = os.getenv("CLICKUP_API_TOKEN")
+                if not api_token:
+                    return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+                
+                client = get_clickup_client()
+                workspaces = client.get_workspaces()
+                
+                result = {"workspaces": []}
+                for ws in workspaces[:3]:
+                    ws_data = {"id": ws["id"], "name": ws["name"], "spaces": []}
+                    
+                    spaces = client.get_spaces(ws["id"])
+                    for space in spaces[:5]:
+                        space_data = {"id": space["id"], "name": space["name"], "lists": []}
+                        
+                        lists = client.get_folderless_lists(space["id"])
+                        for lst in lists[:10]:
+                            space_data["lists"].append({"id": lst["id"], "name": lst["name"]})
+                        
+                        ws_data["spaces"].append(space_data)
+                    
+                    result["workspaces"].append(ws_data)
+                
+                return result
+            
+            self.register(
+                "clickup_list_tasks",
+                "List tasks from a ClickUp list. Shows open tasks with status and priority.",
+                clickup_list_tasks,
+                {
+                    "type": "object",
+                    "properties": {
+                        "list_id": {"type": "string", "description": "ClickUp list ID (uses default if not provided)"},
+                        "include_closed": {"type": "boolean", "description": "Include closed tasks (default: false)"}
+                    }
+                },
+                category="clickup"
+            )
+            
+            self.register(
+                "clickup_create_task",
+                "Create a new task in ClickUp. Use for creating tickets, tasks, or to-dos.",
+                clickup_create_task,
+                {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Task title"},
+                        "description": {"type": "string", "description": "Task description (markdown)"},
+                        "priority": {"type": "integer", "description": "1=Urgent, 2=High, 3=Normal, 4=Low"},
+                        "list_id": {"type": "string", "description": "ClickUp list ID"},
+                        "status": {"type": "string", "description": "Task status"},
+                        "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags"}
+                    },
+                    "required": ["name"]
+                },
+                category="clickup"
+            )
+            
+            self.register(
+                "clickup_update_task",
+                "Update an existing ClickUp task (status, priority, name, description).",
+                clickup_update_task,
+                {
+                    "type": "object",
+                    "properties": {
+                        "task_id": {"type": "string", "description": "ClickUp task ID"},
+                        "name": {"type": "string"},
+                        "description": {"type": "string"},
+                        "status": {"type": "string"},
+                        "priority": {"type": "integer"}
+                    },
+                    "required": ["task_id"]
+                },
+                category="clickup"
+            )
+            
+            self.register(
+                "clickup_get_task",
+                "Get detailed information about a specific ClickUp task.",
+                clickup_get_task,
+                {
+                    "type": "object",
+                    "properties": {
+                        "task_id": {"type": "string", "description": "ClickUp task ID"}
+                    },
+                    "required": ["task_id"]
+                },
+                category="clickup"
+            )
+            
+            self.register(
+                "clickup_add_comment",
+                "Add a comment to a ClickUp task.",
+                clickup_add_comment,
+                {
+                    "type": "object",
+                    "properties": {
+                        "task_id": {"type": "string", "description": "ClickUp task ID"},
+                        "comment": {"type": "string", "description": "Comment text"}
+                    },
+                    "required": ["task_id", "comment"]
+                },
+                category="clickup"
+            )
+            
+            self.register(
+                "clickup_list_spaces",
+                "List ClickUp workspaces, spaces, and lists. Use to find list IDs for creating tasks.",
+                clickup_list_spaces,
+                {"type": "object", "properties": {}},
+                category="clickup"
+            )
+            
+        except ImportError:
+            pass
+    
+    # =========================================================================
+    # Zendesk Tools
+    # =========================================================================
+    
+    def _register_zendesk_tools(self):
+        try:
+            from services.tickets.zendesk_client import get_zendesk_client
+            
+            def zendesk_list_tickets(status: str = None, limit: int = 20) -> Dict[str, Any]:
+                """List Zendesk tickets."""
+                api_token = os.getenv("ZENDESK_API_TOKEN")
+                if not api_token:
+                    return {"error": "Zendesk not configured. Set ZENDESK_API_TOKEN."}
+                
+                client = get_zendesk_client()
+                tickets = client.list_tickets(status=status, limit=limit)
+                
+                return {
+                    "count": len(tickets),
+                    "tickets": [
+                        {
+                            "id": t.id,
+                            "subject": t.subject,
+                            "status": t.status,
+                            "priority": t.priority,
+                            "requester": t.requester_email,
+                        }
+                        for t in tickets
+                    ]
+                }
+            
+            def zendesk_get_ticket(ticket_id: int) -> Dict[str, Any]:
+                """Get details of a Zendesk ticket."""
+                client = get_zendesk_client()
+                ticket = client.get_ticket(ticket_id)
+                
+                if ticket:
+                    return {
+                        "ticket": {
+                            "id": ticket.id,
+                            "subject": ticket.subject,
+                            "status": ticket.status,
+                            "priority": ticket.priority,
+                            "description": ticket.description[:500],
+                            "url": ticket.url,
+                        }
+                    }
+                return {"error": "Ticket not found"}
+            
+            def zendesk_create_ticket(
+                subject: str,
+                description: str,
+                priority: str = "normal",
+            ) -> Dict[str, Any]:
+                """Create a new Zendesk ticket."""
+                client = get_zendesk_client()
+                ticket = client.create_ticket(subject, description, priority)
+                
+                if ticket:
+                    return {"success": True, "ticket_id": ticket.id}
+                return {"error": "Failed to create ticket"}
+            
+            self.register(
+                "zendesk_list_tickets",
+                "List Zendesk support tickets with optional status filter.",
+                zendesk_list_tickets,
+                {
+                    "type": "object",
+                    "properties": {
+                        "status": {"type": "string", "description": "Filter: new, open, pending, solved, closed"},
+                        "limit": {"type": "integer", "description": "Max tickets to return (default: 20)"}
+                    }
+                },
+                category="zendesk"
+            )
+            
+            self.register(
+                "zendesk_get_ticket",
+                "Get details of a specific Zendesk ticket.",
+                zendesk_get_ticket,
+                {
+                    "type": "object",
+                    "properties": {
+                        "ticket_id": {"type": "integer", "description": "Zendesk ticket ID"}
+                    },
+                    "required": ["ticket_id"]
+                },
+                category="zendesk"
+            )
+            
+            self.register(
+                "zendesk_create_ticket",
+                "Create a new Zendesk support ticket.",
+                zendesk_create_ticket,
+                {
+                    "type": "object",
+                    "properties": {
+                        "subject": {"type": "string", "description": "Ticket subject"},
+                        "description": {"type": "string", "description": "Ticket description"},
+                        "priority": {"type": "string", "description": "low, normal, high, urgent"}
+                    },
+                    "required": ["subject", "description"]
+                },
+                category="zendesk"
+            )
+            
+        except ImportError:
+            pass
+    
+    # =========================================================================
+    # Memory Tools
+    # =========================================================================
+    
+    def _register_memory_tools(self):
+        def memory_remember(category: str, key: str, value: str) -> Dict[str, Any]:
+            """Store a fact or context in memory."""
+            try:
+                from services.memory import get_memory_service
+                memory = get_memory_service()
+                entry_id = memory.add_context(category, key, value, source="assistant")
+                return {"success": True, "id": entry_id, "message": f"Remembered: {category}/{key}"}
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def memory_recall(query: str) -> Dict[str, Any]:
+            """Search memory for relevant context."""
+            try:
+                from services.memory import get_memory_service
+                memory = get_memory_service()
+                results = memory.search_context(query, limit=5)
+                return {
+                    "count": len(results),
+                    "results": [
+                        {"category": r.category, "key": r.key, "value": r.content}
+                        for r in results
+                    ]
+                }
+            except Exception as e:
+                return {"error": str(e)}
+        
+        self.register(
+            "memory_remember",
+            "Store a fact, preference, or context for future reference.",
+            memory_remember,
+            {
+                "type": "object",
+                "properties": {
+                    "category": {"type": "string", "description": "Category: project, preference, fact, person, workflow"},
+                    "key": {"type": "string", "description": "Unique identifier"},
+                    "value": {"type": "string", "description": "Information to remember"}
+                },
+                "required": ["category", "key", "value"]
+            },
+            category="memory"
+        )
+        
+        self.register(
+            "memory_recall",
+            "Search memory for relevant stored information.",
+            memory_recall,
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"}
+                },
+                "required": ["query"]
+            },
+            category="memory"
+        )
+    
+    # =========================================================================
+    # Agent Tools - Dispatch to CrewAI Agents
+    # =========================================================================
+    
+    def _register_agent_tools(self):
+        def run_dev_task(
+            task: str,
+            context: str = "",
+            require_review: bool = True,
+        ) -> Dict[str, Any]:
+            """Run a development task through the CrewAI dev crew."""
+            try:
+                from crews.dev_crew import run_dev_task as crew_run_dev_task
+                result = crew_run_dev_task(
+                    task_description=task,
+                    context=context,
+                    require_review=require_review,
+                )
+                return result
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def get_agent_status() -> Dict[str, Any]:
+            """Get status of available agents and crews."""
+            try:
+                from agents import (
+                    create_manager_agent,
+                    create_coder_agent,
+                    create_reviewer_agent,
+                )
+                
+                agents = []
+                for name, creator in [
+                    ("Manager", create_manager_agent),
+                    ("Coder", create_coder_agent),
+                    ("Reviewer", create_reviewer_agent),
+                ]:
+                    try:
+                        agent = creator()
+                        agents.append({
+                            "name": name,
+                            "role": agent.role,
+                            "status": "available"
+                        })
+                    except Exception as e:
+                        agents.append({"name": name, "status": "error", "error": str(e)})
+                
+                return {"agents": agents}
+            except Exception as e:
+                return {"error": str(e)}
+        
+        self.register(
+            "run_dev_task",
+            "Run a development task through the AI crew (Manager plans, Coder implements, Reviewer checks). Use for code changes, file operations, or complex tasks.",
+            run_dev_task,
+            {
+                "type": "object",
+                "properties": {
+                    "task": {"type": "string", "description": "What needs to be done"},
+                    "context": {"type": "string", "description": "Additional context (existing code, requirements)"},
+                    "require_review": {"type": "boolean", "description": "Run code review after implementation (default: true)"}
+                },
+                "required": ["task"]
+            },
+            category="agents"
+        )
+        
+        self.register(
+            "get_agent_status",
+            "Check status of available AI agents and crews.",
+            get_agent_status,
+            {"type": "object", "properties": {}},
+            category="agents"
+        )
+
+
+# ============================================================================
+# Singleton Instance
+# ============================================================================
+
+_registry: Optional[ToolRegistry] = None
+
+
+def get_registry() -> ToolRegistry:
+    """Get the global tool registry."""
+    global _registry
+    if _registry is None:
+        _registry = ToolRegistry()
+    return _registry
+
+
+def get_all_tools() -> List[str]:
+    """Get names of all registered tools."""
+    return list(get_registry()._tools.keys())
+
+
+def execute_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    """Execute a tool by name."""
+    return get_registry().execute(name, arguments)
+
+
+def get_tool_definitions() -> List[Dict[str, Any]]:
+    """Get tool definitions for Claude API."""
+    return get_registry().get_definitions()
+
+
+# Alias for backwards compatibility
+TOOL_DEFINITIONS = property(lambda self: get_tool_definitions())

@@ -1,0 +1,51 @@
+# Cursor Indexing Ignore - Root Level
+# Exclude files that add tokens without value
+
+# Separately maintained repos (DevOps has its own workspace)
+DevOps/
+
+# Dependencies
+**/vendor/
+**/node_modules/
+**/__pycache__/
+**/*.pyc
+
+# Temporary and generated files
+**/tmp/
+**/logs/
+**/*.log
+**/*.sql
+**/*.csv
+
+# AppMap recordings
+**/appmap/
+
+# Cache directories
+**/.pytest_cache/
+**/.mypy_cache/
+**/.cache/
+**/cache/
+
+# IDE files
+**/.vscode/
+**/.idea/
+
+# Database files
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# Media files
+**/*.png
+**/*.jpg
+**/*.gif
+**/*.pdf
+
+# Lock files
+**/package-lock.json
+**/yarn.lock
+**/composer.lock
+**/poetry.lock
+
+# Test data
+**/upwork/invoices/

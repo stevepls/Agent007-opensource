@@ -1,0 +1,70 @@
+# Claude Code Ignore - Reduce token usage by excluding non-essential files
+# https://docs.anthropic.com/en/docs/claude-code/memory#ignore-files
+
+# Separately maintained repos
+DevOps/
+
+# Dependencies and build artifacts
+**/vendor/
+**/node_modules/
+**/__pycache__/
+**/*.pyc
+**/dist/
+**/build/
+**/.eggs/
+**/*.egg-info/
+
+# Temporary and generated files
+**/tmp/
+**/logs/
+**/*.log
+**/*.sql
+**/*.sql.gz
+**/*.csv
+
+# AppMap recordings (large JSON files)
+**/appmap/
+
+# Cache directories
+**/.pytest_cache/
+**/.mypy_cache/
+**/.coverage
+**/htmlcov/
+**/.cache/
+**/cache/
+
+# IDE and editor files
+**/.vscode/
+**/.idea/
+**/.cursor/
+**/*.swp
+**/*.swo
+
+# Environment and secrets (already gitignored but be explicit)
+**/.env
+**/*.env
+!**/*.env.example
+!**/env.example
+
+# Database files
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# Media and binary files
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.ico
+**/*.pdf
+
+# Lock files (don't need to read these)
+**/package-lock.json
+**/yarn.lock
+**/composer.lock
+**/poetry.lock
+**/Pipfile.lock
+
+# Test data and fixtures that are large
+**/upwork/invoices/
