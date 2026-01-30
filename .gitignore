@@ -85,3 +85,16 @@ htmlcov/
 
 # Audit database (local dev)
 audit.db
+
+# Screenshots and temporary images
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Cursor ignore files (track these)
+!**/.cursorindexingignore
+
+# Claude ignore file (track this)
+!.claudeignore
+!dashboard/lib/
