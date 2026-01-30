@@ -27,6 +27,15 @@ from .canned_responses import (
     use_canned_response,
 )
 
+# Schema Detection (monitors all projects for DB changes)
+from .schema_detector import (
+    get_schema_detector,
+    add_client_project,
+    SchemaChange,
+    SchemaChangeType,
+    SchemaChangeDetector,
+)
+
 __all__ = [
     # Accounting
     "UpworkSyncClient",
@@ -45,4 +54,11 @@ __all__ = [
     "ResponseChannel",
     "get_response_registry",
     "use_canned_response",
+    
+    # Schema Detection
+    "get_schema_detector",
+    "add_client_project",
+    "SchemaChange",
+    "SchemaChangeType",
+    "SchemaChangeDetector",
 ]

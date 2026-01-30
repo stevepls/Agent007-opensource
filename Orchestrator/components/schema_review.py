@@ -46,8 +46,9 @@ def render_schema_change(change: "SchemaChange"):
         
         with col1:
             status = "✅ Reviewed" if change.reviewed else "⏳ Pending Review"
+            project_badge = f"[{change.project}]" if change.project != "agent007" else ""
             st.markdown(f"""
-            **{style['icon']} {change.type.value.replace('_', ' ').title()}** {status}
+            **{style['icon']} {change.type.value.replace('_', ' ').title()}** {project_badge} {status}
             
             `{change.file_path}`
             """)
@@ -135,7 +136,7 @@ def render_schema_review_panel(show_all: bool = False):
     detector = get_schema_detector()
     
     # Controls
-    col1, col2, col3 = st.columns([2, 1, 1])
+    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
     
     with col1:
         since = st.selectbox(
@@ -146,15 +147,30 @@ def render_schema_review_panel(show_all: bool = False):
         )
     
     with col2:
-        include_reviewed = st.checkbox("Show Reviewed", value=show_all, key="schema_show_reviewed")
+        # Project filter
+        projects = list(detector.list_projects().keys())
+        project_filter = st.selectbox(
+            "Project",
+            ["All Projects"] + projects,
+            index=0,
+            key="schema_project"
+        )
     
     with col3:
+        include_reviewed = st.checkbox("Show Reviewed", value=show_all, key="schema_show_reviewed")
+    
+    with col4:
         if st.button("🔄 Refresh", key="schema_refresh"):
             detector.detect_changes(since=since)
             st.rerun()
     
     # Get changes
-    changes = detector.detect_changes(since=since, include_reviewed=include_reviewed)
+    selected_projects = None if project_filter == "All Projects" else [project_filter]
+    changes = detector.detect_changes(
+        since=since,
+        include_reviewed=include_reviewed,
+        projects=selected_projects,
+    )
     
     if not changes:
         st.success("✅ No schema changes found in the selected time range.")
@@ -175,10 +191,17 @@ def render_schema_review_panel(show_all: bool = False):
         st.metric("Reviewed", summary["total"] - summary["unreviewed"])
     
     with col4:
-        # Most common type
-        if summary["by_type"]:
-            most_common = max(summary["by_type"].items(), key=lambda x: x[1])
-            st.metric("Most Common", most_common[0].replace("_", " ").title())
+        # Projects with changes
+        projects_count = len(summary.get("by_project", {}))
+        st.metric("Projects", projects_count)
+    
+    # Show monitored projects
+    if summary.get("monitored_projects"):
+        with st.expander(f"📂 Monitored Projects ({len(summary['monitored_projects'])})"):
+            for proj in summary["monitored_projects"]:
+                count = summary.get("by_project", {}).get(proj, 0)
+                status = f"({count} changes)" if count > 0 else ""
+                st.markdown(f"• **{proj}** {status}")
     
     st.divider()
     

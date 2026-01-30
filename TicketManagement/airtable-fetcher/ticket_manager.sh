@@ -62,11 +62,11 @@ source src/venv/bin/activate 2>/dev/null || {
 }
 
 # Export environment variables for both Airtable and Harvest
-export AIRTABLE_PERSONAL_ACCESS_TOKEN=REDACTED_AIRTABLE_TOKEN
-export AIRTABLE_BASE_ID=REDACTED_BASE_ID
-export AIRTABLE_TABLE_ID=REDACTED_TABLE_ID
-export HARVEST_ACCESS_TOKEN=REDACTED_HARVEST_TOKEN
-export HARVEST_ACCOUNT_ID=REDACTED_ACCOUNT_ID
+export AIRTABLE_PERSONAL_ACCESS_TOKEN=REDACTED-AIRTABLE-PAT
+export AIRTABLE_BASE_ID=app37XFdl4xoMbvx3
+export AIRTABLE_TABLE_ID=tblFXfLF3tGjW9IXm
+export HARVEST_ACCESS_TOKEN=REDACTED-HARVEST-TOKEN
+export HARVEST_ACCOUNT_ID=836408
 
 # Helper function to execute commands with proper error handling
 execute_command() {

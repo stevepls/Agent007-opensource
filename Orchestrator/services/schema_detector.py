@@ -3,6 +3,10 @@ Schema Change Detector
 
 Monitors git commits and detects database schema changes.
 Automatically prompts for review when schema changes are found.
+
+Monitors:
+- Agent007/Orchestrator (this project)
+- Client projects (submodules and external paths)
 """
 
 import os
@@ -19,6 +23,35 @@ from enum import Enum
 SERVICES_ROOT = Path(__file__).parent
 ORCHESTRATOR_ROOT = SERVICES_ROOT.parent
 AGENT007_ROOT = ORCHESTRATOR_ROOT.parent
+
+# Client project paths - add your projects here
+# These are checked for schema changes alongside Agent007
+CLIENT_PROJECTS = {
+    # Subprojects within Agent007
+    "upwork-sync": AGENT007_ROOT / "Accounting" / "upwork-sync",
+    "airtable-fetcher": AGENT007_ROOT / "TicketManagement" / "airtable-fetcher",
+    "sync-audit": AGENT007_ROOT / "SyncAudit",
+    
+    # External client projects (uncomment and adjust paths as needed)
+    # These are typically in separate directories
+    # "ap-driving": Path.home() / "projects" / "ap-driving",
+    # "maine-lobster": Path.home() / "projects" / "maine-lobster",
+    # "office-design-group": Path.home() / "projects" / "odg",
+    # "forgelab": Path.home() / "projects" / "forgelab",
+}
+
+# DevOps project paths (from DevOps/config if available)
+# This allows dynamic discovery of projects from the DevOps config
+DEVOPS_ROOT = Path.home() / "DevOps"
+DEVOPS_CONFIG = DEVOPS_ROOT / "config" / "projects.yml"
+
+# Alternative: Check the symlinked or main Agent007 location
+MAIN_AGENT007 = Path.home() / "Agent007"
+if MAIN_AGENT007.exists() and MAIN_AGENT007 != AGENT007_ROOT:
+    # Also check main location for external projects config
+    DEVOPS_CONFIG_ALT = MAIN_AGENT007 / "DevOps" / "config" / "projects.yml"
+else:
+    DEVOPS_CONFIG_ALT = None
 
 
 class SchemaChangeType(Enum):
@@ -47,6 +80,7 @@ class SchemaChange:
     commit_message: str
     commit_date: str
     author: str
+    project: str = "agent007"  # Which project this change is from
     lines_added: int = 0
     lines_removed: int = 0
     preview: str = ""
@@ -63,6 +97,7 @@ class SchemaChange:
             "commit_message": self.commit_message,
             "commit_date": self.commit_date,
             "author": self.author,
+            "project": self.project,
             "lines_added": self.lines_added,
             "lines_removed": self.lines_removed,
             "preview": self.preview,
@@ -144,6 +179,33 @@ class SchemaChangeDetector:
         self._reviewed_changes: set = set()
         self._cached_changes: List[SchemaChange] = []
         self._last_check: Optional[datetime] = None
+        self._project_paths: Dict[str, Path] = self._load_project_paths()
+    
+    def _load_project_paths(self) -> Dict[str, Path]:
+        """Load all project paths to monitor."""
+        paths = {"agent007": AGENT007_ROOT}
+        
+        # Add configured client projects
+        for name, path in CLIENT_PROJECTS.items():
+            if path.exists():
+                paths[name] = path
+        
+        # Try to load from DevOps config if available
+        for config_path in [DEVOPS_CONFIG, DEVOPS_CONFIG_ALT]:
+            if config_path and config_path.exists():
+                try:
+                    import yaml
+                    with open(config_path) as f:
+                        config = yaml.safe_load(f)
+                        for project in config.get("projects", []):
+                            name = project.get("name", "")
+                            project_path = Path(project.get("path", "")).expanduser()
+                            if name and project_path.exists() and name not in paths:
+                                paths[name] = project_path
+                except Exception:
+                    pass  # Silently skip if yaml not available or config invalid
+        
+        return paths
     
     def _run_git(self, *args, cwd: Path = None) -> Optional[str]:
         """Run a git command and return output."""
@@ -181,19 +243,63 @@ class SchemaChangeDetector:
         since: str = "7 days ago",
         limit: int = 20,
         include_reviewed: bool = False,
+        projects: Optional[List[str]] = None,
     ) -> List[SchemaChange]:
         """
-        Detect schema changes in recent commits.
+        Detect schema changes in recent commits across all monitored projects.
         
         Args:
             since: How far back to look (git date format)
-            limit: Maximum commits to check
+            limit: Maximum commits to check per project
             include_reviewed: Include already-reviewed changes
+            projects: Specific projects to check (None = all)
             
         Returns:
             List of detected SchemaChange objects
         """
+        all_changes = []
+        
+        # Determine which projects to scan
+        projects_to_scan = {}
+        if projects:
+            for name in projects:
+                if name in self._project_paths:
+                    projects_to_scan[name] = self._project_paths[name]
+        else:
+            projects_to_scan = self._project_paths
+        
+        # Scan each project
+        for project_name, project_path in projects_to_scan.items():
+            changes = self._detect_changes_in_project(
+                project_name=project_name,
+                project_path=project_path,
+                since=since,
+                limit=limit,
+                include_reviewed=include_reviewed,
+            )
+            all_changes.extend(changes)
+        
+        # Sort by date (newest first)
+        all_changes.sort(key=lambda c: c.commit_date, reverse=True)
+        
+        self._cached_changes = all_changes
+        self._last_check = datetime.utcnow()
+        
+        return all_changes
+    
+    def _detect_changes_in_project(
+        self,
+        project_name: str,
+        project_path: Path,
+        since: str,
+        limit: int,
+        include_reviewed: bool,
+    ) -> List[SchemaChange]:
+        """Detect schema changes in a single project."""
         changes = []
+        
+        if not project_path.exists():
+            return changes
         
         # Get recent commits with files changed
         log_output = self._run_git(
@@ -202,6 +308,7 @@ class SchemaChangeDetector:
             f"-{limit}",
             "--pretty=format:%H|%s|%ai|%an",
             "--name-status",
+            cwd=project_path,
         )
         
         if not log_output:
@@ -232,7 +339,7 @@ class SchemaChangeDetector:
                     file_path = parts[-1]
                     
                     if self._is_schema_file(file_path):
-                        change_id = f"{current_commit[:8]}-{Path(file_path).name}"
+                        change_id = f"{project_name}-{current_commit[:8]}-{Path(file_path).name}"
                         
                         # Skip if already reviewed
                         if change_id in self._reviewed_changes and not include_reviewed:
@@ -244,6 +351,7 @@ class SchemaChangeDetector:
                             f"{current_commit}",
                             "--",
                             file_path,
+                            cwd=project_path,
                         )
                         
                         # Count lines
@@ -270,14 +378,12 @@ class SchemaChangeDetector:
                             commit_message=commit_info["message"],
                             commit_date=commit_info["date"],
                             author=commit_info["author"],
+                            project=project_name,
                             lines_added=added,
                             lines_removed=removed,
                             preview='\n'.join(preview_lines),
                             reviewed=change_id in self._reviewed_changes,
                         ))
-        
-        self._cached_changes = changes
-        self._last_check = datetime.utcnow()
         
         return changes
     
@@ -309,15 +415,43 @@ class SchemaChangeDetector:
             self.detect_changes()
         
         by_type = {}
+        by_project = {}
         for change in self._cached_changes:
             by_type[change.type.value] = by_type.get(change.type.value, 0) + 1
+            by_project[change.project] = by_project.get(change.project, 0) + 1
         
         return {
             "total": len(self._cached_changes),
             "unreviewed": self.get_unreviewd_count(),
             "by_type": by_type,
+            "by_project": by_project,
+            "monitored_projects": list(self._project_paths.keys()),
             "last_check": self._last_check.isoformat() if self._last_check else None,
         }
+    
+    def get_changes_by_project(self, project: str) -> List[SchemaChange]:
+        """Get schema changes for a specific project."""
+        if not self._cached_changes:
+            self.detect_changes()
+        return [c for c in self._cached_changes if c.project == project]
+    
+    def add_project(self, name: str, path: Path) -> bool:
+        """Add a project to monitor."""
+        if path.exists():
+            self._project_paths[name] = path
+            return True
+        return False
+    
+    def remove_project(self, name: str) -> bool:
+        """Remove a project from monitoring."""
+        if name in self._project_paths and name != "agent007":
+            del self._project_paths[name]
+            return True
+        return False
+    
+    def list_projects(self) -> Dict[str, str]:
+        """List all monitored projects with their paths."""
+        return {name: str(path) for name, path in self._project_paths.items()}
 
 
 # Global access
@@ -330,3 +464,9 @@ def get_schema_detector() -> SchemaChangeDetector:
     if _detector is None:
         _detector = SchemaChangeDetector()
     return _detector
+
+
+def add_client_project(name: str, path: str) -> bool:
+    """Add a client project to the schema detector."""
+    detector = get_schema_detector()
+    return detector.add_project(name, Path(path).expanduser())

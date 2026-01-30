@@ -55,6 +55,26 @@ from .harvest import (
     get_tasks as harvest_get_tasks,
 )
 
+from .tickets import (
+    # Zendesk tools
+    ZendeskGetTicketTool,
+    ZendeskListTicketsTool,
+    ZendeskCreateTicketTool,
+    ZendeskAddCommentTool,
+    ZendeskSearchTool,
+    get_zendesk_tools,
+    # ClickUp tools
+    ClickUpGetTaskTool,
+    ClickUpListTasksTool,
+    ClickUpCreateTaskTool,
+    ClickUpAddCommentTool,
+    ClickUpUpdateTaskTool,
+    get_clickup_tools,
+    # Combined
+    TicketSyncStatusTool,
+    get_ticket_tools,
+)
+
 __all__ = [
     # Direct file tools
     "ReadFileTool",
@@ -93,4 +113,19 @@ __all__ = [
     "harvest_get_status",
     "harvest_get_projects",
     "harvest_get_tasks",
+    # Ticket management tools
+    "ZendeskGetTicketTool",
+    "ZendeskListTicketsTool",
+    "ZendeskCreateTicketTool",
+    "ZendeskAddCommentTool",
+    "ZendeskSearchTool",
+    "get_zendesk_tools",
+    "ClickUpGetTaskTool",
+    "ClickUpListTasksTool",
+    "ClickUpCreateTaskTool",
+    "ClickUpAddCommentTool",
+    "ClickUpUpdateTaskTool",
+    "get_clickup_tools",
+    "TicketSyncStatusTool",
+    "get_ticket_tools",
 ]

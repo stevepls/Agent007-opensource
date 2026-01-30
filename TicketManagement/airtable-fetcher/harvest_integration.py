@@ -26,7 +26,7 @@ class HarvestTimeTracker:
         self.headers = {
             "Authorization": f"Bearer {access_token}",
             "Harvest-Account-Id": str(account_id),
-            "User-Agent": "Airtable-Harvest Integration (user@example.com)"
+            "User-Agent": "Airtable-Harvest Integration (steve@forgelab.com)"
         }
         
         # Default project and task IDs (you may need to adjust these)

@@ -35,8 +35,8 @@ Use **ticket IDs** (like 5098) instead of record IDs for all operations:
 
 ## 📊 Harvest Integration
 
-- **Access Token**: REDACTED_HARVEST_TOKEN
-- **Account ID**: REDACTED_ACCOUNT_ID (Forge Lab)
+- **Access Token**: REDACTED-HARVEST-TOKEN
+- **Account ID**: 836408 (Forge Lab)
 - **Time Tracking**: Automatic with ticket references
 - **Project/Task**: Auto-detected or manually specified
 

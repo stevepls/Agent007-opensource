@@ -28,8 +28,8 @@ class AirtableCommentHelper:
         load_dotenv()
         
         # Configuration
-        self.base_id = os.getenv('AIRTABLE_BASE_ID', 'REDACTED_BASE_ID')
-        self.table_id = os.getenv('AIRTABLE_TABLE_ID', 'REDACTED_TABLE_ID')
+        self.base_id = os.getenv('AIRTABLE_BASE_ID', 'app37XFdl4xoMbvx3')
+        self.table_id = os.getenv('AIRTABLE_TABLE_ID', 'tblFXfLF3tGjW9IXm')
         self.personal_access_token = os.getenv('AIRTABLE_PERSONAL_ACCESS_TOKEN')
         
         if not self.personal_access_token:

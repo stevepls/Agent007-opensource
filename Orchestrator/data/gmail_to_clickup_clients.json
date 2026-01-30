@@ -1,0 +1,88 @@
+{
+  "updated_at": "2026-01-26T04:35:00Z",
+  "clients": [
+    {
+      "id": "ap-driving",
+      "name": "AP Driving",
+      "domains": [
+        "apdriving.com",
+        "apdrivingschool.com"
+      ],
+      "emails": [],
+      "vip_emails": [
+        "apdriving.jason@gmail.com"
+      ],
+      "clickup_space_id": "90113645942",
+      "clickup_list_id": "901109833325",
+      "keywords": [
+        "issue",
+        "problem",
+        "error",
+        "bug",
+        "not working",
+        "help",
+        "urgent",
+        "broken",
+        "request",
+        "failed",
+        "unsuccessful"
+      ],
+      "exclude_subjects": [
+        "order is now complete",
+        "order confirmation",
+        "payment received",
+        "thank you for your order",
+        "new appointment:",
+        "accepted:",
+        "declined:"
+      ],
+      "priority": 2,
+      "auto_create": true
+    },
+    {
+      "id": "collegewise",
+      "name": "Collegewise",
+      "domains": [
+        "collegewise.com"
+      ],
+      "emails": [],
+      "vip_emails": [],
+      "clickup_space_id": "48460400",
+      "clickup_list_id": "192558687",
+      "keywords": [
+        "issue",
+        "problem",
+        "error",
+        "bug",
+        "not working",
+        "help",
+        "request"
+      ],
+      "priority": 3,
+      "auto_create": true
+    },
+    {
+      "id": "cysterhood",
+      "name": "Cysterhood/PCOS",
+      "domains": [
+        "cysterhood.com",
+        "pcos.com"
+      ],
+      "emails": [],
+      "vip_emails": [],
+      "clickup_space_id": "48460400",
+      "clickup_list_id": "901112909389",
+      "keywords": [
+        "issue",
+        "problem",
+        "error",
+        "bug",
+        "api",
+        "help",
+        "request"
+      ],
+      "priority": 3,
+      "auto_create": true
+    }
+  ]
+}
