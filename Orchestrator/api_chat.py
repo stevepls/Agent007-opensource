@@ -31,6 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from services.schema_detector import get_schema_detector
 from services.message_queue import get_message_queue
+from services.memory import get_memory_service, MemoryService
 
 # Import Harvest tools
 try:
@@ -66,6 +67,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     """Chat request from the dashboard."""
     messages: List[ChatMessage]
+    session_id: Optional[str] = Field(None, description="Session ID for memory persistence")
     stream: bool = Field(True, description="Stream the response")
     structured_output: bool = Field(True, description="Include UI JSON")
 
@@ -177,7 +179,7 @@ async def chat(request: ChatRequest):
     Stream a chat response with structured UI updates.
     
     Connects to Claude API and streams the response while parsing
-    for UI update JSON blocks.
+    for UI update JSON blocks. Persists conversation to memory.
     """
     if not request.messages:
         raise HTTPException(status_code=400, detail="No messages provided")
@@ -187,34 +189,55 @@ async def chat(request: ChatRequest):
     if last_message.role != "user":
         raise HTTPException(status_code=400, detail="Last message must be from user")
     
+    # Get or create session for memory persistence
+    memory = get_memory_service()
+    session_id = request.session_id
+    if not session_id:
+        session_id = memory.create_session()
+    
+    # Store user message in memory
+    memory.add_message(session_id, role="user", content=last_message.content)
+    
+    # Get relevant context from memory
+    memory_context = memory.get_relevant_context(last_message.content, limit=5)
+    
     # Check for Claude API key
     api_key = os.getenv("ANTHROPIC_API_KEY")
     
     if api_key and ANTHROPIC_AVAILABLE:
         # Use Claude API
         return StreamingResponse(
-            stream_claude_response(request.messages, api_key),
+            stream_claude_response(request.messages, api_key, session_id, memory_context),
             media_type="text/plain; charset=utf-8",
+            headers={"X-Session-ID": session_id},
         )
     else:
         # Use mock response
         return StreamingResponse(
-            stream_mock_response(last_message.content),
+            stream_mock_response(last_message.content, session_id, memory_context),
             media_type="text/plain; charset=utf-8",
+            headers={"X-Session-ID": session_id},
         )
 
 
 async def stream_claude_response(
     messages: List[ChatMessage],
     api_key: str,
+    session_id: str = None,
+    memory_context: str = "",
 ) -> AsyncGenerator[str, None]:
     """Stream response from Claude API with tool calling."""
     from services.chat_tools import TOOL_DEFINITIONS, execute_tool
     
     client = anthropic.AsyncAnthropic(api_key=api_key)
+    memory = get_memory_service()
     
     # Build context from current system state
     context = await build_context()
+    
+    # Add memory context
+    if memory_context:
+        context = memory_context + "\n\n" + context
     full_system = SYSTEM_PROMPT + "\n\nCurrent context:\n" + context
     
     # Convert messages
@@ -224,6 +247,7 @@ async def stream_claude_response(
     ]
     
     max_iterations = 5  # Prevent infinite tool loops
+    full_response = ""  # Collect full response for memory
     
     for _ in range(max_iterations):
         # Call Claude with tools
@@ -248,6 +272,7 @@ async def stream_claude_response(
         # If there's text, yield it
         if text_content:
             yield text_content
+            full_response += text_content
         
         # If no tool calls, we're done
         if not tool_calls:
@@ -255,7 +280,9 @@ async def stream_claude_response(
         
         # Execute tool calls
         for tool_call in tool_calls:
-            yield f"\n\n*Using {tool_call.name}...*\n"
+            tool_msg = f"\n\n*Using {tool_call.name}...*\n"
+            yield tool_msg
+            full_response += tool_msg
             
             # Execute the tool
             result = execute_tool(tool_call.name, tool_call.input)
@@ -275,15 +302,28 @@ async def stream_claude_response(
                     "content": json.dumps(result),
                 }],
             })
+    
+    # Store assistant response in memory
+    if session_id and full_response:
+        memory.add_message(session_id, role="assistant", content=full_response)
 
 
-async def stream_mock_response(user_message: str) -> AsyncGenerator[str, None]:
+async def stream_mock_response(
+    user_message: str,
+    session_id: str = None,
+    memory_context: str = "",
+) -> AsyncGenerator[str, None]:
     """Generate a conversational response when Claude API is not available."""
+    memory = get_memory_service()
     message_lower = user_message.lower()
     words = message_lower.split()
     
     # Get real system context
     context = await build_context()
+    
+    # Add memory context
+    if memory_context:
+        context = memory_context + "\n\n" + context
     
     # Analyze intent more naturally (strip punctuation for matching)
     import re
@@ -528,6 +568,10 @@ Just tell me what you'd like to do - deploy, track time, check tickets, or somet
     for chunk in chunks:
         yield chunk
         await asyncio.sleep(0.05)
+    
+    # Store assistant response in memory
+    if session_id:
+        memory.add_message(session_id, role="assistant", content=full_response)
 
 
 async def build_context() -> str:
@@ -616,3 +660,127 @@ async def process_approval(action: ApprovalAction):
         "status": "approved" if action.approved else "rejected",
         "message": f"Action {'approved and executed' if action.approved else 'rejected'}",
     }
+
+
+# ============================================================================
+# Memory Endpoints
+# ============================================================================
+
+class ContextEntry(BaseModel):
+    """A context/memory entry."""
+    category: str
+    key: str
+    value: str
+    source: str = "user"
+    confidence: float = 1.0
+    expires_in_days: Optional[int] = None
+
+
+@router.get("/memory/stats")
+async def get_memory_stats():
+    """Get memory database statistics."""
+    memory = get_memory_service()
+    return memory.get_stats()
+
+
+@router.get("/memory/sessions")
+async def list_sessions(limit: int = 20):
+    """List recent conversation sessions."""
+    memory = get_memory_service()
+    return {"sessions": memory.list_sessions(limit=limit)}
+
+
+@router.get("/memory/sessions/{session_id}")
+async def get_session(session_id: str):
+    """Get session details and conversation history."""
+    memory = get_memory_service()
+    session = memory.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    history = memory.get_conversation(session_id, limit=100)
+    return {
+        "session": session,
+        "messages": [
+            {
+                "role": m.role,
+                "content": m.content,
+                "created_at": m.created_at.isoformat(),
+            }
+            for m in history
+        ],
+    }
+
+
+@router.get("/memory/context")
+async def list_context(category: Optional[str] = None):
+    """List stored context entries."""
+    memory = get_memory_service()
+    return {"entries": memory.list_context(category=category)}
+
+
+@router.post("/memory/context")
+async def add_context(entry: ContextEntry):
+    """Add or update a context entry."""
+    memory = get_memory_service()
+    entry_id = memory.add_context(
+        category=entry.category,
+        key=entry.key,
+        value=entry.value,
+        source=entry.source,
+        confidence=entry.confidence,
+        expires_in_days=entry.expires_in_days,
+    )
+    return {"success": True, "id": entry_id}
+
+
+@router.delete("/memory/context/{category}/{key}")
+async def delete_context(category: str, key: str):
+    """Delete a context entry."""
+    memory = get_memory_service()
+    deleted = memory.delete_context(category, key)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Context entry not found")
+    return {"success": True}
+
+
+@router.get("/memory/search")
+async def search_memory(q: str, limit: int = 10):
+    """Search context entries."""
+    memory = get_memory_service()
+    results = memory.search_context(q, limit=limit)
+    return {
+        "results": [
+            {
+                "category": r.category,
+                "key": r.key,
+                "content": r.content,
+                "relevance": r.relevance,
+                "source": r.source,
+            }
+            for r in results
+        ]
+    }
+
+
+@router.post("/memory/cleanup")
+async def cleanup_memory():
+    """Remove expired context entries."""
+    memory = get_memory_service()
+    removed = memory.cleanup_expired()
+    return {"success": True, "removed": removed}
+
+
+@router.get("/memory/export")
+async def export_memory():
+    """Export all context for backup."""
+    memory = get_memory_service()
+    return memory.export_context()
+
+
+@router.post("/memory/import")
+async def import_memory(data: Dict[str, Any]):
+    """Import context from backup."""
+    memory = get_memory_service()
+    count = memory.import_context(data)
+    return {"success": True, "imported": count}
