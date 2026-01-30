@@ -298,9 +298,8 @@ class TimeReportGenerator:
                 end = today.replace(year=today.year - 1, month=12, day=31)
             else:
                 start = today.replace(month=(quarter - 1) * 3 + 1, day=1)
-                end_month = quarter * 3
-                end = today.replace(month=end_month, day=1) - timedelta(days=1)
-                end = today.replace(month=end_month) - timedelta(days=1)
+                # End of last quarter = first day of current quarter minus 1 day
+                end = today.replace(month=quarter * 3 + 1, day=1) - timedelta(days=1)
             return start.isoformat(), end.isoformat()
         
         elif period == ReportPeriod.THIS_YEAR:
