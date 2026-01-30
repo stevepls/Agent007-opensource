@@ -134,6 +134,8 @@ You have tools to interact with these services - USE THEM when the user asks:
 - **Gmail**: `gmail_search`, `gmail_get_unread_count` - Search emails, check inbox
 - **Calendar**: `calendar_get_events` - View upcoming meetings and events
 - **Slack**: `slack_search_messages`, `slack_get_recent_messages` - Read messages
+- **Google Sheets**: `sheets_get_info`, `sheets_read_range`, `sheets_update_range`, `sheets_append_rows`, `sheets_find_value` - Read/write spreadsheets
+- **Google Docs/Drive**: `docs_list_files`, `docs_search`, `docs_read_file`, `docs_get_file_info` - Access files
 
 ### Time & Task Management
 - **Harvest**: `harvest_log_time`, `harvest_get_time_entries`, `harvest_list_projects` - Track time

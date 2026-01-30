@@ -46,6 +46,10 @@ class ToolRegistry:
         self._register_zendesk_tools()
         # Memory
         self._register_memory_tools()
+        # Google Sheets
+        self._register_sheets_tools()
+        # Google Docs/Drive
+        self._register_docs_tools()
         # Agents
         self._register_agent_tools()
     
@@ -995,6 +999,368 @@ class ToolRegistry:
                 "required": ["query"]
             },
             category="memory"
+        )
+    
+    # =========================================================================
+    # Google Sheets Tools
+    # =========================================================================
+    
+    def _register_sheets_tools(self):
+        def sheets_get_info(spreadsheet_id: str) -> Dict[str, Any]:
+            """Get spreadsheet metadata and list of sheets."""
+            try:
+                from services.sheets import get_sheets_client
+                client = get_sheets_client()
+                
+                if not client.is_available:
+                    return {"error": "Google Sheets not configured. Install google-api-python-client."}
+                
+                client.authenticate()
+                info = client.get_spreadsheet(spreadsheet_id)
+                
+                return {
+                    "title": info.title,
+                    "id": info.id,
+                    "url": info.url,
+                    "sheets": [
+                        {"title": s.title, "rows": s.row_count, "columns": s.column_count}
+                        for s in info.sheets
+                    ]
+                }
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def sheets_read_range(spreadsheet_id: str, range_notation: str) -> Dict[str, Any]:
+            """Read values from a spreadsheet range."""
+            try:
+                from services.sheets import get_sheets_client
+                client = get_sheets_client()
+                
+                if not client.is_available:
+                    return {"error": "Google Sheets not configured"}
+                
+                client.authenticate()
+                values = client.get_values(spreadsheet_id, range_notation)
+                
+                return {
+                    "range": range_notation,
+                    "rows": len(values),
+                    "data": values[:50],  # Limit to 50 rows
+                    "truncated": len(values) > 50,
+                }
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def sheets_update_range(
+            spreadsheet_id: str,
+            range_notation: str,
+            values: List[List[Any]],
+        ) -> Dict[str, Any]:
+            """Update values in a spreadsheet range."""
+            try:
+                from services.sheets import get_sheets_client
+                client = get_sheets_client()
+                
+                if not client.is_available:
+                    return {"error": "Google Sheets not configured"}
+                
+                client.authenticate()
+                result = client.update_values(spreadsheet_id, range_notation, values)
+                
+                return {
+                    "success": True,
+                    "updated_range": result["updated_range"],
+                    "updated_cells": result["updated_cells"],
+                }
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def sheets_append_rows(
+            spreadsheet_id: str,
+            sheet_name: str,
+            rows: List[List[Any]],
+        ) -> Dict[str, Any]:
+            """Append rows to a spreadsheet."""
+            try:
+                from services.sheets import get_sheets_client
+                client = get_sheets_client()
+                
+                if not client.is_available:
+                    return {"error": "Google Sheets not configured"}
+                
+                client.authenticate()
+                result = client.append_values(spreadsheet_id, f"'{sheet_name}'", rows)
+                
+                return {
+                    "success": True,
+                    "rows_added": result["updated_rows"],
+                }
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def sheets_find_value(
+            spreadsheet_id: str,
+            sheet_name: str,
+            search_value: str,
+        ) -> Dict[str, Any]:
+            """Find a value in a spreadsheet."""
+            try:
+                from services.sheets import get_sheets_client
+                client = get_sheets_client()
+                
+                if not client.is_available:
+                    return {"error": "Google Sheets not configured"}
+                
+                client.authenticate()
+                result = client.find_value(spreadsheet_id, sheet_name, search_value)
+                
+                if result:
+                    return {
+                        "found": True,
+                        "row": result["row"],
+                        "column": result["column"],
+                        "row_data": result["row_data"],
+                    }
+                return {"found": False, "message": f"Value '{search_value}' not found"}
+            except Exception as e:
+                return {"error": str(e)}
+        
+        self.register(
+            "sheets_get_info",
+            "Get Google Sheets spreadsheet info including title and list of sheets.",
+            sheets_get_info,
+            {
+                "type": "object",
+                "properties": {
+                    "spreadsheet_id": {"type": "string", "description": "Spreadsheet ID from the URL"}
+                },
+                "required": ["spreadsheet_id"]
+            },
+            category="sheets"
+        )
+        
+        self.register(
+            "sheets_read_range",
+            "Read values from a Google Sheets range using A1 notation (e.g., 'Sheet1!A1:C10').",
+            sheets_read_range,
+            {
+                "type": "object",
+                "properties": {
+                    "spreadsheet_id": {"type": "string", "description": "Spreadsheet ID"},
+                    "range_notation": {"type": "string", "description": "A1 notation (e.g., 'Sheet1!A1:C10')"}
+                },
+                "required": ["spreadsheet_id", "range_notation"]
+            },
+            category="sheets"
+        )
+        
+        self.register(
+            "sheets_update_range",
+            "Update values in a Google Sheets range. Use with caution.",
+            sheets_update_range,
+            {
+                "type": "object",
+                "properties": {
+                    "spreadsheet_id": {"type": "string", "description": "Spreadsheet ID"},
+                    "range_notation": {"type": "string", "description": "A1 notation"},
+                    "values": {"type": "array", "description": "2D array of values", "items": {"type": "array"}}
+                },
+                "required": ["spreadsheet_id", "range_notation", "values"]
+            },
+            category="sheets"
+        )
+        
+        self.register(
+            "sheets_append_rows",
+            "Append rows to a Google Sheets spreadsheet.",
+            sheets_append_rows,
+            {
+                "type": "object",
+                "properties": {
+                    "spreadsheet_id": {"type": "string", "description": "Spreadsheet ID"},
+                    "sheet_name": {"type": "string", "description": "Sheet name to append to"},
+                    "rows": {"type": "array", "description": "Rows to append", "items": {"type": "array"}}
+                },
+                "required": ["spreadsheet_id", "sheet_name", "rows"]
+            },
+            category="sheets"
+        )
+        
+        self.register(
+            "sheets_find_value",
+            "Search for a value in a Google Sheets spreadsheet.",
+            sheets_find_value,
+            {
+                "type": "object",
+                "properties": {
+                    "spreadsheet_id": {"type": "string", "description": "Spreadsheet ID"},
+                    "sheet_name": {"type": "string", "description": "Sheet name to search"},
+                    "search_value": {"type": "string", "description": "Value to find"}
+                },
+                "required": ["spreadsheet_id", "sheet_name", "search_value"]
+            },
+            category="sheets"
+        )
+    
+    # =========================================================================
+    # Google Docs/Drive Tools
+    # =========================================================================
+    
+    def _register_docs_tools(self):
+        def docs_list_files(query: str = "") -> Dict[str, Any]:
+            """List files in Google Drive."""
+            try:
+                from services.drive.client import get_drive_client
+                client = get_drive_client()
+                
+                if not client.is_authenticated:
+                    client.authenticate()
+                
+                files = client.list_files(query=query or None, max_results=20)
+                
+                return {
+                    "count": len(files),
+                    "files": [
+                        {
+                            "id": f.id,
+                            "name": f.name,
+                            "type": f.mime_type.split('.')[-1] if '.' in f.mime_type else f.mime_type,
+                            "modified": f.modified_time,
+                        }
+                        for f in files
+                    ]
+                }
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def docs_search(search_term: str) -> Dict[str, Any]:
+            """Search for files by name in Google Drive."""
+            try:
+                from services.drive.client import get_drive_client
+                client = get_drive_client()
+                
+                if not client.is_authenticated:
+                    client.authenticate()
+                
+                files = client.search(search_term, max_results=15)
+                
+                return {
+                    "count": len(files),
+                    "files": [
+                        {"id": f.id, "name": f.name, "type": f.mime_type.split('.')[-1]}
+                        for f in files
+                    ]
+                }
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def docs_read_file(file_id: str) -> Dict[str, Any]:
+            """Read text content from a Google Drive file (Docs, text files)."""
+            try:
+                from services.drive.client import get_drive_client
+                client = get_drive_client()
+                
+                if not client.is_authenticated:
+                    client.authenticate()
+                
+                content = client.read_file_content(file_id)
+                
+                if content is None:
+                    return {"error": "Could not read file. It may be binary or inaccessible."}
+                
+                # Truncate if too long
+                truncated = len(content) > 10000
+                if truncated:
+                    content = content[:10000]
+                
+                return {
+                    "content": content,
+                    "length": len(content),
+                    "truncated": truncated,
+                }
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def docs_get_file_info(file_id: str) -> Dict[str, Any]:
+            """Get metadata about a Google Drive file."""
+            try:
+                from services.drive.client import get_drive_client
+                client = get_drive_client()
+                
+                if not client.is_authenticated:
+                    client.authenticate()
+                
+                f = client.get_file(file_id)
+                
+                if not f:
+                    return {"error": "File not found"}
+                
+                return {
+                    "name": f.name,
+                    "id": f.id,
+                    "type": f.mime_type,
+                    "size_kb": f.size / 1024 if f.size else 0,
+                    "created": f.created_time,
+                    "modified": f.modified_time,
+                    "shared": f.shared,
+                    "link": f.web_view_link,
+                }
+            except Exception as e:
+                return {"error": str(e)}
+        
+        self.register(
+            "docs_list_files",
+            "List files in Google Drive. Optional query using Drive syntax (e.g., \"name contains 'report'\").",
+            docs_list_files,
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Optional Drive search query"}
+                }
+            },
+            category="docs"
+        )
+        
+        self.register(
+            "docs_search",
+            "Search for files by name in Google Drive.",
+            docs_search,
+            {
+                "type": "object",
+                "properties": {
+                    "search_term": {"type": "string", "description": "Search term to find files"}
+                },
+                "required": ["search_term"]
+            },
+            category="docs"
+        )
+        
+        self.register(
+            "docs_read_file",
+            "Read text content from a Google Doc or text file in Drive.",
+            docs_read_file,
+            {
+                "type": "object",
+                "properties": {
+                    "file_id": {"type": "string", "description": "Google Drive file ID"}
+                },
+                "required": ["file_id"]
+            },
+            category="docs"
+        )
+        
+        self.register(
+            "docs_get_file_info",
+            "Get metadata about a Google Drive file (name, size, modified date, etc.).",
+            docs_get_file_info,
+            {
+                "type": "object",
+                "properties": {
+                    "file_id": {"type": "string", "description": "Google Drive file ID"}
+                },
+                "required": ["file_id"]
+            },
+            category="docs"
         )
     
     # =========================================================================
