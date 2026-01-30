@@ -302,7 +302,14 @@ async def stream_claude_response(
         if not tool_calls:
             break
         
-        # Execute tool calls
+        # Add assistant message with tool use ONCE (before processing results)
+        api_messages.append({
+            "role": "assistant",
+            "content": response.content,
+        })
+        
+        # Execute tool calls and collect results
+        tool_results = []
         for tool_call in tool_calls:
             tool_msg = f"\n\n*Using {tool_call.name}...*\n"
             yield tool_msg
@@ -311,21 +318,18 @@ async def stream_claude_response(
             # Execute the tool
             result = execute_tool(tool_call.name, tool_call.input)
             
-            # Add assistant message with tool use
-            api_messages.append({
-                "role": "assistant",
-                "content": response.content,
+            # Collect tool result
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": tool_call.id,
+                "content": json.dumps(result),
             })
-            
-            # Add tool result
-            api_messages.append({
-                "role": "user",
-                "content": [{
-                    "type": "tool_result",
-                    "tool_use_id": tool_call.id,
-                    "content": json.dumps(result),
-                }],
-            })
+        
+        # Add all tool results as a single user message
+        api_messages.append({
+            "role": "user",
+            "content": tool_results,
+        })
     
     # Store assistant response in memory
     if session_id and full_response:
