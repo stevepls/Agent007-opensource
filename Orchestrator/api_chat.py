@@ -491,6 +491,140 @@ async def stream_claude_response(
         memory.persist_turn_context(session_id, user_content, full_response)
 
 
+
+async def stream_openai_response(
+    messages: List[ChatMessage],
+    api_key: str,
+    session_id: str = None,
+    memory_context: str = "",
+) -> AsyncGenerator[str, None]:
+    """Stream response from OpenAI API with tool calling."""
+    from services.tool_registry import get_tool_definitions, execute_tool
+    
+    # Convert tool definitions to OpenAI format (with schema validation)
+    claude_tools = get_tool_definitions()
+    openai_tools = []
+    
+    def fix_schema(schema):
+        """Fix schema for OpenAI compatibility (recursive)."""
+        if not isinstance(schema, dict):
+            return schema
+        result = {}
+        for key, value in schema.items():
+            if key == "properties" and isinstance(value, dict):
+                result[key] = {k: fix_schema(v) for k, v in value.items()}
+            elif key == "items" and isinstance(value, dict):
+                result[key] = fix_schema(value)
+            elif isinstance(value, dict):
+                result[key] = fix_schema(value)
+            elif isinstance(value, list):
+                result[key] = [fix_schema(v) if isinstance(v, dict) else v for v in value]
+            else:
+                result[key] = value
+        # Ensure arrays have items
+        if result.get("type") == "array" and "items" not in result:
+            result["items"] = {"type": "string"}
+        return result
+    
+    for tool in claude_tools:
+        try:
+            fixed_schema = fix_schema(tool["input_schema"])
+            openai_tools.append({
+                "type": "function",
+                "function": {
+                    "name": tool["name"],
+                    "description": tool["description"][:1024],  # OpenAI limit
+                    "parameters": fixed_schema
+                }
+            })
+        except Exception:
+            pass  # Skip tools with invalid schemas
+    
+    client = openai.AsyncOpenAI(api_key=api_key)
+    memory = get_memory_service()
+    
+    # Build context
+    context = await build_context()
+    if memory_context:
+        context = memory_context + "\n\n" + context
+    
+    system_prompt = SYSTEM_PROMPT + "\n\nCurrent context:\n" + context
+    
+    # Convert messages to OpenAI format
+    api_messages = [{"role": "system", "content": system_prompt}]
+    for m in messages:
+        api_messages.append({"role": m.role, "content": m.content})
+    
+    max_iterations = 10
+    full_response = ""
+    
+    for _ in range(max_iterations):
+        try:
+            response = await client.chat.completions.create(
+                model="gpt-4o",
+                messages=api_messages,
+                tools=openai_tools if openai_tools else None,
+                stream=False,
+                max_tokens=4096,
+            )
+            
+            message = response.choices[0].message
+            
+            # Check for tool calls
+            if message.tool_calls:
+                # Add assistant message with tool calls
+                api_messages.append({
+                    "role": "assistant",
+                    "content": message.content or "",
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {"name": tc.function.name, "arguments": tc.function.arguments}
+                        }
+                        for tc in message.tool_calls
+                    ]
+                })
+                
+                # Execute each tool
+                for tool_call in message.tool_calls:
+                    tool_name = tool_call.function.name
+                    tool_args = json.loads(tool_call.function.arguments)
+                    
+                    tool_msg = f"\n\n*Using {tool_name}...*\n"
+                    yield tool_msg
+                    full_response += tool_msg
+                    
+                    # Execute tool
+                    result = execute_tool(tool_name, tool_args)
+                    
+                    # Add tool result
+                    api_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": json.dumps(result)[:8000]
+                    })
+                
+                continue
+            
+            # No tool calls - final response
+            if message.content:
+                yield message.content
+                full_response += message.content
+            break
+            
+        except Exception as e:
+            error_msg = f"\n\n⚠️ OpenAI Error: {str(e)}"
+            yield error_msg
+            full_response += error_msg
+            break
+    
+    # Persist conversation
+    if session_id and full_response:
+        user_content = messages[-1].content if messages else ""
+        memory.persist_turn_context(session_id, user_content, full_response)
+
+
 async def stream_mock_response(
     user_message: str,
     session_id: str = None,
