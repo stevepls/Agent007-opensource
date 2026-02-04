@@ -21,7 +21,7 @@ def slack_post_message(
     """
     client = get_slack_client()
     
-    if not client.is_available():
+    if not client.is_available:
         return {"error": "Slack not configured. Set SLACK_BOT_TOKEN."}
     
     if not channel or not text:
@@ -75,7 +75,7 @@ def slack_get_thread_context(channel: str, thread_ts: str) -> Dict[str, Any]:
     """Get full context of a Slack thread."""
     client = get_slack_client()
     
-    if not client.is_available():
+    if not client.is_available:
         return {"error": "Slack not configured"}
     
     try:
@@ -103,7 +103,7 @@ def slack_list_channels(include_private: bool = False) -> Dict[str, Any]:
     """List available Slack channels."""
     client = get_slack_client()
     
-    if not client.is_available():
+    if not client.is_available:
         return {"error": "Slack not configured"}
     
     try:
@@ -198,3 +198,114 @@ SLACK_ENHANCED_TOOLS = [
         }
     },
 ]
+
+
+def slack_list_dms() -> Dict[str, Any]:
+    """
+    List all direct message conversations.
+    Shows the names of people you've had DM conversations with.
+    """
+    client = get_slack_client()
+    
+    if not client.is_available:
+        return {"error": "Slack not configured. Set SLACK_BOT_TOKEN."}
+    
+    try:
+        dms = client.list_dms()
+        
+        return {
+            "count": len(dms),
+            "dm_contacts": [
+                {
+                    "id": dm.id,
+                    "name": dm.name,
+                    "is_active": not dm.is_archived,
+                    "member_count": dm.member_count,
+                }
+                for dm in dms
+            ],
+            "active_contacts": [dm.name for dm in dms if not dm.is_archived]
+        }
+    except Exception as e:
+        return {"error": f"Failed to list DMs: {str(e)}"}
+
+
+def slack_get_dm_history(user_name: str = None, user_id: str = None, limit: int = 10) -> Dict[str, Any]:
+    """
+    Get recent messages from a DM conversation.
+    
+    Args:
+        user_name: Name of the person (optional if user_id provided)
+        user_id: Slack user ID (optional if user_name provided)
+        limit: Number of messages to retrieve (default: 10)
+    """
+    client = get_slack_client()
+    
+    if not client.is_available:
+        return {"error": "Slack not configured"}
+    
+    if not user_name and not user_id:
+        return {"error": "Either user_name or user_id is required"}
+    
+    try:
+        # Find the user if name provided
+        if user_name and not user_id:
+            user = client.get_user_by_email(f"{user_name}@")  # This won't work well
+            # Better: search through DMs for matching name
+            dms = client.list_dms()
+            for dm in dms:
+                if user_name.lower() in dm.name.lower():
+                    channel_id = dm.id
+                    break
+            else:
+                return {"error": f"Could not find DM with user '{user_name}'"}
+        elif user_id:
+            # Open DM channel with user
+            channel_id = client.open_dm(user_id)
+        else:
+            return {"error": "Could not determine DM channel"}
+        
+        # Get messages
+        messages = client.get_messages(channel_id, limit=limit)
+        
+        return {
+            "channel_id": channel_id,
+            "message_count": len(messages),
+            "messages": [
+                {
+                    "user": m.user_name,
+                    "text": m.text[:200],  # Truncate long messages
+                    "timestamp": m.timestamp.isoformat() if m.timestamp else None,
+                }
+                for m in messages
+            ]
+        }
+    except Exception as e:
+        return {"error": f"Failed to get DM history: {str(e)}"}
+
+
+# Add to tools list
+SLACK_ENHANCED_TOOLS.extend([
+    {
+        "name": "slack_list_dms",
+        "description": "List all direct message conversations. Shows names of people you've had DM conversations with in Slack.",
+        "function": slack_list_dms,
+        "parameters": {
+            "type": "object",
+            "properties": {}
+        }
+    },
+    {
+        "name": "slack_get_dm_history",
+        "description": "Get recent messages from a DM conversation with a specific person.",
+        "function": slack_get_dm_history,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "user_name": {"type": "string", "description": "Name of the person (partial match ok)"},
+                "user_id": {"type": "string", "description": "Slack user ID"},
+                "limit": {"type": "integer", "description": "Number of messages (default: 10)"}
+            }
+        }
+    },
+])
