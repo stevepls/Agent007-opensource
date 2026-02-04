@@ -379,3 +379,183 @@ CLICKUP_ENHANCED_TOOLS.append({
         "required": ["list_id"]
     }
 })
+
+
+def clickup_create_subtask(
+    parent_task_id: str,
+    name: str,
+    description: str = "",
+    priority: int = 3,
+) -> Dict[str, Any]:
+    """
+    Create a subtask under a parent task.
+    
+    Args:
+        parent_task_id: ID of the parent task (required)
+        name: Name of the subtask (required)
+        description: Optional description
+        priority: 1=Urgent, 2=High, 3=Normal, 4=Low
+    """
+    token = get_api_token()
+    if not token:
+        return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+    
+    if not parent_task_id or not name:
+        return {"error": "parent_task_id and name are required"}
+    
+    # First get the parent task to find its list_id
+    parent_resp = clickup_api_request("GET", f"/task/{parent_task_id}")
+    if "error" in parent_resp:
+        return {"error": f"Could not find parent task: {parent_resp.get('error')}"}
+    
+    list_id = parent_resp.get("list", {}).get("id")
+    if not list_id:
+        return {"error": "Could not determine list_id from parent task"}
+    
+    # Create the subtask
+    data = {
+        "name": name,
+        "markdown_description": description,
+        "priority": priority,
+        "parent": parent_task_id,  # This makes it a subtask
+    }
+    
+    result = clickup_api_request("POST", f"/list/{list_id}/task", data)
+    
+    if "error" not in result and "id" in result:
+        return {
+            "success": True,
+            "subtask": {
+                "id": result["id"],
+                "name": result["name"],
+                "url": result.get("url", f"https://app.clickup.com/t/{result['id']}"),
+                "parent_id": parent_task_id,
+            },
+            "message": f"Created subtask '{name}' under parent task"
+        }
+    
+    return {"error": result.get("err", "Failed to create subtask")}
+
+
+def clickup_list_subtasks(task_id: str) -> Dict[str, Any]:
+    """
+    List all subtasks of a parent task.
+    
+    Args:
+        task_id: ID of the parent task
+    """
+    token = get_api_token()
+    if not token:
+        return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+    
+    # Get the task with subtasks
+    result = clickup_api_request("GET", f"/task/{task_id}?include_subtasks=true")
+    
+    if "error" in result:
+        return result
+    
+    subtasks = result.get("subtasks", [])
+    
+    return {
+        "parent_task": {
+            "id": result.get("id"),
+            "name": result.get("name"),
+        },
+        "subtask_count": len(subtasks),
+        "subtasks": [
+            {
+                "id": st.get("id"),
+                "name": st.get("name"),
+                "status": st.get("status", {}).get("status", ""),
+                "url": st.get("url", f"https://app.clickup.com/t/{st.get('id')}")
+            }
+            for st in subtasks
+        ]
+    }
+
+
+def clickup_get_task_with_subtasks(task_id: str) -> Dict[str, Any]:
+    """
+    Get full task details including all subtasks.
+    Use this to see the complete task hierarchy.
+    
+    Args:
+        task_id: ID of the task to get
+    """
+    token = get_api_token()
+    if not token:
+        return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+    
+    result = clickup_api_request("GET", f"/task/{task_id}?include_subtasks=true")
+    
+    if "error" in result:
+        return result
+    
+    subtasks = result.get("subtasks", [])
+    
+    return {
+        "task": {
+            "id": result.get("id"),
+            "name": result.get("name"),
+            "description": result.get("description", "")[:500],
+            "status": result.get("status", {}).get("status", ""),
+            "priority": result.get("priority", {}).get("priority", "none") if result.get("priority") else "none",
+            "url": result.get("url"),
+            "list": result.get("list", {}).get("name", ""),
+            "list_id": result.get("list", {}).get("id", ""),
+        },
+        "has_subtasks": len(subtasks) > 0,
+        "subtask_count": len(subtasks),
+        "subtasks": [
+            {
+                "id": st.get("id"),
+                "name": st.get("name"),
+                "status": st.get("status", {}).get("status", ""),
+            }
+            for st in subtasks
+        ]
+    }
+
+
+# Add subtask tools to the list
+CLICKUP_ENHANCED_TOOLS.extend([
+    {
+        "name": "clickup_create_subtask",
+        "description": "Create a subtask under a parent task. Use for breaking down large tasks into smaller pieces.",
+        "function": clickup_create_subtask,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "parent_task_id": {"type": "string", "description": "ID of the parent task (required)"},
+                "name": {"type": "string", "description": "Name of the subtask (required)"},
+                "description": {"type": "string", "description": "Optional description"},
+                "priority": {"type": "integer", "description": "1=Urgent, 2=High, 3=Normal, 4=Low (default: 3)"},
+            },
+            "required": ["parent_task_id", "name"]
+        }
+    },
+    {
+        "name": "clickup_list_subtasks",
+        "description": "List all subtasks of a parent task. Shows subtask names, statuses, and IDs.",
+        "function": clickup_list_subtasks,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "ID of the parent task"},
+            },
+            "required": ["task_id"]
+        }
+    },
+    {
+        "name": "clickup_get_task_with_subtasks",
+        "description": "Get full task details including all subtasks. Use to see complete task hierarchy.",
+        "function": clickup_get_task_with_subtasks,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "ID of the task to get"},
+            },
+            "required": ["task_id"]
+        }
+    },
+])
