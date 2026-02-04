@@ -202,7 +202,7 @@ SLACK_ENHANCED_TOOLS = [
 
 def slack_list_dms() -> Dict[str, Any]:
     """
-    List all direct message conversations.
+    List all direct message conversations with actual user names.
     Shows the names of people you've had DM conversations with.
     """
     client = get_slack_client()
@@ -211,20 +211,65 @@ def slack_list_dms() -> Dict[str, Any]:
         return {"error": "Slack not configured. Set SLACK_BOT_TOKEN."}
     
     try:
-        dms = client.list_dms()
+        from slack_sdk import WebClient
+        import os
+        
+        token = os.getenv("SLACK_BOT_TOKEN")
+        slack_client = WebClient(token=token)
+        
+        # Get DM conversations
+        response = slack_client.conversations_list(types="im")
+        channels = response.get("channels", [])
+        
+        dm_contacts = []
+        active_names = []
+        
+        for dm in channels:
+            user_id = dm.get("user")
+            channel_id = dm.get("id")
+            is_active = not dm.get("is_archived", False)
+            
+            # Skip Slackbot
+            if user_id == "USLACKBOT":
+                continue
+            
+            # Get user info to resolve name
+            try:
+                user_info = slack_client.users_info(user=user_id)
+                user = user_info.get("user", {})
+                real_name = user.get("real_name", user_id)
+                username = user.get("name", "")
+                email = user.get("profile", {}).get("email", "")
+                title = user.get("profile", {}).get("title", "")
+                
+                contact = {
+                    "id": channel_id,
+                    "user_id": user_id,
+                    "name": real_name,
+                    "username": username,
+                    "email": email,
+                    "title": title,
+                    "is_active": is_active,
+                }
+                
+                dm_contacts.append(contact)
+                if is_active:
+                    active_names.append(real_name)
+            except Exception as e:
+                # Fall back to user ID if can't resolve
+                dm_contacts.append({
+                    "id": channel_id,
+                    "user_id": user_id,
+                    "name": user_id,
+                    "is_active": is_active,
+                    "error": str(e)
+                })
         
         return {
-            "count": len(dms),
-            "dm_contacts": [
-                {
-                    "id": dm.id,
-                    "name": dm.name,
-                    "is_active": not dm.is_archived,
-                    "member_count": dm.member_count,
-                }
-                for dm in dms
-            ],
-            "active_contacts": [dm.name for dm in dms if not dm.is_archived]
+            "count": len(dm_contacts),
+            "dm_contacts": dm_contacts,
+            "active_contacts": active_names,
+            "summary": f"You have {len(active_names)} active DM conversations: {', '.join(active_names)}"
         }
     except Exception as e:
         return {"error": f"Failed to list DMs: {str(e)}"}
