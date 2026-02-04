@@ -599,8 +599,12 @@ class ToolRegistry:
                 
                 client = get_clickup_client()
                 
+                # Log incoming list_id for debugging
+                print(f"[DEBUG] clickup_list_tasks called with list_id={list_id}")
+                
                 if not list_id:
                     list_id = os.getenv("CLICKUP_DEFAULT_LIST_ID")
+                    print(f"[DEBUG] Using default list_id from env: {list_id}")
                     if not list_id:
                         workspaces = client.get_workspaces()
                         if workspaces:
