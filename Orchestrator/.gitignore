@@ -25,3 +25,8 @@ tmp/appmap/
 *.db-shm
 *.db-wal
 *.db-journal
+
+# Backup files
+*.bak
+*.backup
+*~
