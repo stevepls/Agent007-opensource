@@ -223,8 +223,8 @@ def slack_list_dms() -> Dict[str, Any]:
             channel_id = dm.id
             is_active = not dm.is_archived
             
-            # Skip Slackbot
-            if user_id == "USLACKBOT":
+            # Skip invalid or system users
+            if not user_id or user_id == "USLACKBOT":
                 continue
             
             # Use wrapper's get_user method (proper architecture)
@@ -244,7 +244,9 @@ def slack_list_dms() -> Dict[str, Any]:
                     
                     dm_contacts.append(contact)
                     if is_active:
-                        active_names.append(user.real_name or user.name)
+                        name_to_add = user.real_name or user.name
+                        if name_to_add:  # Only add non-None names
+                            active_names.append(name_to_add)
                 else:
                     dm_contacts.append({
                         "id": channel_id,
@@ -265,7 +267,7 @@ def slack_list_dms() -> Dict[str, Any]:
             "count": len(dm_contacts),
             "dm_contacts": dm_contacts,
             "active_contacts": active_names,
-            "summary": f"You have {len(active_names)} active DM conversations: {', '.join(active_names)}"
+            "summary": f"You have {len(active_names)} active DM conversations" + (f": {', '.join(active_names)}" if active_names else "")
         }
     except Exception as e:
         return {"error": f"Failed to list DMs: {str(e)}"}
