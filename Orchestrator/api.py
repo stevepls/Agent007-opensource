@@ -465,3 +465,80 @@ if __name__ == "__main__":
         port=port,
         reload=True,
     )
+
+
+# DEBUG: Test auth endpoint
+@app.get("/debug/auth")
+async def debug_auth():
+    """Debug Google auth status."""
+    from services.google_auth import get_google_auth, TOKEN_FILE
+    
+    auth = get_google_auth()
+    
+    return {
+        "token_file_exists": TOKEN_FILE.exists(),
+        "token_file_path": str(TOKEN_FILE),
+        "is_authenticated": auth.is_authenticated,
+        "credentials_valid": auth.credentials.valid if auth.credentials else None,
+        "credentials_expired": auth.credentials.expired if auth.credentials else None,
+    }
+
+
+# DEBUG: Test docs_list_files directly
+@app.get("/debug/drive")
+async def debug_drive():
+    """Debug Drive client."""
+    try:
+        from services.drive.client import get_drive_client
+        
+        client = get_drive_client()
+        files = client.list_files(page_size=3)
+        
+        return {
+            "success": True,
+            "count": len(files),
+            "files": [f.name for f in files],
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+# DEBUG: Test sheets auth
+@app.get("/debug/sheets")
+async def debug_sheets():
+    """Debug sheets authentication."""
+    results = {}
+    
+    # Test google_auth
+    try:
+        from services.google_auth import get_google_auth
+        auth = get_google_auth()
+        results["google_auth"] = {
+            "is_authenticated": auth.is_authenticated,
+            "has_credentials": auth.credentials is not None,
+        }
+    except Exception as e:
+        results["google_auth"] = {"error": str(e)}
+    
+    # Test sheets client
+    try:
+        from services.sheets import get_sheets_client
+        client = get_sheets_client()
+        results["sheets_client"] = {
+            "is_available": client.is_available,
+        }
+        
+        # Try authenticate
+        auth_result = client.authenticate(headless=True)
+        results["sheets_auth"] = {"success": auth_result}
+        
+        # Try read
+        values = client.get_values("1AKRK_nAKoDwSUnzl5r9L_KaOD8aNMl8EeROJYZuGYdc", "A1:B3")
+        results["sheets_read"] = {"rows": len(values), "data": values}
+    except Exception as e:
+        results["sheets_error"] = str(e)
+    
+    return results

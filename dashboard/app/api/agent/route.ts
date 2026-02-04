@@ -2,63 +2,225 @@ import { NextRequest } from "next/server";
 
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_API_URL || "http://localhost:8502";
 const CLAUDE_API_KEY = process.env.ANTHROPIC_API_KEY || "";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 
-/**
- * POST /api/agent
- * 
- * Proxies chat requests to the Orchestrator FastAPI backend.
- * Supports streaming responses with structured JSON for UI updates.
- * 
- * Expected request body (from Vercel AI SDK useChat):
- * {
- *   messages: [{ role: "user" | "assistant", content: string }]
- * }
- * 
- * Response: Streaming text with embedded JSON for UI instructions
- */
+// Track which provider is currently active
+type AIProvider = "claude" | "openai" | "orchestrator" | "mock";
+
+// ============================================================================
+// GUARDRAILS - Safety and operational boundaries
+// ============================================================================
+const GUARDRAILS = {
+  requiresApproval: [
+    "deploy", "production", "delete", "remove", "drop", "truncate",
+    "payment", "refund", "billing", "charge", "invoice",
+    "user data", "pii", "credentials", "api key", "secret",
+    "database migration", "schema change",
+  ],
+  forbidden: [
+    "execute arbitrary code", "shell command without approval",
+    "access other users' data", "bypass authentication",
+    "disable security", "export all data",
+  ],
+  limits: {
+    maxBulkOperations: 100,
+    maxCostWithoutApproval: 50,
+    maxTimeEstimateMinutes: 60,
+  },
+};
+
+// ============================================================================
+// AGENT DEFINITIONS
+// ============================================================================
+const AGENTS = {
+  orchestrator: {
+    id: "orchestrator",
+    name: "Orchestrator",
+    role: "Task Coordinator",
+    goal: "Coordinate between agents and ensure tasks are completed efficiently",
+    canDelegate: true,
+    tools: ["delegate_task", "check_status", "request_approval"],
+  },
+  coder: {
+    id: "coder",
+    name: "Coder",
+    role: "Software Developer",
+    goal: "Write, review, and improve code quality",
+    canDelegate: false,
+    tools: ["read_file", "write_file", "search_code", "run_tests"],
+  },
+  reviewer: {
+    id: "reviewer",
+    name: "Reviewer",
+    role: "Code Reviewer",
+    goal: "Ensure code quality, security, and best practices",
+    canDelegate: false,
+    tools: ["read_file", "analyze_code", "check_security"],
+  },
+  ticketManager: {
+    id: "ticket-manager",
+    name: "Ticket Manager",
+    role: "Support Coordinator",
+    goal: "Manage tickets, prioritize issues, track resolution",
+    canDelegate: false,
+    tools: ["list_tickets", "create_ticket", "update_ticket", "search_tickets"],
+  },
+};
+
+// ============================================================================
+// ATTACHMENT HANDLING
+// ============================================================================
+interface Attachment {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  data?: string;
+}
+
+function processAttachments(attachments: Attachment[]): string {
+  if (!attachments || attachments.length === 0) return "";
+  
+  let context = "\n\n📎 **Attachments:**\n";
+  for (const att of attachments) {
+    context += `- ${att.name} (${att.type})\n`;
+    if (att.data && (att.type.includes("text") || att.type.includes("json"))) {
+      try {
+        const base64Data = att.data.split(",")[1] || att.data;
+        const content = Buffer.from(base64Data, "base64").toString("utf-8");
+        context += `\`\`\`\n${content.slice(0, 2000)}\n\`\`\`\n`;
+      } catch { /* skip */ }
+    }
+  }
+  return context;
+}
+
+// ============================================================================
+// GUARDRAILS CHECK
+// ============================================================================
+function checkGuardrails(message: string): { allowed: boolean; reason?: string; requiresApproval?: boolean } {
+  const lowerMessage = message.toLowerCase();
+  
+  for (const forbidden of GUARDRAILS.forbidden) {
+    if (lowerMessage.includes(forbidden)) {
+      return { allowed: false, reason: `Action not permitted: "${forbidden}" is blocked.` };
+    }
+  }
+  
+  for (const approval of GUARDRAILS.requiresApproval) {
+    if (lowerMessage.includes(approval)) {
+      return { allowed: true, requiresApproval: true };
+    }
+  }
+  
+  return { allowed: true };
+}
+
+// ============================================================================
+// MAIN API HANDLER
+// ============================================================================
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { messages } = body;
+    const { messages, attachments = [], selectedAgent = "orchestrator", preferredProvider = "auto" } = body;
 
-    if (!messages || !Array.isArray(messages)) {
-      return new Response(
-        JSON.stringify({ error: "Messages array required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+    if (!messages || messages.length === 0) {
+      return new Response(JSON.stringify({ error: "No messages provided" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    // Get the last user message
     const lastMessage = messages[messages.length - 1];
-    if (!lastMessage || lastMessage.role !== "user") {
-      return new Response(
-        JSON.stringify({ error: "Last message must be from user" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+    const guardrailCheck = checkGuardrails(lastMessage.content);
+
+    if (!guardrailCheck.allowed) {
+      return createProviderResponse("mock", `🚫 **Blocked**: ${guardrailCheck.reason}`);
     }
 
-    // Check if orchestrator is available
+    const attachmentContext = processAttachments(attachments);
+    const agent = AGENTS[selectedAgent as keyof typeof AGENTS] || AGENTS.orchestrator;
+
+    // Provider selection based on user preference
     const orchestratorAvailable = await checkOrchestrator();
-
-    if (orchestratorAvailable) {
-      // Forward to Orchestrator
-      return await proxyToOrchestrator(messages);
-    } else {
-      // Fallback to direct Claude API with structured output
-      return await callClaudeDirectly(messages);
+    
+    // If user selected a specific provider, try that first
+    if (preferredProvider !== "auto") {
+      try {
+        switch (preferredProvider) {
+          case "orchestrator":
+            if (orchestratorAvailable) {
+              return await callOrchestrator(messages, attachments, agent);
+            }
+            throw new Error("Orchestrator not available");
+          case "claude":
+            if (CLAUDE_API_KEY) {
+              return await callClaude(messages, attachmentContext, agent);
+            }
+            throw new Error("Claude API key not configured");
+          case "openai":
+            if (OPENAI_API_KEY) {
+              return await callOpenAI(messages, attachmentContext, agent);
+            }
+            throw new Error("OpenAI API key not configured");
+        }
+      } catch (error: any) {
+        console.log(`Preferred provider ${preferredProvider} failed:`, error?.message);
+        // Fall through to auto mode
+      }
     }
+
+    // Auto mode: Try providers in order: Orchestrator -> Claude -> OpenAI
+    
+    // 1. Try Orchestrator first (has tools access)
+    if (orchestratorAvailable) {
+      try {
+        return await callOrchestrator(messages, attachments, agent);
+      } catch (error) {
+        console.error("Orchestrator failed:", error);
+      }
+    }
+
+    // 2. Try Claude
+    if (CLAUDE_API_KEY) {
+      try {
+        return await callClaude(messages, attachmentContext, agent);
+      } catch (error: any) {
+        console.error("Claude failed:", error?.message || error);
+      }
+    }
+
+    // 3. Try OpenAI
+    if (OPENAI_API_KEY) {
+      try {
+        return await callOpenAI(messages, attachmentContext, agent);
+      } catch (error: any) {
+        console.error("OpenAI failed:", error?.message || error);
+      }
+    }
+
+    // 4. Mock fallback
+    return createProviderResponse("mock", 
+      "⚠️ **No AI providers available**\n\n" +
+      "Please configure one of:\n" +
+      "- `ANTHROPIC_API_KEY` for Claude\n" +
+      "- `OPENAI_API_KEY` for OpenAI\n" +
+      "- Start the Orchestrator API on port 8502"
+    );
+
   } catch (error) {
     console.error("Agent API error:", error);
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
 
-/**
- * Check if orchestrator is running
- */
+// ============================================================================
+// PROVIDER FUNCTIONS
+// ============================================================================
+
 async function checkOrchestrator(): Promise<boolean> {
   try {
     const response = await fetch(`${ORCHESTRATOR_URL}/health`, {
@@ -71,43 +233,82 @@ async function checkOrchestrator(): Promise<boolean> {
   }
 }
 
-/**
- * Proxy request to Orchestrator FastAPI
- * Transforms plain text stream to Vercel AI SDK Data Stream Protocol
- */
-async function proxyToOrchestrator(messages: Array<{ role: string; content: string }>) {
+function createProviderResponse(provider: AIProvider, text: string) {
+  const encoder = new TextEncoder();
+  const providerBadge = getProviderBadge(provider);
+  const fullText = `${providerBadge}\n\n${text}`;
+  
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(`0:${JSON.stringify(fullText)}\n`));
+      controller.enqueue(encoder.encode(`d:{"finishReason":"stop","provider":"${provider}"}\n`));
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "X-Vercel-AI-Data-Stream": "v1",
+      "X-AI-Provider": provider,
+    },
+  });
+}
+
+function getProviderBadge(provider: AIProvider): string {
+  switch (provider) {
+    case "claude":
+      return "🟣 **Claude**";
+    case "openai":
+      return "🟢 **GPT-4**";
+    case "orchestrator":
+      return "🔵 **Orchestrator** (Claude + Tools)";
+    case "mock":
+      return "⚪ **Offline**";
+    default:
+      return "";
+  }
+}
+
+async function callOrchestrator(
+  messages: Array<{ role: string; content: string }>,
+  attachments: Attachment[],
+  agent: typeof AGENTS[keyof typeof AGENTS]
+) {
   const response = await fetch(`${ORCHESTRATOR_URL}/api/chat`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       messages,
+      attachments,
+      selected_agent: agent.id,
       stream: true,
-      structured_output: true,
     }),
+    signal: AbortSignal.timeout(60000),
   });
 
   if (!response.ok) {
     throw new Error(`Orchestrator error: ${response.status}`);
   }
 
-  // Transform plain text stream to Vercel AI SDK Data Stream Protocol
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
+  const providerBadge = getProviderBadge("orchestrator");
+  let sentBadge = false;
 
   const transformStream = new TransformStream({
     transform(chunk, controller) {
       const text = decoder.decode(chunk, { stream: true });
-      
-      // Stream each chunk as it arrives, properly formatted
       if (text.trim()) {
-        const escaped = JSON.stringify(text);
-        controller.enqueue(encoder.encode(`0:${escaped}\n`));
+        if (!sentBadge) {
+          controller.enqueue(encoder.encode(`0:${JSON.stringify(providerBadge + "\n\n")}\n`));
+          sentBadge = true;
+        }
+        controller.enqueue(encoder.encode(`0:${JSON.stringify(text)}\n`));
       }
     },
     flush(controller) {
-      controller.enqueue(encoder.encode(`d:{"finishReason":"stop"}\n`));
+      controller.enqueue(encoder.encode(`d:{"finishReason":"stop","provider":"orchestrator"}\n`));
     },
   });
 
@@ -115,55 +316,21 @@ async function proxyToOrchestrator(messages: Array<{ role: string; content: stri
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "X-Vercel-AI-Data-Stream": "v1",
+      "X-AI-Provider": "orchestrator",
     },
   });
 }
 
-/**
- * Direct Claude API call with structured output for UI
- * Fallback when orchestrator is not available
- */
-async function callClaudeDirectly(messages: Array<{ role: string; content: string }>) {
-  if (!CLAUDE_API_KEY) {
-    return createMockResponse(messages);
-  }
+async function callClaude(
+  messages: Array<{ role: string; content: string }>,
+  attachmentContext: string,
+  agent: typeof AGENTS[keyof typeof AGENTS]
+) {
+  const systemPrompt = `You are Agent007, an AI assistant. You are currently operating as the ${agent.name} (${agent.role}).
+Your goal: ${agent.goal}
 
-  const systemPrompt = `You are Agent007, an AI orchestrator that manages autonomous agents for development tasks.
-
-When responding, you can include structured JSON to update the UI. Wrap JSON in code blocks:
-
-\`\`\`json
-{
-  "text": "Human-readable response",
-  "priority_ui": {
-    "cards": [
-      {"id": "card1", "type": "info", "title": "Status", "description": "Current status..."}
-    ],
-    "show_progress_bar": false
-  },
-  "agents": [
-    {"id": "coder", "name": "Coder", "status": "active", "current_task": "Working on..."}
-  ]
-}
-\`\`\`
-
-Available card types: info, success, warning, error, progress, metric
-Available agent statuses: idle, active, busy, error, offline
-
-For approval requests, include:
-\`\`\`json
-{
-  "needs_approval": {
-    "id": "unique-id",
-    "type": "deploy",
-    "title": "Deploy to Production",
-    "description": "This will deploy the latest code...",
-    "timeout_seconds": 60
-  }
-}
-\`\`\`
-
-Respond naturally but include JSON when UI updates are needed.`;
+Respond helpfully and concisely. If you need tools or integrations (like Google Drive, Gmail, etc.), 
+mention that the Orchestrator backend is needed for those features.${attachmentContext}`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -185,48 +352,42 @@ Respond naturally but include JSON when UI updates are needed.`;
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    console.error("Claude API error:", error);
-    return createMockResponse(messages);
+    const errorText = await response.text();
+    throw new Error(`Claude API error ${response.status}: ${errorText}`);
   }
 
-  // Transform Claude's SSE stream to Vercel AI SDK Data Stream Protocol
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
+  const providerBadge = getProviderBadge("claude");
+  let sentBadge = false;
   let buffer = "";
 
   const transformStream = new TransformStream({
     async transform(chunk, controller) {
       buffer += decoder.decode(chunk, { stream: true });
       const lines = buffer.split("\n");
-      buffer = lines.pop() || ""; // Keep incomplete line in buffer
+      buffer = lines.pop() || "";
 
       for (const line of lines) {
         if (line.startsWith("data: ")) {
           const data = line.slice(6);
-          if (data === "[DONE]") {
-            controller.enqueue(encoder.encode(`d:{"finishReason":"stop"}\n`));
-            continue;
-          }
+          if (data === "[DONE]") continue;
 
           try {
             const parsed = JSON.parse(data);
             if (parsed.type === "content_block_delta" && parsed.delta?.text) {
-              // Vercel AI SDK Data Stream Protocol: 0:"text"\n
-              const escaped = JSON.stringify(parsed.delta.text);
-              controller.enqueue(encoder.encode(`0:${escaped}\n`));
+              if (!sentBadge) {
+                controller.enqueue(encoder.encode(`0:${JSON.stringify(providerBadge + "\n\n")}\n`));
+                sentBadge = true;
+              }
+              controller.enqueue(encoder.encode(`0:${JSON.stringify(parsed.delta.text)}\n`));
             }
-          } catch {
-            // Skip invalid JSON
-          }
+          } catch { /* skip */ }
         }
       }
     },
     flush(controller) {
-      // Process any remaining buffer
-      if (buffer.trim()) {
-        controller.enqueue(encoder.encode(`d:{"finishReason":"stop"}\n`));
-      }
+      controller.enqueue(encoder.encode(`d:{"finishReason":"stop","provider":"claude"}\n`));
     },
   });
 
@@ -234,194 +395,88 @@ Respond naturally but include JSON when UI updates are needed.`;
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "X-Vercel-AI-Data-Stream": "v1",
+      "X-AI-Provider": "claude",
     },
   });
 }
 
-/**
- * Create a mock response for demo/development
- * Uses Vercel AI SDK Data Stream Protocol: https://sdk.vercel.ai/docs/ai-sdk-ui/stream-protocol
- */
-function createMockResponse(messages: Array<{ role: string; content: string }>) {
-  const lastMessage = messages[messages.length - 1]?.content.toLowerCase() || "";
-  
-  let responseText = "";
-  let json: Record<string, unknown> = {};
+async function callOpenAI(
+  messages: Array<{ role: string; content: string }>,
+  attachmentContext: string,
+  agent: typeof AGENTS[keyof typeof AGENTS]
+) {
+  const systemPrompt = `You are Agent007, an AI assistant. You are currently operating as the ${agent.name} (${agent.role}).
+Your goal: ${agent.goal}
 
-  if (lastMessage.includes("deploy")) {
-    responseText = "I'll initiate the deployment process. First, let me run the pre-deployment checks.";
-    json = {
-      priority_ui: {
-        show_progress_bar: true,
-        progress: 25,
-        cards: [
-          {
-            id: "deploy-status",
-            type: "progress",
-            title: "Deployment",
-            description: "Running pre-deployment checks...",
-            progress: 25,
-            priority: 1,
-          },
-        ],
-      },
-      agents: [
-        { id: "deployer", name: "Deployer", status: "active", priority: 1, current_task: "Running checks" },
+Respond helpfully and concisely. If you need tools or integrations (like Google Drive, Gmail, etc.), 
+mention that the Orchestrator backend is needed for those features.${attachmentContext}`;
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o",
+      max_tokens: 4096,
+      stream: true,
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
       ],
-      needs_approval: {
-        id: `deploy-${Date.now()}`,
-        type: "deploy",
-        title: "Deploy to Production",
-        description: "All checks passed. Ready to deploy the latest code to production.",
-        details: {
-          branch: "main",
-          commit: "a1b2c3d",
-          environment: "production",
-        },
-        timeout_seconds: 120,
-      },
-    };
-  } else if (lastMessage.includes("ticket")) {
-    responseText = "Here's a summary of your open tickets:";
-    json = {
-      priority_ui: {
-        cards: [
-          {
-            id: "tickets-urgent",
-            type: "warning",
-            title: "3 Urgent Tickets",
-            description: "Require immediate attention",
-            priority: 1,
-            action: { label: "View Tickets", onClick: "show urgent tickets" },
-          },
-          {
-            id: "tickets-normal",
-            type: "info",
-            title: "12 Open Tickets",
-            description: "Normal priority",
-            priority: 3,
-          },
-        ],
-      },
-      agents: [
-        { id: "ticket-manager", name: "Ticket Manager", status: "active", current_task: "Fetching tickets" },
-      ],
-    };
-  } else if (lastMessage.includes("time")) {
-    responseText = "Here's your time summary for today:";
-    json = {
-      priority_ui: {
-        cards: [
-          {
-            id: "time-today",
-            type: "metric",
-            title: "Hours Today",
-            value: "6.5",
-            description: "Across 3 projects",
-            priority: 2,
-            icon: "clock",
-          },
-          {
-            id: "time-week",
-            type: "metric",
-            title: "Hours This Week",
-            value: "28.5",
-            description: "On track for 40h target",
-            priority: 3,
-            icon: "trending",
-          },
-        ],
-      },
-      agents: [
-        { id: "time-logger", name: "Time Logger", status: "active", current_task: "Syncing time entries" },
-      ],
-    };
-  } else {
-    responseText = "I'm Agent007, your AI orchestrator. I can help you with:\n\n• **Deployments** - Deploy code, run checks, manage releases\n• **Tickets** - View, create, and manage support tickets\n• **Time Tracking** - Log time, view summaries, sync with Harvest\n• **Code Reviews** - Request reviews, check PR status\n• **Database** - Run queries (with approval), check schemas\n\nWhat would you like me to help with?";
-    json = {
-      agents: [
-        { id: "orchestrator", name: "Orchestrator", status: "active", priority: 1 },
-      ],
-    };
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI API error ${response.status}: ${errorText}`);
   }
 
-  // Combine text and JSON
-  const fullResponse = responseText + "\n\n```json\n" + JSON.stringify(json, null, 2) + "\n```";
-
-  // Create a streaming response using Vercel AI SDK Data Stream Protocol
-  // Format: 0:"text chunk"\n (text part type = 0)
   const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    async start(controller) {
-      // Stream text chunks using data stream protocol
-      // Split into sentences for natural streaming
-      const chunks = fullResponse.match(/[^.!?\n]+[.!?\n]?|```[\s\S]*?```/g) || [fullResponse];
-      
-      for (const chunk of chunks) {
-        if (chunk.trim()) {
-          // Format: 0:"escaped text"\n
-          const escaped = JSON.stringify(chunk);
-          controller.enqueue(encoder.encode(`0:${escaped}\n`));
-          await new Promise((resolve) => setTimeout(resolve, 50));
+  const decoder = new TextDecoder();
+  const providerBadge = getProviderBadge("openai");
+  let sentBadge = false;
+  let buffer = "";
+
+  const transformStream = new TransformStream({
+    async transform(chunk, controller) {
+      buffer += decoder.decode(chunk, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6);
+          if (data === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              if (!sentBadge) {
+                controller.enqueue(encoder.encode(`0:${JSON.stringify(providerBadge + "\n\n")}\n`));
+                sentBadge = true;
+              }
+              controller.enqueue(encoder.encode(`0:${JSON.stringify(content)}\n`));
+            }
+          } catch { /* skip */ }
         }
       }
-      
-      // End with finish message (type d = done with finish reason)
-      controller.enqueue(encoder.encode(`d:{"finishReason":"stop"}\n`));
-      controller.close();
+    },
+    flush(controller) {
+      controller.enqueue(encoder.encode(`d:{"finishReason":"stop","provider":"openai"}\n`));
     },
   });
 
-  return new Response(stream, {
+  return new Response(response.body?.pipeThrough(transformStream), {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "X-Vercel-AI-Data-Stream": "v1",
+      "X-AI-Provider": "openai",
     },
   });
-}
-
-/**
- * POST /api/agent/approve
- * Handle approval/rejection of pending requests
- */
-export async function PUT(request: NextRequest) {
-  return handleApproval(request);
-}
-
-async function handleApproval(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { approval_id, approved } = body;
-
-    // Forward to orchestrator if available
-    const orchestratorAvailable = await checkOrchestrator();
-    
-    if (orchestratorAvailable) {
-      const response = await fetch(`${ORCHESTRATOR_URL}/api/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approval_id, approved }),
-      });
-      
-      return new Response(response.body, {
-        status: response.status,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // Mock response
-    return new Response(
-      JSON.stringify({
-        success: true,
-        approval_id,
-        status: approved ? "approved" : "rejected",
-      }),
-      { headers: { "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    return new Response(
-      JSON.stringify({ error: "Failed to process approval" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
-  }
 }

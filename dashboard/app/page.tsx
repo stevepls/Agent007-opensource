@@ -8,7 +8,7 @@ import { useChat } from "@ai-sdk/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AgentList } from "@/components/AgentList";
 import { ChatMessages } from "@/components/ChatMessages";
-import { ChatInput } from "@/components/ChatInput";
+import { ChatInput, type Attachment } from "@/components/ChatInput";
 import { DynamicStatusCards } from "@/components/DynamicStatusCards";
 import { DynamicApproveDialog } from "@/components/DynamicApproveDialog";
 import { Progress } from "@/components/ui/progress";
@@ -50,6 +50,9 @@ export default function Dashboard() {
   const [globalProgress, setGlobalProgress] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [currentProvider, setCurrentProvider] = useState<string>("connecting");
+  const [preferredProvider, setPreferredProvider] = useState<string>("auto");
 
   // Track processed updates to prevent duplicates
   const processedUpdatesRef = useRef<Set<string>>(new Set());
@@ -65,8 +68,12 @@ export default function Dashboard() {
     setInput,
   } = useChat({
     api: "/api/agent",
+    body: { attachments, preferredProvider },
     onResponse: (response) => {
       console.log("Stream started:", response.status);
+      // Track which AI provider is being used
+      const provider = response.headers.get("X-AI-Provider") || "unknown";
+      setCurrentProvider(provider);
     },
     onFinish: (message) => {
       // Only parse UI updates ONCE when streaming is complete
@@ -238,7 +245,34 @@ export default function Dashboard() {
             </div>
             <div>
               <h1 className="text-lg font-bold gradient-text">Agent007</h1>
-              <p className="text-xs text-muted-foreground">Command Center</p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground">Command Center</p>
+                <div className="flex items-center gap-1">
+                  <select
+                    value={preferredProvider}
+                    onChange={(e) => setPreferredProvider(e.target.value)}
+                    className="text-[10px] px-1 py-0.5 rounded bg-background/50 border border-border cursor-pointer hover:bg-accent/50 transition-colors"
+                    title="Select AI Provider"
+                  >
+                    <option value="auto">🔄 Auto</option>
+                    <option value="orchestrator">🔵 Tools</option>
+                    <option value="openai">🟢 GPT-4</option>
+                    <option value="claude">🟣 Claude</option>
+                  </select>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                    currentProvider === "orchestrator" ? "bg-blue-500/20 text-blue-400" :
+                    currentProvider === "claude" ? "bg-purple-500/20 text-purple-400" :
+                    currentProvider === "openai" ? "bg-green-500/20 text-green-400" :
+                    currentProvider === "connecting" ? "bg-yellow-500/20 text-yellow-400 animate-pulse" :
+                    "bg-gray-500/20 text-gray-400"
+                  }`}>
+                    {currentProvider === "orchestrator" ? "●" :
+                     currentProvider === "claude" ? "●" :
+                     currentProvider === "openai" ? "●" :
+                     currentProvider === "connecting" ? "◌" : "○"}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -274,6 +308,7 @@ export default function Dashboard() {
           <ChatMessages
             messages={messages}
             isLoading={isLoading}
+            onAttachmentsChange={setAttachments}
             error={error}
           />
         </div>
@@ -285,6 +320,7 @@ export default function Dashboard() {
             handleInputChange={handleInputChange}
             handleSubmit={handleSubmit}
             isLoading={isLoading}
+            onAttachmentsChange={setAttachments}
           />
         </div>
       </main>

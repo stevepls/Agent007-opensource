@@ -137,6 +137,12 @@ You have tools to interact with these services - USE THEM when the user asks:
 - **Google Sheets**: `sheets_get_info`, `sheets_read_range`, `sheets_update_range`, `sheets_append_rows`, `sheets_find_value` - Read/write spreadsheets
 - **Google Docs/Drive**: `docs_list_files`, `docs_search`, `docs_read_file`, `docs_get_file_info` - Access files
 
+### Unified Notifications (Notion + Slack + Airtable)
+- **Notification Hub**: `notification_fetch_all`, `notification_search` - Get/search all notifications
+- **Notion**: `notion_get_updates` - Get Notion page updates from email notifications (no direct API)
+- **Slack via Email**: `slack_get_updates` - Get Slack messages from email notifications
+- **Airtable**: `airtable_get_tickets`, `airtable_search_ticket` - Direct access to Airtable tickets
+
 ### Time & Task Management
 - **Harvest**: `harvest_log_time`, `harvest_get_time_entries`, `harvest_list_projects` - Track time
 - **ClickUp**: `clickup_create_task`, `clickup_list_tasks`, `clickup_update_task`, `clickup_get_task`, `clickup_add_comment`, `clickup_list_spaces` - Manage tasks and tickets
@@ -155,12 +161,17 @@ You have tools to interact with these services - USE THEM when the user asks:
 - "Show my emails" → `gmail_search`
 - "What did I work on?" → `harvest_get_time_entries`
 - "Log 2 hours" → `harvest_log_time`
-- "Check Slack" → `slack_get_recent_messages`
+- "Check Slack" → `slack_get_recent_messages` or `slack_get_updates`
 - "Create a task" → `clickup_create_task`
 - "Show my tasks" → `clickup_list_tasks`
 - "What meetings?" → `calendar_get_events`
 - "Remember that..." → `memory_remember`
 - "Build a feature" / "Write code" / "Fix bug" → `run_dev_task` (delegates to AI crew)
+- "What's happening in Notion?" → `notion_get_updates`
+- "Show all notifications" → `notification_fetch_all`
+- "Find notifications about payment" → `notification_search`
+- "Show my Airtable tickets" → `airtable_get_tickets`
+- "Find the payment plan ticket" → `airtable_search_ticket`
 
 ## Response Style
 
@@ -274,6 +285,10 @@ async def stream_claude_response(
     full_response = ""  # Collect full response for memory
     
     for _ in range(max_iterations):
+        # Debug: Log tool count
+        print(f"[DEBUG] Calling Claude with {len(TOOL_DEFINITIONS)} tools")
+        print(f"[DEBUG] Tool names: {[t['name'] for t in TOOL_DEFINITIONS[:5]]}...")
+        
         # Call Claude with tools
         response = await client.messages.create(
             model="claude-sonnet-4-20250514",
@@ -282,6 +297,10 @@ async def stream_claude_response(
             messages=api_messages,
             tools=TOOL_DEFINITIONS,
         )
+        
+        # Debug: Log response
+        print(f"[DEBUG] Response stop_reason: {response.stop_reason}")
+        print(f"[DEBUG] Content types: {[b.type for b in response.content]}")
         
         # Process response
         tool_calls = []

@@ -50,8 +50,14 @@ class ToolRegistry:
         self._register_sheets_tools()
         # Google Docs/Drive
         self._register_docs_tools()
+        # Notification Hub (Notion, Slack, Airtable)
+        self._register_notification_tools()
         # Agents
         self._register_agent_tools()
+        # Airtable
+        self._register_airtable_tools()
+        # Notion (via email)
+        self._register_notion_tools()
     
     def register(
         self,
@@ -1007,16 +1013,16 @@ class ToolRegistry:
     
     def _register_sheets_tools(self):
         def _check_google_auth():
-            """Check if Google auth is available without blocking."""
+            """Check if Google auth is available."""
             try:
                 from services.google_auth import get_google_auth
                 auth = get_google_auth()
-                auth.authenticate_headless()
+                # Just check if authenticated, don't force auth
+                if not auth.is_authenticated:
+                    return "Google Drive not authenticated. Token may be expired."
                 return None  # No error
-            except RuntimeError as e:
-                return str(e)
             except Exception as e:
-                return f"Google authentication failed: {e}"
+                return f"Google authentication error: {e}"
         
         def sheets_get_info(spreadsheet_id: str) -> Dict[str, Any]:
             """Get spreadsheet metadata and list of sheets."""
@@ -1240,16 +1246,16 @@ class ToolRegistry:
     
     def _register_docs_tools(self):
         def _check_google_auth():
-            """Check if Google auth is available without blocking."""
+            """Check if Google auth is available."""
             try:
                 from services.google_auth import get_google_auth
                 auth = get_google_auth()
-                auth.authenticate_headless()
+                # Just check if authenticated, don't force auth
+                if not auth.is_authenticated:
+                    return "Google Drive not authenticated. Token may be expired."
                 return None  # No error
-            except RuntimeError as e:
-                return str(e)
             except Exception as e:
-                return f"Google authentication failed: {e}"
+                return f"Google authentication error: {e}"
         
         def docs_list_files(query: str = "") -> Dict[str, Any]:
             """List files in Google Drive."""
@@ -1261,10 +1267,8 @@ class ToolRegistry:
                 from services.drive.client import get_drive_client
                 client = get_drive_client()
                 
-                if not client.is_authenticated:
-                    client.authenticate(headless=True)
-                
-                files = client.list_files(query=query or None, max_results=20)
+                # New Drive client uses unified auth - no manual auth needed
+                files = client.list_files(query=query or None, page_size=20)
                 
                 return {
                     "count": len(files),
@@ -1291,10 +1295,8 @@ class ToolRegistry:
                 from services.drive.client import get_drive_client
                 client = get_drive_client()
                 
-                if not client.is_authenticated:
-                    client.authenticate(headless=True)
                 
-                files = client.search(search_term, max_results=15)
+                files = client.search_files(search_term, max_results=15)
                 
                 return {
                     "count": len(files),
@@ -1316,8 +1318,6 @@ class ToolRegistry:
                 from services.drive.client import get_drive_client
                 client = get_drive_client()
                 
-                if not client.is_authenticated:
-                    client.authenticate(headless=True)
                 
                 content = client.read_file_content(file_id)
                 
@@ -1347,8 +1347,6 @@ class ToolRegistry:
                 from services.drive.client import get_drive_client
                 client = get_drive_client()
                 
-                if not client.is_authenticated:
-                    client.authenticate(headless=True)
                 
                 f = client.get_file(file_id)
                 
@@ -1427,6 +1425,152 @@ class ToolRegistry:
     # Agent Tools - Dispatch to CrewAI Agents
     # =========================================================================
     
+    def _register_notification_tools(self):
+        """Register Notification Hub tools (Notion, Slack, Airtable)."""
+        
+        def notification_fetch_all(days: int = 7) -> Dict[str, Any]:
+            """Fetch all notifications from Notion, Slack emails, and Airtable tickets."""
+            try:
+                from services.notification_hub import notification_fetch_all as fetch_all
+                return fetch_all(days=days)
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def notification_search(query: str, days: int = 7) -> Dict[str, Any]:
+            """Search notifications across Notion, Slack, and Airtable."""
+            try:
+                from services.notification_hub import notification_search as search_notifs
+                return search_notifs(query=query, days=days)
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def notion_get_updates(days: int = 7) -> Dict[str, Any]:
+            """Get Notion updates by parsing email notifications (workaround for no API access)."""
+            try:
+                from services.notification_hub import notion_get_updates as get_notion
+                return get_notion(days=days)
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def slack_get_updates(days: int = 7) -> Dict[str, Any]:
+            """Get Slack updates by parsing email notifications."""
+            try:
+                from services.notification_hub import slack_get_updates as get_slack
+                return get_slack(days=days)
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def airtable_get_tickets(status: str = None) -> Dict[str, Any]:
+            """Get tickets from Airtable with optional status filter."""
+            try:
+                from services.notification_hub import airtable_get_tickets as get_tickets
+                return get_tickets(status=status)
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def airtable_search_ticket(query: str) -> Dict[str, Any]:
+            """Search for an Airtable ticket by name."""
+            try:
+                from services.notification_hub import get_notification_hub
+                hub = get_notification_hub()
+                ticket = hub.get_ticket_by_name(query)
+                if ticket:
+                    return {
+                        "found": True,
+                        "ticket": {
+                            "id": ticket.get("id"),
+                            "name": ticket.get("fields", {}).get("Ticket Name"),
+                            "status": ticket.get("fields", {}).get("Ticket Status"),
+                            "priority": ticket.get("fields", {}).get("Priority"),
+                            "description": ticket.get("fields", {}).get("Issue Description", "")[:500],
+                        }
+                    }
+                return {"found": False, "query": query}
+            except Exception as e:
+                return {"error": str(e)}
+        
+        # Register tools
+        self.register(
+            "notification_fetch_all",
+            "Fetch all notifications from Notion emails, Slack emails, and Airtable tickets. Cross-references notifications with tickets for context.",
+            notification_fetch_all,
+            {
+                "type": "object",
+                "properties": {
+                    "days": {"type": "integer", "description": "Days to look back (default: 7)"}
+                },
+            },
+            category="notifications"
+        )
+        
+        self.register(
+            "notification_search",
+            "Search across all notification sources (Notion, Slack, Airtable) for a specific topic, person, or keyword.",
+            notification_search,
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"},
+                    "days": {"type": "integer", "description": "Days to look back (default: 7)"}
+                },
+                "required": ["query"]
+            },
+            category="notifications"
+        )
+        
+        self.register(
+            "notion_get_updates",
+            "Get Notion page updates, comments, and mentions by parsing email notifications. Use this since we don't have direct Notion API access.",
+            notion_get_updates,
+            {
+                "type": "object",
+                "properties": {
+                    "days": {"type": "integer", "description": "Days to look back (default: 7)"}
+                },
+            },
+            category="notifications"
+        )
+        
+        self.register(
+            "slack_get_updates",
+            "Get Slack messages, mentions, and DMs by parsing email notifications. Groups by channel.",
+            slack_get_updates,
+            {
+                "type": "object",
+                "properties": {
+                    "days": {"type": "integer", "description": "Days to look back (default: 7)"}
+                },
+            },
+            category="notifications"
+        )
+        
+        self.register(
+            "airtable_get_tickets",
+            "Get Airtable tickets (direct API access). Filter by status like 'In Progress', 'Assigned', etc.",
+            airtable_get_tickets,
+            {
+                "type": "object",
+                "properties": {
+                    "status": {"type": "string", "description": "Filter by status (optional)"}
+                },
+            },
+            category="notifications"
+        )
+        
+        self.register(
+            "airtable_search_ticket",
+            "Search for a specific Airtable ticket by name or partial match.",
+            airtable_search_ticket,
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Ticket name to search for"}
+                },
+                "required": ["query"]
+            },
+            category="notifications"
+        )
+
     def _register_agent_tools(self):
         def run_dev_task(
             task: str,
@@ -1496,6 +1640,284 @@ class ToolRegistry:
             get_agent_status,
             {"type": "object", "properties": {}},
             category="agents"
+        )
+
+
+    # -------------------------------------------------------------------------
+    # Airtable Tools
+    # -------------------------------------------------------------------------
+    def _register_airtable_tools(self):
+        """Register Airtable ticket tools."""
+        
+        def airtable_list_tickets(status: str = None, limit: int = 20) -> Dict[str, Any]:
+            """List Airtable tickets."""
+            try:
+                from services.airtable import get_airtable_service
+                service = get_airtable_service()
+                
+                if not service.is_configured():
+                    return {"error": "Airtable not configured. Set AIRTABLE_PERSONAL_ACCESS_TOKEN."}
+                
+                if status:
+                    tickets = service.get_tickets_by_status(status)
+                else:
+                    tickets = service.get_active_tickets()
+                
+                return {
+                    "tickets": [t.to_dict() for t in tickets[:limit]],
+                    "total": len(tickets),
+                }
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def airtable_search_tickets(query: str, limit: int = 10) -> Dict[str, Any]:
+            """Search Airtable tickets."""
+            try:
+                from services.airtable import get_airtable_service
+                service = get_airtable_service()
+                
+                if not service.is_configured():
+                    return {"error": "Airtable not configured."}
+                
+                tickets = service.search_tickets(query)
+                return {
+                    "query": query,
+                    "tickets": [t.to_dict() for t in tickets[:limit]],
+                    "total": len(tickets),
+                }
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def airtable_get_ticket(ticket_id: str) -> Dict[str, Any]:
+            """Get a specific Airtable ticket."""
+            try:
+                from services.airtable import get_airtable_service
+                service = get_airtable_service()
+                
+                if not service.is_configured():
+                    return {"error": "Airtable not configured."}
+                
+                # Try as numeric ID first
+                ticket = None
+                if ticket_id.isdigit():
+                    ticket = service.get_ticket_by_id(int(ticket_id))
+                
+                # Try as record ID
+                if not ticket and ticket_id.startswith('rec'):
+                    ticket = service.get_ticket_by_record_id(ticket_id)
+                
+                if ticket:
+                    return {"ticket": ticket.to_dict()}
+                return {"error": f"Ticket not found: {ticket_id}"}
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def airtable_update_ticket(
+            ticket_id: str,
+            status: str = None,
+            comment: str = None
+        ) -> Dict[str, Any]:
+            """Update an Airtable ticket status and/or add a comment."""
+            try:
+                from services.airtable import get_airtable_service
+                service = get_airtable_service()
+                
+                if not service.is_configured():
+                    return {"error": "Airtable not configured."}
+                
+                # Get record ID
+                record_id = ticket_id
+                if ticket_id.isdigit():
+                    ticket = service.get_ticket_by_id(int(ticket_id))
+                    if ticket:
+                        record_id = ticket.record_id
+                    else:
+                        return {"error": f"Ticket not found: {ticket_id}"}
+                
+                results = {}
+                
+                if status:
+                    if service.update_status(record_id, status):
+                        results["status_updated"] = status
+                    else:
+                        results["status_error"] = f"Failed to update status to: {status}"
+                
+                if comment:
+                    if service.add_comment(record_id, comment):
+                        results["comment_added"] = True
+                    else:
+                        results["comment_error"] = "Failed to add comment"
+                
+                return results
+            except Exception as e:
+                return {"error": str(e)}
+        
+        self.register(
+            "airtable_list_tickets",
+            "List tickets from Airtable. Can filter by status. Returns ticket ID, name, status, priority, and assignees.",
+            airtable_list_tickets,
+            {
+                "type": "object",
+                "properties": {
+                    "status": {"type": "string", "description": "Filter by status (e.g., 'In Progress - Small', 'Assigned - Large')"},
+                    "limit": {"type": "integer", "description": "Max tickets to return (default: 20)"}
+                }
+            },
+            category="airtable"
+        )
+        
+        self.register(
+            "airtable_search_tickets",
+            "Search Airtable tickets by name or description.",
+            airtable_search_tickets,
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"},
+                    "limit": {"type": "integer", "description": "Max results (default: 10)"}
+                },
+                "required": ["query"]
+            },
+            category="airtable"
+        )
+        
+        self.register(
+            "airtable_get_ticket",
+            "Get details of a specific Airtable ticket by ID or record ID.",
+            airtable_get_ticket,
+            {
+                "type": "object",
+                "properties": {
+                    "ticket_id": {"type": "string", "description": "Ticket ID (numeric) or record ID (recXXX)"}
+                },
+                "required": ["ticket_id"]
+            },
+            category="airtable"
+        )
+        
+        self.register(
+            "airtable_update_ticket",
+            "Update an Airtable ticket's status and/or add a comment.",
+            airtable_update_ticket,
+            {
+                "type": "object",
+                "properties": {
+                    "ticket_id": {"type": "string", "description": "Ticket ID or record ID"},
+                    "status": {"type": "string", "description": "New status"},
+                    "comment": {"type": "string", "description": "Comment to add"}
+                },
+                "required": ["ticket_id"]
+            },
+            category="airtable"
+        )
+    
+    # -------------------------------------------------------------------------
+    # Notion Tools (via Email)
+    # -------------------------------------------------------------------------
+    def _register_notion_tools(self):
+        """Register Notion tools (via Gmail notification parsing)."""
+        
+        def notion_get_updates(
+            days_back: int = 7,
+            update_type: str = None,
+            limit: int = 20
+        ) -> Dict[str, Any]:
+            """Get Notion updates from email notifications."""
+            try:
+                from services.notion_email import get_notion_email_parser
+                parser = get_notion_email_parser()
+                
+                if not parser.is_configured():
+                    return {"error": "Gmail not configured for Notion email parsing."}
+                
+                types = [update_type] if update_type else None
+                updates = parser.fetch_notion_updates(
+                    days_back=days_back,
+                    limit=limit,
+                    update_types=types
+                )
+                
+                return {
+                    "updates": [u.to_dict() for u in updates],
+                    "total": len(updates),
+                    "days_back": days_back,
+                }
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def notion_get_summary(days_back: int = 7) -> Dict[str, Any]:
+            """Get a summary of Notion activity from email notifications."""
+            try:
+                from services.notion_email import get_notion_email_parser
+                parser = get_notion_email_parser()
+                
+                if not parser.is_configured():
+                    return {"error": "Gmail not configured for Notion email parsing."}
+                
+                return parser.get_updates_summary(days_back=days_back)
+            except Exception as e:
+                return {"error": str(e)}
+        
+        def notion_search(query: str, days_back: int = 30) -> Dict[str, Any]:
+            """Search Notion updates from email notifications."""
+            try:
+                from services.notion_email import get_notion_email_parser
+                parser = get_notion_email_parser()
+                
+                if not parser.is_configured():
+                    return {"error": "Gmail not configured for Notion email parsing."}
+                
+                updates = parser.search_notion_updates(query, days_back=days_back)
+                
+                return {
+                    "query": query,
+                    "updates": [u.to_dict() for u in updates[:20]],
+                    "total": len(updates),
+                }
+            except Exception as e:
+                return {"error": str(e)}
+        
+        self.register(
+            "notion_get_updates",
+            "Get Notion updates by parsing email notifications. Shows page changes, comments, mentions, and invites. Cross-references with Airtable tickets.",
+            notion_get_updates,
+            {
+                "type": "object",
+                "properties": {
+                    "days_back": {"type": "integer", "description": "How many days to look back (default: 7)"},
+                    "update_type": {"type": "string", "description": "Filter by type: mention, comment, edit, invite, reminder"},
+                    "limit": {"type": "integer", "description": "Max updates to return (default: 20)"}
+                }
+            },
+            category="notion"
+        )
+        
+        self.register(
+            "notion_get_summary",
+            "Get a summary of Notion activity: who's been active, what pages changed, and related Airtable tickets.",
+            notion_get_summary,
+            {
+                "type": "object",
+                "properties": {
+                    "days_back": {"type": "integer", "description": "How many days to summarize (default: 7)"}
+                }
+            },
+            category="notion"
+        )
+        
+        self.register(
+            "notion_search",
+            "Search through Notion email notifications for specific topics or pages.",
+            notion_search,
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"},
+                    "days_back": {"type": "integer", "description": "How many days to search (default: 30)"}
+                },
+                "required": ["query"]
+            },
+            category="notion"
         )
 
 

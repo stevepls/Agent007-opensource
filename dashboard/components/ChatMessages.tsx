@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { User, Bot, AlertCircle, Sparkles } from "lucide-react";
 
 interface ChatMessagesProps {
+  onSuggestionClick?: (suggestion: string) => void;
   messages: Message[];
   isLoading: boolean;
   error?: Error | null;
@@ -131,6 +132,7 @@ function MessageContent({ content }: { content: string }) {
 }
 
 export function ChatMessages({
+  onSuggestionClick,
   messages,
   isLoading,
   error,
@@ -169,6 +171,7 @@ export function ChatMessages({
               (suggestion) => (
                 <button
                   key={suggestion}
+                  onClick={() => onSuggestionClick?.(suggestion)}
                   className="px-3 py-1.5 text-sm rounded-full border border-border hover:bg-accent/50 transition-colors"
                 >
                   {suggestion}

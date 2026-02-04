@@ -1,46 +1,31 @@
 """
 Google Drive API Client
 
-Provides read, upload, update, and delete operations for Google Drive.
-Destructive operations require confirmation.
-
-SECURITY:
-- OAuth 2.0 authentication required
-- Deletes and shares require explicit confirmation
-- All operations are logged for audit
+Provides access to Google Drive for document storage and retrieval.
+Uses unified Google authentication (google_auth module).
 """
 
 import os
 import io
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
-from datetime import datetime
 
+# Google API imports
 try:
-    from google.oauth2.credentials import Credentials
-    from google_auth_oauthlib.flow import InstalledAppFlow
-    from google.auth.transport.requests import Request
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
     GOOGLE_API_AVAILABLE = True
 except ImportError:
     GOOGLE_API_AVAILABLE = False
-    Credentials = None
+    build = None
 
-# Configuration
+# Import unified Google auth
+import sys
 SERVICES_ROOT = Path(__file__).parent.parent
-ORCHESTRATOR_ROOT = SERVICES_ROOT.parent
-CONFIG_DIR = Path(os.getenv("GOOGLE_CONFIG_DIR", os.path.expanduser("~/.config/agent007/google")))
-CREDENTIALS_FILE = CONFIG_DIR / "credentials.json"
-TOKEN_FILE = CONFIG_DIR / "drive_token.json"
+sys.path.insert(0, str(SERVICES_ROOT))
 
-DRIVE_SCOPES = [
-    'https://www.googleapis.com/auth/drive.readonly',
-    'https://www.googleapis.com/auth/drive.file',
-    'https://www.googleapis.com/auth/drive.metadata.readonly',
-]
-
+from google_auth import get_google_auth
 
 @dataclass
 class DriveFile:
@@ -48,342 +33,252 @@ class DriveFile:
     id: str
     name: str
     mime_type: str
-    size: int
-    created_time: str
-    modified_time: str
-    parents: List[str]
-    shared: bool
-    web_view_link: str
-    owners: List[str]
+    size: Optional[int] = None
+    created_time: Optional[str] = None
+    modified_time: Optional[str] = None
+    web_view_link: Optional[str] = None
+    parents: Optional[List[str]] = None
 
 
 class DriveClient:
-    """Google Drive API client with safety controls."""
+    """
+    Google Drive API client using unified authentication.
     
+    Supports:
+    - List files/folders
+    - Search files
+    - Download files
+    - Upload files
+    - Get file metadata
+    """
+
     def __init__(self):
+        """Initialize Drive client with unified Google auth."""
+        if not GOOGLE_API_AVAILABLE:
+            raise ImportError("Google API libraries not installed. Run: pip install google-api-python-client google-auth-oauthlib")
+        
         self._service = None
-        self._credentials = None
-    
-    @property
-    def is_available(self) -> bool:
-        return GOOGLE_API_AVAILABLE
-    
+        self._auth = get_google_auth()
+
     @property
     def is_authenticated(self) -> bool:
-        return self._credentials is not None and self._credentials.valid
-    
-    def authenticate(self, headless: bool = False) -> bool:
-        """
-        Authenticate with Drive API.
-        
-        Args:
-            headless: If True, fail if interactive OAuth is needed.
-                      If False, open browser for OAuth flow.
-        """
-        if not GOOGLE_API_AVAILABLE:
-            raise ImportError(
-                "Google API libraries not installed. Run: "
-                "pip install google-api-python-client google-auth-oauthlib"
-            )
-        
-        if not CREDENTIALS_FILE.exists():
-            raise FileNotFoundError(
-                f"OAuth credentials not found at {CREDENTIALS_FILE}. "
-                "Download from Google Cloud Console."
-            )
-        
-        creds = None
-        
-        if TOKEN_FILE.exists():
-            creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), DRIVE_SCOPES)
-        
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            elif headless:
-                # In headless mode, fail if we need interactive auth
-                raise RuntimeError(
-                    "Google Drive OAuth token not found or expired. "
-                    "Run 'python -m services.google_auth' to authenticate interactively."
-                )
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    str(CREDENTIALS_FILE), DRIVE_SCOPES
-                )
-                creds = flow.run_local_server(port=0)
+        """Check if authenticated with Google."""
+        return self._auth.is_authenticated if self._auth else False
+
+    @property
+    def service(self):
+        """Get or create Drive API service."""
+        if self._service is None:
+            auth = get_google_auth()
             
-            CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-            with open(TOKEN_FILE, 'w') as f:
-                f.write(creds.to_json())
+            if not auth.is_authenticated:
+                raise RuntimeError(
+                    "Not authenticated with Google. "
+                    "Run: python -m services.google_auth"
+                )
+            
+            creds = auth.credentials
+            self._service = build('drive', 'v3', credentials=creds)
+            self._auth = auth
         
-        self._credentials = creds
-        self._service = build('drive', 'v3', credentials=creds)
-        return True
-    
-    def _ensure_authenticated(self):
-        if not self.is_authenticated:
-            self.authenticate()
-    
-    def _parse_file(self, file_data: Dict) -> DriveFile:
-        """Parse Drive API file into DriveFile."""
-        return DriveFile(
-            id=file_data['id'],
-            name=file_data.get('name', ''),
-            mime_type=file_data.get('mimeType', ''),
-            size=int(file_data.get('size', 0)),
-            created_time=file_data.get('createdTime', ''),
-            modified_time=file_data.get('modifiedTime', ''),
-            parents=file_data.get('parents', []),
-            shared=file_data.get('shared', False),
-            web_view_link=file_data.get('webViewLink', ''),
-            owners=[o.get('emailAddress', '') for o in file_data.get('owners', [])],
-        )
-    
-    # =========================================================================
-    # READ OPERATIONS
-    # =========================================================================
-    
+        return self._service
+
     def list_files(
         self,
-        query: str = None,
-        folder_id: str = None,
-        max_results: int = 20,
+        folder_id: Optional[str] = None,
+        query: Optional[str] = None,
+        page_size: int = 100,
+        order_by: str = "modifiedTime desc"
     ) -> List[DriveFile]:
         """
-        List files in Drive.
+        List files from Google Drive.
         
-        Query examples:
-        - "name contains 'report'" - name contains text
-        - "mimeType = 'application/pdf'" - specific type
-        - "modifiedTime > '2024-01-01'" - modified after date
+        Args:
+            folder_id: If provided, list files in this folder
+            query: Drive API query string (e.g., "name contains 'report'")
+            page_size: Number of files per page
+            order_by: Sort order (e.g., "modifiedTime desc", "name")
+        
+        Returns:
+            List of DriveFile objects
         """
-        self._ensure_authenticated()
-        
-        q_parts = []
-        if query:
-            q_parts.append(query)
-        if folder_id:
-            q_parts.append(f"'{folder_id}' in parents")
-        
-        q = " and ".join(q_parts) if q_parts else None
-        
-        results = self._service.files().list(
-            q=q,
-            pageSize=max_results,
-            fields="files(id, name, mimeType, size, createdTime, modifiedTime, parents, shared, webViewLink, owners)",
-        ).execute()
-        
-        return [self._parse_file(f) for f in results.get('files', [])]
-    
-    def get_file(self, file_id: str) -> Optional[DriveFile]:
-        """Get file metadata by ID."""
-        self._ensure_authenticated()
-        
         try:
-            file_data = self._service.files().get(
-                fileId=file_id,
-                fields="id, name, mimeType, size, createdTime, modifiedTime, parents, shared, webViewLink, owners",
+            # Build query
+            q_parts = []
+            if folder_id:
+                q_parts.append(f"'{folder_id}' in parents")
+            if query:
+                q_parts.append(query)
+            q_parts.append("trashed=false")
+            
+            final_query = " and ".join(q_parts)
+            
+            results = self.service.files().list(
+                q=final_query,
+                pageSize=page_size,
+                orderBy=order_by,
+                fields="files(id, name, mimeType, size, createdTime, modifiedTime, webViewLink, parents)"
             ).execute()
-            return self._parse_file(file_data)
-        except Exception:
-            return None
-    
-    def download_file(self, file_id: str, local_path: str) -> bool:
-        """Download a file to local path."""
-        self._ensure_authenticated()
+            
+            files = results.get('files', [])
+            
+            return [
+                DriveFile(
+                    id=f['id'],
+                    name=f['name'],
+                    mime_type=f['mimeType'],
+                    size=int(f.get('size', 0)) if 'size' in f else None,
+                    created_time=f.get('createdTime'),
+                    modified_time=f.get('modifiedTime'),
+                    web_view_link=f.get('webViewLink'),
+                    parents=f.get('parents')
+                )
+                for f in files
+            ]
         
-        request = self._service.files().get_media(fileId=file_id)
-        
-        with open(local_path, 'wb') as f:
-            downloader = MediaIoBaseDownload(f, request)
-            done = False
-            while not done:
-                status, done = downloader.next_chunk()
-        
-        return True
-    
-    def read_file_content(self, file_id: str) -> Optional[str]:
-        """Read text content of a file."""
-        self._ensure_authenticated()
-        
-        try:
-            # For Google Docs, export as plain text
-            file_info = self.get_file(file_id)
-            if file_info and 'google-apps' in file_info.mime_type:
-                content = self._service.files().export(
-                    fileId=file_id,
-                    mimeType='text/plain',
-                ).execute()
-                return content.decode('utf-8') if isinstance(content, bytes) else content
-            else:
-                # Regular file - download content
-                request = self._service.files().get_media(fileId=file_id)
-                content = request.execute()
-                return content.decode('utf-8') if isinstance(content, bytes) else str(content)
         except Exception as e:
+            print(f"Error listing Drive files: {e}")
+            return []
+
+    def search_files(self, search_term: str, max_results: int = 20) -> List[DriveFile]:
+        """
+        Search for files by name.
+        
+        Args:
+            search_term: Text to search for in file names
+            max_results: Maximum number of results
+        
+        Returns:
+            List of matching DriveFile objects
+        """
+        query = f"name contains '{search_term}'"
+        return self.list_files(query=query, page_size=max_results)
+
+    def get_file_metadata(self, file_id: str) -> Optional[DriveFile]:
+        """
+        Get metadata for a specific file.
+        
+        Args:
+            file_id: Google Drive file ID
+        
+        Returns:
+            DriveFile object or None if not found
+        """
+        try:
+            file = self.service.files().get(
+                fileId=file_id,
+                fields="id, name, mimeType, size, createdTime, modifiedTime, webViewLink, parents"
+            ).execute()
+            
+            return DriveFile(
+                id=file['id'],
+                name=file['name'],
+                mime_type=file['mimeType'],
+                size=int(file.get('size', 0)) if 'size' in file else None,
+                created_time=file.get('createdTime'),
+                modified_time=file.get('modifiedTime'),
+                web_view_link=file.get('webViewLink'),
+                parents=file.get('parents')
+            )
+        
+        except Exception as e:
+            print(f"Error getting file metadata: {e}")
             return None
-    
-    def search(self, name_query: str, max_results: int = 10) -> List[DriveFile]:
-        """Search files by name."""
-        return self.list_files(
-            query=f"name contains '{name_query}'",
-            max_results=max_results,
-        )
-    
-    # =========================================================================
-    # WRITE OPERATIONS (should go through confirmation)
-    # =========================================================================
-    
+
+    def download_file(self, file_id: str, output_path: str) -> bool:
+        """
+        Download a file from Google Drive.
+        
+        Args:
+            file_id: Google Drive file ID
+            output_path: Local path to save file
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            request = self.service.files().get_media(fileId=file_id)
+            
+            with open(output_path, 'wb') as f:
+                downloader = MediaIoBaseDownload(f, request)
+                done = False
+                while not done:
+                    status, done = downloader.next_chunk()
+                    if status:
+                        print(f"Download {int(status.progress() * 100)}%")
+            
+            return True
+        
+        except Exception as e:
+            print(f"Error downloading file: {e}")
+            return False
+
     def upload_file(
         self,
-        local_path: str,
-        name: str = None,
-        folder_id: str = None,
-        mime_type: str = None,
-    ) -> DriveFile:
+        file_path: str,
+        name: Optional[str] = None,
+        folder_id: Optional[str] = None,
+        mime_type: Optional[str] = None
+    ) -> Optional[str]:
         """
-        Upload a file to Drive.
-        NOTE: Requires confirmation before execution.
+        Upload a file to Google Drive.
+        
+        Args:
+            file_path: Local path to file
+            name: Name for file in Drive (defaults to filename)
+            folder_id: Parent folder ID (optional)
+            mime_type: MIME type (auto-detected if not provided)
+        
+        Returns:
+            File ID if successful, None otherwise
         """
-        self._ensure_authenticated()
+        try:
+            file_metadata = {
+                'name': name or Path(file_path).name
+            }
+            
+            if folder_id:
+                file_metadata['parents'] = [folder_id]
+            
+            media = MediaFileUpload(
+                file_path,
+                mimetype=mime_type,
+                resumable=True
+            )
+            
+            file = self.service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields='id, name, webViewLink'
+            ).execute()
+            
+            print(f"✅ Uploaded: {file.get('name')} (ID: {file.get('id')})")
+            return file.get('id')
         
-        path = Path(local_path)
-        if not path.exists():
-            raise FileNotFoundError(f"File not found: {local_path}")
-        
-        file_metadata = {
-            'name': name or path.name,
-        }
-        if folder_id:
-            file_metadata['parents'] = [folder_id]
-        
-        media = MediaFileUpload(
-            local_path,
-            mimetype=mime_type,
-            resumable=True,
-        )
-        
-        file = self._service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields='id, name, mimeType, size, createdTime, modifiedTime, parents, shared, webViewLink, owners',
-        ).execute()
-        
-        return self._parse_file(file)
-    
-    def create_folder(self, name: str, parent_id: str = None) -> DriveFile:
-        """Create a new folder."""
-        self._ensure_authenticated()
-        
-        file_metadata = {
-            'name': name,
-            'mimeType': 'application/vnd.google-apps.folder',
-        }
-        if parent_id:
-            file_metadata['parents'] = [parent_id]
-        
-        folder = self._service.files().create(
-            body=file_metadata,
-            fields='id, name, mimeType, size, createdTime, modifiedTime, parents, shared, webViewLink, owners',
-        ).execute()
-        
-        return self._parse_file(folder)
-    
-    def update_file(
-        self,
-        file_id: str,
-        local_path: str = None,
-        new_name: str = None,
-    ) -> DriveFile:
-        """Update file content or metadata."""
-        self._ensure_authenticated()
-        
-        file_metadata = {}
-        if new_name:
-            file_metadata['name'] = new_name
-        
-        media = None
-        if local_path:
-            media = MediaFileUpload(local_path, resumable=True)
-        
-        file = self._service.files().update(
-            fileId=file_id,
-            body=file_metadata if file_metadata else None,
-            media_body=media,
-            fields='id, name, mimeType, size, createdTime, modifiedTime, parents, shared, webViewLink, owners',
-        ).execute()
-        
-        return self._parse_file(file)
-    
-    # =========================================================================
-    # DELETE OPERATIONS (require explicit confirmation)
-    # =========================================================================
-    
-    def trash_file(self, file_id: str) -> bool:
-        """Move file to trash (recoverable)."""
-        self._ensure_authenticated()
-        
-        self._service.files().update(
-            fileId=file_id,
-            body={'trashed': True},
-        ).execute()
-        
-        return True
-    
-    def delete_file(self, file_id: str) -> bool:
-        """
-        Permanently delete a file (NOT recoverable).
-        DANGEROUS: Requires double confirmation.
-        """
-        self._ensure_authenticated()
-        
-        self._service.files().delete(fileId=file_id).execute()
-        return True
-    
-    # =========================================================================
-    # SHARE OPERATIONS (require confirmation)
-    # =========================================================================
-    
-    def share_file(
-        self,
-        file_id: str,
-        email: str,
-        role: str = "reader",  # reader, writer, commenter
-        send_notification: bool = True,
-    ) -> Dict[str, Any]:
-        """
-        Share a file with another user.
-        NOTE: Requires confirmation - sharing exposes data.
-        """
-        self._ensure_authenticated()
-        
-        permission = {
-            'type': 'user',
-            'role': role,
-            'emailAddress': email,
-        }
-        
-        result = self._service.permissions().create(
-            fileId=file_id,
-            body=permission,
-            sendNotificationEmail=send_notification,
-        ).execute()
-        
-        return {
-            "permission_id": result['id'],
-            "file_id": file_id,
-            "shared_with": email,
-            "role": role,
-        }
+        except Exception as e:
+            print(f"Error uploading file: {e}")
+            return None
 
 
-# Global instance
-_client: Optional[DriveClient] = None
-
+# Singleton instance
+_drive_client: Optional[DriveClient] = None
 
 def get_drive_client() -> DriveClient:
-    """Get the global Drive client."""
-    global _client
-    if _client is None:
-        _client = DriveClient()
-    return _client
+    """Get or create the singleton Drive client."""
+    global _drive_client
+    if _drive_client is None:
+        _drive_client = DriveClient()
+    return _drive_client
+
+
+if __name__ == "__main__":
+    # Test Drive client
+    client = get_drive_client()
+    
+    print("📁 Listing recent files from Google Drive:")
+    files = client.list_files(page_size=10)
+    
+    for f in files:
+        print(f"  - {f.name} ({f.mime_type})")
+        if f.web_view_link:
+            print(f"    {f.web_view_link}")

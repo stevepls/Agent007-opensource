@@ -36,7 +36,7 @@ load_dotenv()
 # Configuration
 GOOGLE_CONFIG_DIR = Path(os.getenv("GOOGLE_CONFIG_DIR", "~/.config/agent007/google")).expanduser()
 CREDENTIALS_FILE = GOOGLE_CONFIG_DIR / "credentials.json"
-TOKEN_FILE = GOOGLE_CONFIG_DIR / "sheets_token.json"
+TOKEN_FILE = GOOGLE_CONFIG_DIR / "unified_token.json"
 
 # Scopes required for Sheets access
 SCOPES = [
@@ -140,7 +140,7 @@ class GoogleSheetsClient:
     
     def authenticate(self, headless: bool = False) -> bool:
         """
-        Authenticate with Google.
+        Authenticate with Google using unified credentials.
         
         Args:
             headless: If True, fail if browser auth is needed
@@ -150,6 +150,35 @@ class GoogleSheetsClient:
                 "Google API libraries not installed. Run:\n"
                 "pip install google-api-python-client google-auth-oauthlib"
             )
+        
+        # Try unified auth first - use absolute import path
+        try:
+            from services.google_auth import get_google_auth
+            
+            auth = get_google_auth()
+            if auth.is_authenticated:
+                self._creds = auth.credentials
+                self._service = build("sheets", "v4", credentials=self._creds)
+                return True
+            else:
+                if headless:
+                    raise RuntimeError("Unified auth not authenticated")
+        except ImportError:
+            # Try relative import
+            try:
+                import sys
+                sys.path.insert(0, str(Path(__file__).parent.parent))
+                from google_auth import get_google_auth
+                
+                auth = get_google_auth()
+                if auth.is_authenticated:
+                    self._creds = auth.credentials
+                    self._service = build("sheets", "v4", credentials=self._creds)
+                    return True
+            except Exception as e:
+                pass
+        except Exception as e:
+            pass
         
         if not self._credentials_file.exists():
             raise FileNotFoundError(
