@@ -204,6 +204,7 @@ def slack_list_dms() -> Dict[str, Any]:
     """
     List all direct message conversations with actual user names.
     Shows the names of people you've had DM conversations with.
+    Uses the SlackClient wrapper for proper token management and error handling.
     """
     client = get_slack_client()
     
@@ -211,52 +212,47 @@ def slack_list_dms() -> Dict[str, Any]:
         return {"error": "Slack not configured. Set SLACK_BOT_TOKEN."}
     
     try:
-        from slack_sdk import WebClient
-        import os
-        
-        token = os.getenv("SLACK_BOT_TOKEN")
-        slack_client = WebClient(token=token)
-        
-        # Get DM conversations
-        response = slack_client.conversations_list(types="im")
-        channels = response.get("channels", [])
+        # Use the wrapper's list_dms method (proper architecture)
+        dms = client.list_dms()
         
         dm_contacts = []
         active_names = []
         
-        for dm in channels:
-            user_id = dm.get("user")
-            channel_id = dm.get("id")
-            is_active = not dm.get("is_archived", False)
+        for dm in dms:
+            user_id = dm.name  # For DM channels, name is the user ID
+            channel_id = dm.id
+            is_active = not dm.is_archived
             
             # Skip Slackbot
             if user_id == "USLACKBOT":
                 continue
             
-            # Get user info to resolve name
+            # Use wrapper's get_user method (proper architecture)
             try:
-                user_info = slack_client.users_info(user=user_id)
-                user = user_info.get("user", {})
-                real_name = user.get("real_name", user_id)
-                username = user.get("name", "")
-                email = user.get("profile", {}).get("email", "")
-                title = user.get("profile", {}).get("title", "")
+                user = client.get_user(user_id)
                 
-                contact = {
-                    "id": channel_id,
-                    "user_id": user_id,
-                    "name": real_name,
-                    "username": username,
-                    "email": email,
-                    "title": title,
-                    "is_active": is_active,
-                }
-                
-                dm_contacts.append(contact)
-                if is_active:
-                    active_names.append(real_name)
+                if user:
+                    contact = {
+                        "id": channel_id,
+                        "user_id": user_id,
+                        "name": user.real_name or user.name,
+                        "username": user.name,
+                        "email": user.email,
+                        "title": user.title,
+                        "is_active": is_active,
+                    }
+                    
+                    dm_contacts.append(contact)
+                    if is_active:
+                        active_names.append(user.real_name or user.name)
+                else:
+                    dm_contacts.append({
+                        "id": channel_id,
+                        "user_id": user_id,
+                        "name": user_id,
+                        "is_active": is_active,
+                    })
             except Exception as e:
-                # Fall back to user ID if can't resolve
                 dm_contacts.append({
                     "id": channel_id,
                     "user_id": user_id,

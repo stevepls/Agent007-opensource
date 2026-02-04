@@ -76,6 +76,7 @@ class SlackUser:
     is_admin: bool
     status_text: str
     status_emoji: str
+    title: str = ""  # Job title from profile
 
 
 class SlackClient:
@@ -278,6 +279,7 @@ class SlackClient:
                 is_admin=u.get('is_admin', False),
                 status_text=profile.get('status_text', ''),
                 status_emoji=profile.get('status_emoji', ''),
+                title=profile.get('title', ''),
             )
         except SlackApiError:
             return None
