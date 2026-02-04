@@ -642,19 +642,36 @@ class ToolRegistry:
                 status: str = None,
                 tags: List[str] = None,
             ) -> Dict[str, Any]:
-                """Create a new task in ClickUp."""
+                """Create a new task in ClickUp with automatic verification."""
+                import requests
+                
                 api_token = os.getenv("CLICKUP_API_TOKEN")
                 if not api_token:
                     return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
                 
                 client = get_clickup_client()
                 
+                # Get list name for verification
+                target_list_name = None
                 if not list_id:
                     list_id = os.getenv("CLICKUP_DEFAULT_LIST_ID")
                 
                 if not list_id:
-                    return {"error": "No list_id provided. Set CLICKUP_DEFAULT_LIST_ID."}
+                    return {"error": "No list_id provided. Use clickup_browse_workspace to find a list_id, or set CLICKUP_DEFAULT_LIST_ID."}
                 
+                # Get list info before creating
+                try:
+                    list_resp = requests.get(
+                        f"https://api.clickup.com/api/v2/list/{list_id}",
+                        headers={"Authorization": api_token},
+                        timeout=10
+                    )
+                    if list_resp.ok:
+                        target_list_name = list_resp.json().get("name", "Unknown")
+                except:
+                    target_list_name = "Unknown"
+                
+                # Create the task
                 task = client.create_task(
                     list_id=list_id,
                     name=name,
@@ -664,12 +681,65 @@ class ToolRegistry:
                     tags=tags or [],
                 )
                 
-                if task:
-                    return {
-                        "success": True,
-                        "task": {"id": task.id, "name": task.name, "url": task.url}
-                    }
-                return {"error": "Failed to create task"}
+                if not task:
+                    return {"error": "Failed to create task - API returned no task"}
+                
+                # VERIFICATION: Fetch the task to confirm it was created correctly
+                verification = {"verified": False, "issues": []}
+                try:
+                    verify_resp = requests.get(
+                        f"https://api.clickup.com/api/v2/task/{task.id}",
+                        headers={"Authorization": api_token},
+                        timeout=10
+                    )
+                    if verify_resp.ok:
+                        verified_task = verify_resp.json()
+                        verification["verified"] = True
+                        
+                        # Check list ID matches
+                        actual_list_id = verified_task.get("list", {}).get("id", "")
+                        actual_list_name = verified_task.get("list", {}).get("name", "")
+                        
+                        if str(actual_list_id) != str(list_id):
+                            verification["issues"].append(
+                                f"Task created in wrong list! Expected {list_id} ({target_list_name}), got {actual_list_id} ({actual_list_name})"
+                            )
+                        
+                        # Check task name matches
+                        if verified_task.get("name") != name:
+                            verification["issues"].append(
+                                f"Task name mismatch! Expected '{name}', got '{verified_task.get('name')}'"
+                            )
+                        
+                        verification["actual_list"] = {
+                            "id": actual_list_id,
+                            "name": actual_list_name
+                        }
+                    else:
+                        verification["issues"].append(f"Could not verify task: API returned {verify_resp.status_code}")
+                except Exception as e:
+                    verification["issues"].append(f"Verification failed: {str(e)}")
+                
+                result = {
+                    "success": True,
+                    "task": {
+                        "id": task.id,
+                        "name": task.name,
+                        "url": task.url,
+                        "list_id": list_id,
+                        "list_name": target_list_name,
+                    },
+                    "verification": verification
+                }
+                
+                # Add warning if there are issues
+                if verification["issues"]:
+                    result["warning"] = " | ".join(verification["issues"])
+                    print(f"[WARN] Task creation issues: {verification['issues']}")
+                else:
+                    print(f"[INFO] Task '{name}' verified in list '{target_list_name}' (ID: {task.id})")
+                
+                return result
             
             def clickup_update_task(
                 task_id: str,

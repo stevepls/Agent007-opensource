@@ -299,3 +299,83 @@ CLICKUP_ENHANCED_TOOLS = [
         }
     },
 ]
+
+
+def clickup_verify_tasks(list_id: str, expected_tasks: List[str] = None) -> Dict[str, Any]:
+    """
+    Verify tasks exist in a ClickUp list.
+    
+    Args:
+        list_id: The list to check
+        expected_tasks: Optional list of task names to verify
+    
+    Returns verification report with found/missing tasks.
+    """
+    token = get_api_token()
+    if not token:
+        return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+    
+    # Get list info
+    list_resp = clickup_api_request("GET", f"/list/{list_id}")
+    list_name = list_resp.get("name", "Unknown") if "error" not in list_resp else "Unknown"
+    
+    # Get all tasks in the list
+    tasks_resp = clickup_api_request("GET", f"/list/{list_id}/task?include_closed=false")
+    if "error" in tasks_resp:
+        return tasks_resp
+    
+    tasks = tasks_resp.get("tasks", [])
+    task_names = [t.get("name", "") for t in tasks]
+    
+    result = {
+        "list_id": list_id,
+        "list_name": list_name,
+        "total_tasks": len(tasks),
+        "tasks": [
+            {"id": t["id"], "name": t.get("name", ""), "status": t.get("status", {}).get("status", "")}
+            for t in tasks[:30]  # Limit to 30 for readability
+        ]
+    }
+    
+    # If expected tasks provided, check which are missing
+    if expected_tasks:
+        found = []
+        missing = []
+        for expected in expected_tasks:
+            # Fuzzy match - check if expected task name is contained in any actual task
+            matched = any(expected.lower() in name.lower() for name in task_names)
+            if matched:
+                found.append(expected)
+            else:
+                missing.append(expected)
+        
+        result["verification"] = {
+            "expected": len(expected_tasks),
+            "found": len(found),
+            "missing": len(missing),
+            "found_tasks": found,
+            "missing_tasks": missing,
+            "match_rate": f"{len(found)}/{len(expected_tasks)} ({100*len(found)//len(expected_tasks) if expected_tasks else 0}%)"
+        }
+    
+    return result
+
+
+# Add to the tools list
+CLICKUP_ENHANCED_TOOLS.append({
+    "name": "clickup_verify_tasks",
+    "description": "Verify tasks exist in a ClickUp list. Can check if specific expected tasks are present.",
+    "function": clickup_verify_tasks,
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "list_id": {"type": "string", "description": "List ID to verify tasks in (required)"},
+            "expected_tasks": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Optional list of task names to check for"
+            },
+        },
+        "required": ["list_id"]
+    }
+})
