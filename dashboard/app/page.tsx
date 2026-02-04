@@ -56,8 +56,9 @@ export default function Dashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  type Provider = "auto" | "orchestrator" | "claude" | "openai";
   const [currentProvider, setCurrentProvider] = useState<string>("connecting");
-  const [preferredProvider, setPreferredProvider] = useState<string>("auto");
+  const [preferredProvider, setPreferredProvider] = useState<Provider>("auto");
 
   // Track processed updates to prevent duplicates
   const processedUpdatesRef = useRef<Set<string>>(new Set());
@@ -301,7 +302,13 @@ export default function Dashboard() {
                 <div className="flex items-center gap-1">
                   <select
                     value={preferredProvider}
-                    onChange={(e) => setPreferredProvider(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value as Provider;
+                      // Validate value before setting
+                      if (["auto", "orchestrator", "claude", "openai"].includes(value)) {
+                        setPreferredProvider(value);
+                      }
+                    }}
                     className="text-[10px] px-1 py-0.5 rounded bg-background/50 border border-border cursor-pointer hover:bg-accent/50 transition-colors"
                     title="Select AI Provider"
                   >
