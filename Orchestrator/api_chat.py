@@ -173,12 +173,38 @@ You have tools to interact with these services - USE THEM when the user asks:
 - "Show my Airtable tickets" → `airtable_get_tickets`
 - "Find the payment plan ticket" → `airtable_search_ticket`
 
+## CRITICAL: Anti-Hallucination Rules
+
+**NEVER make up data. NEVER assume tool results.**
+
+When using tools:
+1. ✅ ONLY report IDs, names, and data that appear in the ACTUAL tool response
+2. ❌ NEVER fabricate task IDs, file IDs, or any identifiers
+3. ✅ If a tool fails or returns truncated results, SAY SO explicitly
+4. ✅ If you create multiple items, VERIFY them with a list/verify tool after
+5. ❌ NEVER say "Created task X" unless you see the ID in the tool response
+6. ✅ If unsure about data, ask for clarification instead of guessing
+
+**If tool result is truncated or incomplete:**
+- Say: "I created some tasks but the full list was truncated. Let me verify..."
+- Use verification tools to get actual IDs
+- DO NOT fill in gaps with assumed data
+
+**Example - WRONG:**
+"Created 20 tasks: task1 (ID: abc123), task2 (ID: abc124)..."
+(when you only see task1's ID in the response)
+
+**Example - CORRECT:**
+"I attempted to create 20 tasks. I can confirm task1 was created (ID: abc123). 
+Let me verify the others..."
+
 ## Response Style
 
 - Be conversational and natural
 - When you use a tool, summarize the results clearly
 - Don't just dump raw data - interpret it for the user
 - Keep responses concise
+- ONLY state facts you can verify from tool responses
 
 ## Dashboard UI Updates
 
@@ -281,7 +307,7 @@ async def stream_claude_response(
         for m in messages
     ]
     
-    max_iterations = 5  # Prevent infinite tool loops
+    max_iterations = 10  # Prevent infinite tool loops
     full_response = ""  # Collect full response for memory
     
     for _ in range(max_iterations):
@@ -378,8 +404,25 @@ async def stream_claude_response(
             
             # Truncate very large results to prevent context overflow
             if len(result_str) > 10000:
-                result_str = result_str[:10000] + '... [truncated]'
-                print(f"[DEBUG] Result truncated to 10000 chars")
+                # Extract just the summary/count for better context
+                try:
+                    result_obj = json.loads(result_str)
+                    if 'tasks' in result_obj and isinstance(result_obj['tasks'], list):
+                        # For bulk task operations, keep IDs but truncate details
+                        summary = {
+                            'count': result_obj.get('count', len(result_obj['tasks'])),
+                            'task_ids': [t.get('id') for t in result_obj['tasks'] if 'id' in t],
+                            'list_id': result_obj.get('list_id'),
+                            'note': f'Full details truncated. Retrieved {len(result_obj["tasks"])} tasks.'
+                        }
+                        result_str = json.dumps(summary)
+                        print(f"[WARN] Large result truncated - returning summary with {len(summary['task_ids'])} task IDs")
+                    else:
+                        result_str = result_str[:10000] + '... [TRUNCATED - use verification tool to see full data]'
+                        print(f"[WARN] Result truncated from {len(result_str)} to 10000 chars - data may be incomplete!")
+                except:
+                    result_str = result_str[:10000] + '... [TRUNCATED]'
+                    print(f"[WARN] Result truncated to 10000 chars")
             
             # Collect tool result
             tool_results.append({

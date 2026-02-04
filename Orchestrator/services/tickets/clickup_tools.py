@@ -559,3 +559,109 @@ CLICKUP_ENHANCED_TOOLS.extend([
         }
     },
 ])
+
+
+def clickup_create_tasks_batch(
+    list_id: str,
+    tasks: List[Dict[str, Any]],
+    verify: bool = True,
+) -> Dict[str, Any]:
+    """
+    Create multiple ClickUp tasks at once with automatic verification.
+    
+    Args:
+        list_id: List ID to create tasks in (required)
+        tasks: List of task objects with 'name' (required), 'description', 'priority', 'tags'
+        verify: Auto-verify after creation (default: True)
+    
+    Returns summary with all created task IDs (never truncated).
+    """
+    token = get_api_token()
+    if not token:
+        return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+    
+    if not list_id or not tasks:
+        return {"error": "list_id and tasks are required"}
+    
+    created = []
+    failed = []
+    
+    for i, task_data in enumerate(tasks):
+        name = task_data.get("name")
+        if not name:
+            failed.append({"index": i, "reason": "Missing task name"})
+            continue
+        
+        # Create the task
+        data = {
+            "name": name,
+            "markdown_description": task_data.get("description", ""),
+            "priority": task_data.get("priority", 3),
+        }
+        
+        if task_data.get("tags"):
+            data["tags"] = task_data["tags"]
+        
+        result = clickup_api_request("POST", f"/list/{list_id}/task", data)
+        
+        if "error" not in result and "id" in result:
+            created.append({
+                "name": name,
+                "id": result["id"],
+                "url": result.get("url", f"https://app.clickup.com/t/{result['id']}")
+            })
+        else:
+            failed.append({
+                "name": name,
+                "reason": result.get("err", result.get("error", "Unknown error"))
+            })
+    
+    result = {
+        "success": len(created) > 0,
+        "total_attempted": len(tasks),
+        "created_count": len(created),
+        "failed_count": len(failed),
+        "list_id": list_id,
+        "created_tasks": created,  # ALWAYS include all IDs, never truncated
+    }
+    
+    if failed:
+        result["failed_tasks"] = failed
+    
+    # Auto-verify if requested
+    if verify and created:
+        task_names = [t["name"] for t in created]
+        verification = clickup_verify_tasks(list_id, task_names)
+        result["verification"] = verification.get("verification", {})
+    
+    return result
+
+
+# Add to tools list
+CLICKUP_ENHANCED_TOOLS.append({
+    "name": "clickup_create_tasks_batch",
+    "description": "Create multiple ClickUp tasks at once with automatic verification. Returns ALL task IDs (never truncated). Use for bulk task creation.",
+    "function": clickup_create_tasks_batch,
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "list_id": {"type": "string", "description": "List ID to create tasks in (required)"},
+            "tasks": {
+                "type": "array",
+                "description": "Array of task objects",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Task name (required)"},
+                        "description": {"type": "string", "description": "Task description"},
+                        "priority": {"type": "integer", "description": "1=Urgent, 2=High, 3=Normal, 4=Low"},
+                        "tags": {"type": "array", "items": {"type": "string"}}
+                    },
+                    "required": ["name"]
+                }
+            },
+            "verify": {"type": "boolean", "description": "Auto-verify after creation (default: true)"}
+        },
+        "required": ["list_id", "tasks"]
+    }
+})
