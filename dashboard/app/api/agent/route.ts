@@ -122,7 +122,7 @@ function checkGuardrails(message: string): { allowed: boolean; reason?: string; 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { messages, attachments = [], selectedAgent = "orchestrator", preferredProvider = "auto" } = body;
+    const { messages, attachments = [], selectedAgent = "orchestrator", preferredProvider = "auto", sessionId = "" } = body;
 
     if (!messages || messages.length === 0) {
       return new Response(JSON.stringify({ error: "No messages provided" }), {
