@@ -189,11 +189,22 @@ export default function Dashboard() {
 
   // Handle approval
   const handleApprove = useCallback(async (id: string) => {
-    // Send approval to backend
+    // Send approval to backend with tool info
+    const approvalPayload: any = {
+      approval_id: id,
+      approved: true,
+    };
+    
+    // Include tool name and arguments if available
+    if (pendingApproval?.tool) {
+      approvalPayload.tool_name = pendingApproval.tool;
+      approvalPayload.arguments = pendingApproval.args || {};
+    }
+    
     await fetch("/api/agent/approve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ approval_id: id, approved: true }),
+      body: JSON.stringify(approvalPayload),
     });
     setPendingApproval(null);
     setStatusCards((prev) => [
@@ -206,7 +217,7 @@ export default function Dashboard() {
       },
       ...prev,
     ]);
-  }, []);
+  }, [pendingApproval]);
 
   // Handle rejection
   const handleReject = useCallback(async (id: string) => {

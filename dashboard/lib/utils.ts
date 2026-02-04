@@ -53,6 +53,9 @@ export interface ApprovalRequest {
   description: string;
   details?: Record<string, any>;
   timeout_seconds?: number;
+  tool?: string;  // Tool name to execute when approved
+  args?: Record<string, any>;  // Arguments for the tool
+  preview?: string;  // Preview of what will happen
 }
 
 /**

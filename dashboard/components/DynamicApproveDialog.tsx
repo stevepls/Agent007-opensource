@@ -132,6 +132,16 @@ export function DynamicApproveDialog({
           <DialogDescription className="text-left">
             {request.description}
           </DialogDescription>
+          
+          {/* Show preview for actions like Slack messages */}
+          {request.preview && (
+            <div className="mt-4 p-3 rounded-lg bg-muted/50 border border-border">
+              <p className="text-xs text-muted-foreground mb-2 font-semibold">Preview:</p>
+              <pre className="text-sm whitespace-pre-wrap font-mono text-foreground">
+                {request.preview}
+              </pre>
+            </div>
+          )}
         </DialogHeader>
 
         {/* Details section */}

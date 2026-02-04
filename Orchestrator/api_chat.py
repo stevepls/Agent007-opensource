@@ -354,9 +354,13 @@ async def stream_claude_response(
                 approval_json = json.dumps({
                     'needs_approval': {
                         'id': tool_call.id,
+                        'type': 'message',  # Type for UI styling
+                        'title': f"Approve {tool_call.name}",
+                        'description': result.get('message', 'This action requires your approval'),
                         'tool': tool_call.name,
                         'args': tool_call.input,
-                        'preview': result.get('preview')
+                        'preview': result.get('preview'),
+                        'timeout_seconds': 300  # 5 minute timeout
                     }
                 })
                 yield f"\n\n```json\n{approval_json}\n```\n"
