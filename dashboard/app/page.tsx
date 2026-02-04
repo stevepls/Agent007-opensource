@@ -18,8 +18,9 @@ import {
   type ApprovalRequest,
   type OrchestratorResponse,
 } from "@/lib/utils";
-import { Menu, X, Zap } from "lucide-react";
+import { Menu, X, Zap, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { usePersistedChat, useChatMemorySync } from "@/lib/usePersistedChat";
 
 // Default agents
 const DEFAULT_AGENTS: AgentUpdate[] = [
@@ -43,6 +44,10 @@ const DEFAULT_CARDS: StatusCard[] = [
 ];
 
 export default function Dashboard() {
+  // Chat persistence
+  const { sessionId, initialMessages, isLoaded, saveMessages, clearHistory } = usePersistedChat();
+  useChatMemorySync(sessionId);
+
   // UI State
   const [agents, setAgents] = useState<AgentUpdate[]>(DEFAULT_AGENTS);
   const [statusCards, setStatusCards] = useState<StatusCard[]>(DEFAULT_CARDS);
@@ -66,9 +71,12 @@ export default function Dashboard() {
     isLoading,
     error,
     setInput,
+    setMessages,
   } = useChat({
     api: "/api/agent",
-    body: { attachments, preferredProvider },
+    id: sessionId || undefined, // Use session ID for chat identity
+    initialMessages: initialMessages,
+    body: { attachments, preferredProvider, sessionId },
     onResponse: (response) => {
       console.log("Stream started:", response.status);
       // Track which AI provider is being used
@@ -88,6 +96,24 @@ export default function Dashboard() {
       }
     },
   });
+
+  // Persist messages whenever they change
+  useEffect(() => {
+    if (isLoaded && messages.length > 0) {
+      saveMessages(messages);
+    }
+  }, [messages, isLoaded, saveMessages]);
+
+  // Handle new chat
+  const handleNewChat = useCallback(() => {
+    clearHistory();
+    setMessages([]);
+    setStatusCards(DEFAULT_CARDS);
+    setAgents(DEFAULT_AGENTS);
+    setGlobalProgress(null);
+    setPendingApproval(null);
+    processedUpdatesRef.current.clear();
+  }, [clearHistory, setMessages]);
 
   // Apply UI updates from orchestrator (with deduplication)
   const applyUIUpdates = useCallback((response: OrchestratorResponse) => {
@@ -216,6 +242,20 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  // Don't render chat until persistence is loaded
+  if (!isLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center animate-pulse">
+            <Zap className="w-5 h-5 text-white" />
+          </div>
+          <p className="text-sm text-muted-foreground">Loading chat history...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Mobile menu button */}
@@ -239,7 +279,7 @@ export default function Dashboard() {
       >
         <div className="flex flex-col h-full p-4">
           {/* Logo */}
-          <div className="flex items-center gap-3 mb-8 mt-2">
+          <div className="flex items-center gap-3 mb-4 mt-2">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
@@ -275,6 +315,37 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          {/* New Chat / Clear History */}
+          <div className="flex gap-2 mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs"
+              onClick={handleNewChat}
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              New Chat
+            </Button>
+            {messages.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground hover:text-destructive"
+                onClick={handleNewChat}
+                title="Clear history"
+              >
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            )}
+          </div>
+
+          {/* Session indicator */}
+          {messages.length > 0 && (
+            <p className="text-[10px] text-muted-foreground/50 mb-4 truncate" title={sessionId}>
+              Session: {sessionId.slice(-8)}
+            </p>
+          )}
 
           {/* Global progress bar */}
           <AnimatePresence>
