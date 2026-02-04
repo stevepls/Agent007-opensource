@@ -337,11 +337,22 @@ async def stream_claude_response(
             # Execute the tool
             result = execute_tool(tool_call.name, tool_call.input)
             
+            # Log tool result
+            result_str = json.dumps(result)
+            print(f"[DEBUG] Tool {tool_call.name} result length: {len(result_str)} chars")
+            if 'error' in result:
+                print(f"[DEBUG] Tool error: {result['error']}")
+            
+            # Truncate very large results to prevent context overflow
+            if len(result_str) > 10000:
+                result_str = result_str[:10000] + '... [truncated]'
+                print(f"[DEBUG] Result truncated to 10000 chars")
+            
             # Collect tool result
             tool_results.append({
                 "type": "tool_result",
                 "tool_use_id": tool_call.id,
-                "content": json.dumps(result),
+                "content": result_str,
             })
         
         # Add all tool results as a single user message
