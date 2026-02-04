@@ -20,3 +20,8 @@ logs/
 
 # AppMap recordings
 tmp/appmap/
+
+# SQLite WAL files
+*.db-shm
+*.db-wal
+*.db-journal

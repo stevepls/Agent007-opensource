@@ -98,3 +98,8 @@ audit.db
 # Claude ignore file (track this)
 !.claudeignore
 !dashboard/lib/
+
+# SQLite WAL files (temporary runtime artifacts)
+*.db-shm
+*.db-wal
+*.db-journal
