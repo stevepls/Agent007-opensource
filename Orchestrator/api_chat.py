@@ -337,11 +337,40 @@ async def stream_claude_response(
             # Execute the tool
             result = execute_tool(tool_call.name, tool_call.input)
             
-            # Log tool result
-            result_str = json.dumps(result)
-            print(f"[DEBUG] Tool {tool_call.name} result length: {len(result_str)} chars")
-            if 'error' in result:
-                print(f"[DEBUG] Tool error: {result['error']}")
+            # Check if tool requires confirmation
+            if result.get("requires_confirmation"):
+                confirmation_msg = (
+                    f"\n\n⚠️ **CONFIRMATION REQUIRED**\n\n"
+                    f"**Action:** {tool_call.name}\n"
+                    f"**Danger Level:** {result.get('danger_level', 'medium').upper()}\n\n"
+                    f"**Preview:**\n{result.get('preview', 'No preview available')}\n\n"
+                    f"{result.get('warning', '')}\n\n"
+                    f"*Please approve in the UI or respond with 'approve' to continue.*"
+                )
+                yield confirmation_msg
+                full_response += confirmation_msg
+                
+                # Add a special marker for the UI to trigger approval dialog
+                approval_json = json.dumps({
+                    'needs_approval': {
+                        'id': tool_call.id,
+                        'tool': tool_call.name,
+                        'args': tool_call.input,
+                        'preview': result.get('preview')
+                    }
+                })
+                yield f"\n\n```json\n{approval_json}\n```\n"
+                
+                # Stop processing - wait for user approval
+                # The result will indicate confirmation is needed
+                result_str = json.dumps({"status": "pending_approval", "tool": tool_call.name})
+                print(f"[INFO] Tool {tool_call.name} requires confirmation - waiting for user approval")
+            else:
+                # Log tool result
+                result_str = json.dumps(result)
+                print(f"[DEBUG] Tool {tool_call.name} result length: {len(result_str)} chars")
+                if 'error' in result:
+                    print(f"[DEBUG] Tool error: {result['error']}")
             
             # Truncate very large results to prevent context overflow
             if len(result_str) > 10000:

@@ -542,3 +542,70 @@ async def debug_sheets():
         results["sheets_error"] = str(e)
     
     return results
+
+
+# ============================================================================
+# Approval System
+# ============================================================================
+
+# Store pending approvals (in-memory for now)
+pending_approvals: Dict[str, Dict[str, Any]] = {}
+
+@app.post("/api/approve")
+async def approve_action(request: Dict[str, Any]):
+    """
+    Approve or reject a pending action.
+    
+    Body:
+        approval_id: str - The approval request ID
+        approved: bool - True to approve, False to reject
+        tool_name: Optional[str] - Tool name to execute
+        arguments: Optional[Dict] - Tool arguments
+    """
+    approval_id = request.get("approval_id")
+    approved = request.get("approved", False)
+    tool_name = request.get("tool_name")
+    arguments = request.get("arguments", {})
+    
+    if not approval_id:
+        return {"error": "Missing approval_id"}
+    
+    if approved:
+        # Execute the approved action
+        from services.tool_registry import execute_tool
+        
+        if not tool_name:
+            return {"error": "Missing tool_name"}
+        
+        try:
+            # Execute with skip_confirmation=True
+            result = execute_tool(tool_name, arguments, skip_confirmation=True)
+            
+            return {
+                "approved": True,
+                "executed": True,
+                "tool": tool_name,
+                "result": result
+            }
+        except Exception as e:
+            return {
+                "approved": True,
+                "executed": False,
+                "error": str(e)
+            }
+    else:
+        # User rejected the action
+        return {
+            "approved": False,
+            "executed": False,
+            "message": "Action cancelled by user"
+        }
+
+
+@app.get("/api/approvals/pending")
+async def get_pending_approvals():
+    """List all pending approvals."""
+    return {
+        "count": len(pending_approvals),
+        "approvals": list(pending_approvals.values())
+    }

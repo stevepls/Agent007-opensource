@@ -76,15 +76,51 @@ class ToolRegistry:
             "category": category,
         }
     
-    def execute(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, name: str, arguments: Dict[str, Any], skip_confirmation: bool = False) -> Dict[str, Any]:
         """Execute a tool by name."""
         if name not in self._tools:
             return {"error": f"Unknown tool: {name}"}
         
+        tool = self._tools[name]
+        
+        # Check if tool requires confirmation
+        if tool.get("requires_confirmation") and not skip_confirmation:
+            danger_level = tool.get("danger_level", "medium")
+            
+            # Return confirmation request instead of executing
+            return {
+                "requires_confirmation": True,
+                "tool_name": name,
+                "arguments": arguments,
+                "danger_level": danger_level,
+                "preview": self._generate_preview(name, arguments),
+                "message": f"⚠️ This action requires your approval before executing.",
+                "warning": "This will send a message to Slack and cannot be undone."
+            }
+        
         try:
-            return self._tools[name]["func"](**arguments)
+            result = tool["func"](**arguments)
+            # Add confirmation bypass info if this was pre-approved
+            if skip_confirmation and tool.get("requires_confirmation"):
+                result["executed_with_approval"] = True
+            return result
         except Exception as e:
-            return {"error": f"Tool execution failed: {str(e)}"}
+            import traceback
+            return {"error": f"Tool execution failed: {str(e)}", "traceback": traceback.format_exc()}
+    
+    def _generate_preview(self, name: str, arguments: Dict[str, Any]) -> str:
+        """Generate a preview of what the tool will do."""
+        if name == "slack_post_message":
+            channel = arguments.get("channel", "?")
+            text = arguments.get("text", "")[:200]
+            thread = " (in thread)" if arguments.get("thread_ts") else ""
+            return f"Send to #{channel}{thread}:\n\n{text}"
+        elif name == "slack_reply_to_thread":
+            channel = arguments.get("channel", "?")
+            text = arguments.get("text", "")[:200]
+            return f"Reply in #{channel}:\n\n{text}"
+        
+        return f"Execute {name} with arguments: {arguments}"
     
     def get_definitions(self) -> List[Dict[str, Any]]:
         """Get tool definitions for Claude API."""
@@ -582,6 +618,27 @@ class ToolRegistry:
             },
             category="slack"
         )
+        
+        # Register enhanced Slack tools with guardrails
+        try:
+            from services.slack.slack_tools import SLACK_ENHANCED_TOOLS
+            for tool in SLACK_ENHANCED_TOOLS:
+                # Note: requires_confirmation stored in tool metadata but not passed to register()
+                # Will be enforced at execution layer
+                self.register(
+                    tool["name"],
+                    tool["description"],
+                    tool["function"],
+                    tool["parameters"],
+                    category="slack"
+                )
+                # Store danger level separately
+                if tool.get("requires_confirmation"):
+                    self._tools[tool["name"]]["requires_confirmation"] = True
+                    self._tools[tool["name"]]["danger_level"] = tool.get("danger_level", "medium")
+            print(f"[INFO] Loaded {len(SLACK_ENHANCED_TOOLS)} enhanced Slack tools")
+        except ImportError as e:
+            print(f"[WARN] Could not load enhanced Slack tools: {e}")
     
     # =========================================================================
     # ClickUp Tools
@@ -2030,9 +2087,9 @@ def get_all_tools() -> List[str]:
     return list(get_registry()._tools.keys())
 
 
-def execute_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+def execute_tool(name: str, arguments: Dict[str, Any], skip_confirmation: bool = False) -> Dict[str, Any]:
     """Execute a tool by name."""
-    return get_registry().execute(name, arguments)
+    return get_registry().execute(name, arguments, skip_confirmation=skip_confirmation)
 
 
 def get_tool_definitions() -> List[Dict[str, Any]]:
