@@ -838,6 +838,21 @@ class ToolRegistry:
                 category="clickup"
             )
             
+            # Register enhanced ClickUp tools for workspace management
+            try:
+                from services.tickets.clickup_tools import CLICKUP_ENHANCED_TOOLS
+                for tool in CLICKUP_ENHANCED_TOOLS:
+                    self.register(
+                        tool["name"],
+                        tool["description"],
+                        tool["function"],
+                        tool["parameters"],
+                        category="clickup"
+                    )
+                print(f"[INFO] Loaded {len(CLICKUP_ENHANCED_TOOLS)} enhanced ClickUp tools")
+            except ImportError as e:
+                print(f"[WARN] Could not load enhanced ClickUp tools: {e}")
+            
         except ImportError:
             pass
     
