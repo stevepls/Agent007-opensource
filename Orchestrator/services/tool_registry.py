@@ -386,7 +386,7 @@ class ToolRegistry:
                 task_name: Optional[str] = None,
                 date: Optional[str] = None,
             ) -> Dict[str, Any]:
-                """Log time to Harvest."""
+                """Log time to Harvest with verification."""
                 client = get_harvest_client()
                 if not client:
                     return {"error": "Harvest not configured"}
@@ -399,61 +399,114 @@ class ToolRegistry:
                     "Content-Type": "application/json"
                 }
                 
-                # Get user's project assignments
-                response = requests.get(
-                    "https://api.harvestapp.com/v2/users/me/project_assignments",
-                    headers=headers
-                )
-                response.raise_for_status()
-                assignments = response.json().get("project_assignments", [])
-                
-                # Find matching project
-                project_assignment = None
-                for a in assignments:
-                    if project_name.lower() in a["project"]["name"].lower():
-                        project_assignment = a
-                        break
-                
-                if not project_assignment:
-                    available = [a["project"]["name"] for a in assignments[:10]]
-                    return {"error": f"Project '{project_name}' not found. Available: {available}"}
-                
-                project = project_assignment["project"]
-                task_assignments = project_assignment.get("task_assignments", [])
-                
-                if not task_assignments:
-                    return {"error": f"No tasks found for project {project['name']}"}
-                
-                task = task_assignments[0]["task"]
-                if task_name:
-                    for t in task_assignments:
-                        if task_name.lower() in t["task"]["name"].lower():
-                            task = t["task"]
+                try:
+                    # Get user's project assignments
+                    response = requests.get(
+                        "https://api.harvestapp.com/v2/users/me/project_assignments",
+                        headers=headers,
+                        timeout=30
+                    )
+                    response.raise_for_status()
+                    assignments = response.json().get("project_assignments", [])
+                    
+                    # Find matching project
+                    project_assignment = None
+                    for a in assignments:
+                        if project_name.lower() in a["project"]["name"].lower():
+                            project_assignment = a
                             break
-                
-                spent_date = date or datetime.now().strftime("%Y-%m-%d")
-                entry_data = {
-                    "project_id": project["id"],
-                    "task_id": task["id"],
-                    "spent_date": spent_date,
-                    "hours": hours,
-                    "notes": notes or "Logged via Agent007"
-                }
-                
-                response = requests.post(
-                    "https://api.harvestapp.com/v2/time_entries",
-                    headers=headers,
-                    json=entry_data
-                )
-                response.raise_for_status()
-                
-                return {
-                    "success": True,
-                    "project": project["name"],
-                    "task": task["name"],
-                    "hours": hours,
-                    "date": spent_date
-                }
+                    
+                    if not project_assignment:
+                        available = [a["project"]["name"] for a in assignments[:10]]
+                        return {"error": f"Project '{project_name}' not found. Available: {available}"}
+                    
+                    project = project_assignment["project"]
+                    task_assignments = project_assignment.get("task_assignments", [])
+                    
+                    if not task_assignments:
+                        return {"error": f"No tasks found for project {project['name']}"}
+                    
+                    task = task_assignments[0]["task"]
+                    if task_name:
+                        for t in task_assignments:
+                            if task_name.lower() in t["task"]["name"].lower():
+                                task = t["task"]
+                                break
+                    
+                    spent_date = date or datetime.now().strftime("%Y-%m-%d")
+                    entry_data = {
+                        "project_id": project["id"],
+                        "task_id": task["id"],
+                        "spent_date": spent_date,
+                        "hours": hours,
+                        "notes": notes or "Logged via Agent007"
+                    }
+                    
+                    # Create the time entry
+                    create_response = requests.post(
+                        "https://api.harvestapp.com/v2/time_entries",
+                        headers=headers,
+                        json=entry_data,
+                        timeout=30
+                    )
+                    create_response.raise_for_status()
+                    created_entry = create_response.json()
+                    entry_id = created_entry.get("id")
+                    
+                    if not entry_id:
+                        return {
+                            "error": "Failed to create time entry - no ID returned",
+                            "api_response": str(created_entry)[:200]
+                        }
+                    
+                    # VERIFICATION: Fetch the entry back to confirm it exists
+                    verify_response = requests.get(
+                        f"https://api.harvestapp.com/v2/time_entries/{entry_id}",
+                        headers=headers,
+                        timeout=30
+                    )
+                    
+                    verification = {
+                        "verified": False,
+                        "entry_id": entry_id,
+                        "issues": []
+                    }
+                    
+                    if verify_response.status_code == 200:
+                        verified_entry = verify_response.json()
+                        verification["verified"] = True
+                        verification["actual_hours"] = verified_entry.get("hours")
+                        verification["actual_date"] = verified_entry.get("spent_date")
+                        
+                        # Check if values match
+                        if abs(verified_entry.get("hours", 0) - hours) > 0.01:
+                            verification["issues"].append(f"Hours mismatch: requested {hours}, got {verified_entry.get('hours')}")
+                            verification["verified"] = False
+                    else:
+                        verification["issues"].append(f"Could not verify entry - HTTP {verify_response.status_code}")
+                    
+                    return {
+                        "success": verification["verified"],
+                        "entry_id": entry_id,
+                        "project": project["name"],
+                        "task": task["name"],
+                        "hours": hours,
+                        "date": spent_date,
+                        "notes": notes or "Logged via Agent007",
+                        "verification": verification,
+                        "message": f"Logged {hours}h to {project['name']}" if verification["verified"] else "Entry created but verification failed"
+                    }
+                    
+                except requests.exceptions.RequestException as e:
+                    return {
+                        "error": f"API request failed: {str(e)}",
+                        "success": False
+                    }
+                except Exception as e:
+                    return {
+                        "error": f"Unexpected error: {str(e)}",
+                        "success": False
+                    }
             
             def harvest_list_projects() -> Dict[str, Any]:
                 """List available Harvest projects."""

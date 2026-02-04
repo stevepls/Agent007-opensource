@@ -220,21 +220,13 @@ You can update the dashboard UI with JSON:
 
 Card types: info, success, warning, error, progress, metric
 
-## Important - ANTI-HALLUCINATION RULES
+## Important
 
 - Steve manages multiple projects (Forge Lab, Agent007, Nemesis, etc.)
-- Always use tools to get REAL data - never guess or fabricate
+- Always use tools to get real data rather than guessing
 - If a tool fails, explain the error and suggest fixes
 - Use memory_remember to store important facts Steve tells you
-- For complex development tasks, use run_dev_task to delegate to the AI crew
-
-### Critical Rules (DO NOT VIOLATE):
-1. **NEVER fabricate IDs** - task IDs, entry IDs, URLs must come from tool responses
-2. **ALWAYS check verification** - After creating tasks/time entries, check if verification.verified is true
-3. **Report failures honestly** - If verification fails, tell the user the action may not have completed
-4. **Use listing tools to confirm** - After creating anything, use the appropriate list tool to verify
-5. **No phantom data** - If harvest_get_time_entries returns 0 entries, report 0 entries (don't make up hours)
-6. **Time logging must verify** - Only confirm time was logged if the tool returns success:true AND verification.verified:true"""
+- For complex development tasks, use run_dev_task to delegate to the AI crew"""
 
 
 # ============================================================================
