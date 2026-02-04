@@ -56,7 +56,7 @@ export default function Dashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  type Provider = "auto" | "orchestrator" | "claude" | "openai";
+  type Provider = "auto" | "orchestrator" | "orchestrator-claude" | "orchestrator-openai" | "claude" | "openai";
   const [currentProvider, setCurrentProvider] = useState<string>("connecting");
   const [preferredProvider, setPreferredProvider] = useState<Provider>("auto");
 
@@ -305,7 +305,7 @@ export default function Dashboard() {
                     onChange={(e) => {
                       const value = e.target.value as Provider;
                       // Validate value before setting
-                      if (["auto", "orchestrator", "claude", "openai"].includes(value)) {
+                      if (["auto", "orchestrator", "orchestrator-claude", "orchestrator-openai", "claude", "openai"].includes(value)) {
                         setPreferredProvider(value);
                       }
                     }}
@@ -313,18 +313,21 @@ export default function Dashboard() {
                     title="Select AI Provider"
                   >
                     <option value="auto">🔄 Auto</option>
-                    <option value="orchestrator">🔵 Tools</option>
-                    <option value="openai">🟢 GPT-4</option>
-                    <option value="claude">🟣 Claude</option>
+                    <option value="orchestrator-claude">🔵 Orchestrator (Claude)</option>
+                    <option value="orchestrator-openai">🟠 Orchestrator (GPT-4)</option>
+                    <option value="claude">🟣 Claude Direct</option>
+                    <option value="openai">🟢 GPT-4 Direct</option>
                   </select>
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                    currentProvider === "orchestrator" ? "bg-blue-500/20 text-blue-400" :
+                    currentProvider === "orchestrator" || currentProvider === "orchestrator-claude" ? "bg-blue-500/20 text-blue-400" :
+                    currentProvider === "orchestrator-openai" ? "bg-orange-500/20 text-orange-400" :
                     currentProvider === "claude" ? "bg-purple-500/20 text-purple-400" :
                     currentProvider === "openai" ? "bg-green-500/20 text-green-400" :
                     currentProvider === "connecting" ? "bg-yellow-500/20 text-yellow-400 animate-pulse" :
                     "bg-gray-500/20 text-gray-400"
                   }`}>
-                    {currentProvider === "orchestrator" ? "●" :
+                    {currentProvider === "orchestrator" || currentProvider === "orchestrator-claude" ? "●" :
+                     currentProvider === "orchestrator-openai" ? "●" :
                      currentProvider === "claude" ? "●" :
                      currentProvider === "openai" ? "●" :
                      currentProvider === "connecting" ? "◌" : "○"}

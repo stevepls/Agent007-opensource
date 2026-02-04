@@ -18,11 +18,20 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 # Try to import Anthropic for direct Claude access
+# Try to import AI clients
 try:
     import anthropic
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     ANTHROPIC_AVAILABLE = False
+    anthropic = None
+
+try:
+    import openai
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    openai = None
 
 # Import services
 import sys
@@ -30,6 +39,15 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from services.schema_detector import get_schema_detector
+
+# ============================================================================
+# Configuration
+# ============================================================================
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+# Which LLM to use: "auto" (prefers OpenAI), "claude", "openai"
+ORCHESTRATOR_LLM = os.getenv("ORCHESTRATOR_LLM", "auto")
+
 from services.message_queue import get_message_queue
 from services.memory import get_memory_service, MemoryService
 
@@ -69,6 +87,7 @@ class ChatRequest(BaseModel):
     messages: List[ChatMessage]
     session_id: Optional[str] = Field(None, description="Session ID for memory persistence")
     stream: bool = Field(True, description="Stream the response")
+    llm_provider: Optional[str] = Field("auto", description="LLM provider: 'auto', 'claude', 'openai'")
     structured_output: bool = Field(True, description="Include UI JSON")
 
 
@@ -269,22 +288,42 @@ async def chat(request: ChatRequest):
     # Note: Messages are persisted at the END of the response via persist_turn_context
     # This is more efficient than persisting before we have the full response
     
-    # Check for Claude API key
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    # Provider selection: auto, claude, or openai
+    provider = request.llm_provider or "auto"
+    claude_key = os.getenv("ANTHROPIC_API_KEY")
+    openai_key = os.getenv("OPENAI_API_KEY")
     
-    if api_key and ANTHROPIC_AVAILABLE:
-        # Use Claude API
+    # Determine which provider to use
+    use_provider = None
+    if provider == "claude" and claude_key and ANTHROPIC_AVAILABLE:
+        use_provider = "claude"
+    elif provider == "openai" and openai_key and OPENAI_AVAILABLE:
+        use_provider = "openai"
+    elif provider == "auto":
+        # Auto: prefer Claude, fallback to OpenAI
+        if claude_key and ANTHROPIC_AVAILABLE:
+            use_provider = "claude"
+        elif openai_key and OPENAI_AVAILABLE:
+            use_provider = "openai"
+    
+    if use_provider == "claude":
         return StreamingResponse(
-            stream_claude_response(request.messages, api_key, session_id, memory_context),
+            stream_claude_response(request.messages, claude_key, session_id, memory_context),
             media_type="text/plain; charset=utf-8",
-            headers={"X-Session-ID": session_id},
+            headers={"X-Session-ID": session_id, "X-LLM-Provider": "claude"},
+        )
+    elif use_provider == "openai":
+        return StreamingResponse(
+            stream_openai_response(request.messages, openai_key, session_id, memory_context),
+            media_type="text/plain; charset=utf-8",
+            headers={"X-Session-ID": session_id, "X-LLM-Provider": "openai"},
         )
     else:
-        # Use mock response
+        # Fallback to mock response
         return StreamingResponse(
             stream_mock_response(last_message.content, session_id, memory_context),
             media_type="text/plain; charset=utf-8",
-            headers={"X-Session-ID": session_id},
+            headers={"X-Session-ID": session_id, "X-LLM-Provider": "mock"},
         )
 
 

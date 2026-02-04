@@ -149,8 +149,14 @@ export async function POST(request: NextRequest) {
       try {
         switch (preferredProvider) {
           case "orchestrator":
+          case "orchestrator-claude":
             if (orchestratorAvailable) {
-              return await callOrchestrator(messages, attachments, agent);
+              return await callOrchestrator(messages, attachments, agent, "claude");
+            }
+            throw new Error("Orchestrator not available");
+          case "orchestrator-openai":
+            if (orchestratorAvailable) {
+              return await callOrchestrator(messages, attachments, agent, "openai");
             }
             throw new Error("Orchestrator not available");
           case "claude":
@@ -273,7 +279,8 @@ function getProviderBadge(provider: AIProvider): string {
 async function callOrchestrator(
   messages: Array<{ role: string; content: string }>,
   attachments: Attachment[],
-  agent: typeof AGENTS[keyof typeof AGENTS]
+  agent: typeof AGENTS[keyof typeof AGENTS],
+  llmProvider: string = "auto"
 ) {
   const response = await fetch(`${ORCHESTRATOR_URL}/api/chat`, {
     method: "POST",
@@ -283,6 +290,7 @@ async function callOrchestrator(
       attachments,
       selected_agent: agent.id,
       stream: true,
+      llm_provider: llmProvider,
     }),
     signal: AbortSignal.timeout(60000),
   });
