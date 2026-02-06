@@ -17,14 +17,12 @@ from crewai import Crew, Task, Process, Agent
 from crewai.tools import BaseTool
 from crewai.events import (
     crewai_event_bus,
-    BaseEventListener,
     ToolUsageStartedEvent,
     ToolUsageFinishedEvent,
     TaskStartedEvent,
     TaskCompletedEvent,
     AgentReasoningStartedEvent,
 )
-from crewai.events.event_bus import CrewAIEventsBus
 from pydantic import BaseModel, Field
 
 # Add parent to path
@@ -234,12 +232,14 @@ def create_orchestrator_crew(verbose: bool = True) -> Crew:
 # Event Listener for Progress Tracking
 # ============================================================================
 
-class ProgressEventListener(BaseEventListener):
+class ProgressEventListener:
     """Listens to CrewAI events and pushes progress to a ProgressTracker."""
 
-    tracker: Optional[ProgressTracker] = None
+    def __init__(self, tracker: ProgressTracker):
+        self.tracker = tracker
+        self._setup_listeners()
 
-    def setup_listeners(self, crewai_event_bus: CrewAIEventsBus) -> None:
+    def _setup_listeners(self):
         tracker = self.tracker
 
         @crewai_event_bus.on(ToolUsageStartedEvent)
