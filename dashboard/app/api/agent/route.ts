@@ -322,6 +322,12 @@ async function callOrchestrator(
           try {
             controller.enqueue(encoder.encode(`8:${JSON.stringify([JSON.parse(progressJson)])}\n`));
           } catch { /* skip malformed progress */ }
+        } else if (line.startsWith("FRESHNESS:")) {
+          // Parse freshness summary and emit as annotation
+          const freshnessJson = line.slice("FRESHNESS:".length);
+          try {
+            controller.enqueue(encoder.encode(`8:${JSON.stringify([{ type: "freshness", tools: JSON.parse(freshnessJson) }])}\n`));
+          } catch { /* skip malformed freshness */ }
         } else if (line && line !== " ") {
           // Regular text content
           if (!sentBadge) {
@@ -339,6 +345,11 @@ async function callOrchestrator(
         try {
           const progressJson = remaining.slice("PROGRESS:".length);
           controller.enqueue(encoder.encode(`8:${JSON.stringify([JSON.parse(progressJson)])}\n`));
+        } catch { /* skip */ }
+      } else if (remaining && remaining.startsWith("FRESHNESS:")) {
+        try {
+          const freshnessJson = remaining.slice("FRESHNESS:".length);
+          controller.enqueue(encoder.encode(`8:${JSON.stringify([{ type: "freshness", tools: JSON.parse(freshnessJson) }])}\n`));
         } catch { /* skip */ }
       } else if (remaining) {
         if (!sentBadge) {

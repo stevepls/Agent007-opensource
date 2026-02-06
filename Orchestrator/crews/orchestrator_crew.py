@@ -165,6 +165,12 @@ RESPONSE STYLE:
 - Keep responses concise
 - Only state facts from tool responses
 
+DATA FRESHNESS:
+Tool results include a "_cache_meta" field with data freshness info.
+When _cache_meta.source is "cache", mention the age parenthetically,
+e.g., "(cached 3m ago)". When source is "live", optionally note "(live data)".
+This helps the user know how recent the data is.
+
 When user asks:
 - "Log time" → Use harvest_log_time
 - "Show my tasks" → Use clickup_list_tasks
@@ -258,12 +264,22 @@ class ProgressEventListener:
         def on_tool_done(source, event: ToolUsageFinishedEvent):
             if tracker and not tracker.is_cancelled:
                 output_preview = str(event.output)[:200] if event.output else ""
+                # Extract cache source from tool output
+                cache_source = ""
+                try:
+                    if event.output:
+                        output_data = json.loads(str(event.output)) if isinstance(event.output, str) else event.output
+                        if isinstance(output_data, dict) and "_cache_meta" in output_data:
+                            cache_source = output_data["_cache_meta"].get("source", "")
+                except (json.JSONDecodeError, TypeError, AttributeError):
+                    pass
                 tracker.emit(
                     event_type="tool_done",
                     agent=event.agent_role or "",
                     tool=event.tool_name or "",
                     output=output_preview,
                     message=f"{event.tool_name} complete",
+                    cache_source=cache_source,
                 )
 
         @crewai_event_bus.on(AgentReasoningStartedEvent)

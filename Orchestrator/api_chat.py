@@ -379,6 +379,9 @@ async def stream_claude_response(
     if session_id:
         register_tracker(session_id, tracker)
 
+    # Track tool freshness for summary
+    tool_freshness: dict = {}
+
     # Show that we're processing
     yield "PROGRESS:" + json.dumps({"type": "thinking", "agent": "Orchestrator", "message": "Starting AI crew..."}) + "\n"
 
@@ -406,6 +409,9 @@ async def stream_claude_response(
                 event = tracker.progress_queue.get_nowait()
                 if event is None:
                     break  # Sentinel: crew finished
+                # Collect freshness data from tool_done events
+                if event.get("type") == "tool_done" and event.get("cache_source"):
+                    tool_freshness[event["tool"]] = event["cache_source"]
                 yield "PROGRESS:" + json.dumps(event) + "\n"
             except queue.Empty:
                 pass
@@ -423,9 +429,15 @@ async def stream_claude_response(
                 event = tracker.progress_queue.get_nowait()
                 if event is None:
                     break
+                if event.get("type") == "tool_done" and event.get("cache_source"):
+                    tool_freshness[event["tool"]] = event["cache_source"]
                 yield "PROGRESS:" + json.dumps(event) + "\n"
             except queue.Empty:
                 break
+
+        # Emit freshness summary
+        if tool_freshness:
+            yield "FRESHNESS:" + json.dumps(tool_freshness) + "\n"
 
         result = future.result()
 

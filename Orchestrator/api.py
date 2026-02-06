@@ -14,6 +14,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Optional, List, Dict, Any
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Query, Body
@@ -64,12 +65,23 @@ except ImportError:
 # App Configuration
 # ============================================================================
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start/stop background services."""
+    from services.prefetch_scheduler import get_prefetch_scheduler
+    scheduler = get_prefetch_scheduler()
+    scheduler.start()
+    yield
+    scheduler.stop()
+
+
 app = FastAPI(
     title="Orchestrator API",
     description="REST API for Agent007 Orchestrator services",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # CORS for local development
@@ -171,7 +183,13 @@ async def health_check():
     if HARVEST_AVAILABLE:
         from services.harvest_client import is_harvest_configured
         harvest_configured = is_harvest_configured()
-    
+
+    # Cache & prefetch status
+    from services.tool_cache import get_tool_cache
+    from services.prefetch_scheduler import get_prefetch_scheduler
+    cache = get_tool_cache()
+    scheduler = get_prefetch_scheduler()
+
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
@@ -180,8 +198,34 @@ async def health_check():
             "briefing": BRIEFING_AVAILABLE,
             "message_queue": QUEUE_AVAILABLE,
             "harvest": harvest_configured,
-        }
+        },
+        "cache": cache.get_stats(),
+        "prefetch": scheduler.get_status(),
     }
+
+
+# ============================================================================
+# Cache Management Endpoints
+# ============================================================================
+
+@app.get("/api/cache/stats", tags=["Cache"])
+async def cache_stats():
+    """Get cache hit/miss stats and prefetch job status."""
+    from services.tool_cache import get_tool_cache
+    from services.prefetch_scheduler import get_prefetch_scheduler
+    return {
+        "cache": get_tool_cache().get_stats(),
+        "prefetch": get_prefetch_scheduler().get_status(),
+    }
+
+
+@app.post("/api/cache/invalidate", tags=["Cache"])
+async def cache_invalidate(tool_name: Optional[str] = Query(None, description="Tool to invalidate (all if omitted)")):
+    """Manually invalidate cache entries."""
+    from services.tool_cache import get_tool_cache
+    cache = get_tool_cache()
+    cache.invalidate(tool_name)
+    return {"success": True, "message": f"Invalidated {'all' if not tool_name else tool_name} cache entries"}
 
 
 # ============================================================================

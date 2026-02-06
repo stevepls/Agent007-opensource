@@ -24,16 +24,19 @@ class ProgressTracker:
         self.cancel_event = threading.Event()
         self._started_at = time.time()
 
-    def emit(self, event_type: str, agent: str = "", message: str = "", tool: str = "", output: str = ""):
+    def emit(self, event_type: str, agent: str = "", message: str = "", tool: str = "", output: str = "", cache_source: str = ""):
         """Push a progress event to the queue."""
-        self.progress_queue.put({
+        event = {
             "type": event_type,
             "agent": agent,
             "message": message,
             "tool": tool,
             "output": output,
             "timestamp": time.time() - self._started_at,
-        })
+        }
+        if cache_source:
+            event["cache_source"] = cache_source
+        self.progress_queue.put(event)
 
     def cancel(self):
         """Signal cancellation to the running crew."""

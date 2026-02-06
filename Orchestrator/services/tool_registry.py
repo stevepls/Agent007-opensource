@@ -58,6 +58,10 @@ class ToolRegistry:
         self._register_airtable_tools()
         # Notion (via email)
         self._register_notion_tools()
+        # Asana
+        self._register_asana_tools()
+        # Business Advisor
+        self._register_advisor_tools()
     
     def register(
         self,
@@ -77,16 +81,16 @@ class ToolRegistry:
         }
     
     def execute(self, name: str, arguments: Dict[str, Any], skip_confirmation: bool = False) -> Dict[str, Any]:
-        """Execute a tool by name."""
+        """Execute a tool by name, with caching for read-only tools."""
         if name not in self._tools:
             return {"error": f"Unknown tool: {name}"}
-        
+
         tool = self._tools[name]
-        
+
         # Check if tool requires confirmation
         if tool.get("requires_confirmation") and not skip_confirmation:
             danger_level = tool.get("danger_level", "medium")
-            
+
             # Return confirmation request instead of executing
             return {
                 "requires_confirmation": True,
@@ -97,12 +101,28 @@ class ToolRegistry:
                 "message": f"⚠️ This action requires your approval before executing.",
                 "warning": "This will send a message to Slack and cannot be undone."
             }
-        
+
+        # Check cache before calling tool
+        from services.tool_cache import get_tool_cache, make_live_meta
+        cache = get_tool_cache()
+
+        cached = cache.get(name, arguments)
+        if cached is not None:
+            return cached
+
         try:
             result = tool["func"](**arguments)
             # Add confirmation bypass info if this was pre-approved
             if skip_confirmation and tool.get("requires_confirmation"):
                 result["executed_with_approval"] = True
+
+            # Inject freshness metadata and store in cache
+            if isinstance(result, dict) and "error" not in result:
+                result["_cache_meta"] = make_live_meta()
+                cache.put(name, arguments, result)
+                # Invalidate related caches after write operations
+                cache.invalidate_after_write(name)
+
             return result
         except Exception as e:
             import traceback
@@ -245,6 +265,75 @@ class ToolRegistry:
             {"type": "object", "properties": {}},
             category="gmail"
         )
+        def gmail_create_draft(
+            to: str,
+            subject: str,
+            body: str,
+            cc: str = None,
+            bcc: str = None,
+        ) -> Dict[str, Any]:
+            """
+            Create a draft email in Gmail (does NOT send).
+            The user can review and send from Gmail.
+            """
+            from services.google_auth import get_google_auth
+            from googleapiclient.discovery import build
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+            import base64
+            
+            auth = get_google_auth()
+            if not auth.is_authenticated:
+                return {"error": "Gmail not authenticated. Run: python -m services.google_auth"}
+            
+            try:
+                creds = auth.credentials
+                service = build('gmail', 'v1', credentials=creds)
+                
+                message = MIMEMultipart()
+                message['to'] = to
+                message['subject'] = subject
+                if cc:
+                    message['cc'] = cc
+                if bcc:
+                    message['bcc'] = bcc
+                
+                message.attach(MIMEText(body, 'plain'))
+                raw = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
+                
+                draft = service.users().drafts().create(
+                    userId='me',
+                    body={'message': {'raw': raw}},
+                ).execute()
+                
+                return {
+                    "success": True,
+                    "draft_id": draft['id'],
+                    "to": to,
+                    "subject": subject,
+                    "status": "Draft created. Review and send from Gmail.",
+                }
+            except Exception as e:
+                return {"error": f"Failed to create draft: {str(e)}"}
+        
+        self.register(
+            "gmail_create_draft",
+            "Create a draft email in Gmail (does NOT send). User can review and send from Gmail.",
+            gmail_create_draft,
+            {
+                "type": "object",
+                "properties": {
+                    "to": {"type": "string", "description": "Recipient email address"},
+                    "subject": {"type": "string", "description": "Email subject line"},
+                    "body": {"type": "string", "description": "Email body text"},
+                    "cc": {"type": "string", "description": "CC recipients (comma-separated)", "default": None},
+                    "bcc": {"type": "string", "description": "BCC recipients (comma-separated)", "default": None}
+                },
+                "required": ["to", "subject", "body"]
+            },
+            category="gmail"
+        )
+
     
     # =========================================================================
     # Calendar Tools
@@ -2118,6 +2207,47 @@ class ToolRegistry:
             },
             category="notion"
         )
+
+    # =========================================================================
+    # Asana Tools
+    # =========================================================================
+
+    def _register_asana_tools(self):
+        try:
+            from services.asana.asana_tools import ASANA_ENHANCED_TOOLS
+            for tool in ASANA_ENHANCED_TOOLS:
+                self.register(
+                    tool["name"],
+                    tool["description"],
+                    tool["function"],
+                    tool["parameters"],
+                    category="asana"
+                )
+                if tool.get("requires_confirmation"):
+                    self._tools[tool["name"]]["requires_confirmation"] = True
+                    self._tools[tool["name"]]["danger_level"] = tool.get("danger_level", "medium")
+            print(f"[INFO] Loaded {len(ASANA_ENHANCED_TOOLS)} Asana tools")
+        except ImportError as e:
+            print(f"[WARN] Could not load Asana tools: {e}")
+
+    # =========================================================================
+    # Business Advisor Tools
+    # =========================================================================
+    
+    def _register_advisor_tools(self):
+        try:
+            from services.business_advisor import ADVISOR_TOOLS
+            for tool in ADVISOR_TOOLS:
+                self.register(
+                    tool["name"],
+                    tool["description"],
+                    tool["function"],
+                    tool["parameters"],
+                    category="advisor"
+                )
+            print(f"[INFO] Loaded {len(ADVISOR_TOOLS)} Business Advisor tools")
+        except ImportError as e:
+            print(f"[WARN] Could not load Business Advisor tools: {e}")
 
 
 # ============================================================================
