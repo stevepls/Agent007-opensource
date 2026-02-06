@@ -9,6 +9,7 @@ This module extends the main api.py with chat capabilities.
 
 import os
 import json
+import queue
 import asyncio
 from typing import Optional, List, Dict, Any, AsyncGenerator
 from datetime import datetime
@@ -53,14 +54,10 @@ from services.memory import get_memory_service, MemoryService
 
 # Import Harvest tools
 try:
-    from tools.harvest import get_harvest_client, get_status as get_harvest_status
-    HARVEST_AVAILABLE = True
+    from tools.harvest import get_status as get_harvest_status
 except ImportError:
-    HARVEST_AVAILABLE = False
-    get_harvest_client = None
     get_harvest_status = None
 
-# Try to import harvest client
 try:
     from services.harvest_client import get_harvest_client, is_harvest_configured
     HARVEST_AVAILABLE = True
@@ -327,168 +324,142 @@ async def chat(request: ChatRequest):
         )
 
 
+@router.post("/cancel/{session_id}")
+async def cancel_task(session_id: str):
+    """Cancel a running crew task by session ID."""
+    from services.progress_tracker import get_tracker
+
+    tracker = get_tracker(session_id)
+    if tracker:
+        tracker.cancel()
+        return {"success": True, "message": f"Cancellation requested for session {session_id}"}
+    return {"success": False, "message": "No active task found for this session"}
+
+
 async def stream_claude_response(
     messages: List[ChatMessage],
     api_key: str,
     session_id: str = None,
     memory_context: str = "",
 ) -> AsyncGenerator[str, None]:
-    """Stream response from Claude API with tool calling."""
-    from services.tool_registry import get_tool_definitions, execute_tool
-    TOOL_DEFINITIONS = get_tool_definitions()
-    
-    client = anthropic.AsyncAnthropic(api_key=api_key)
+    """
+    Stream response using CrewAI Orchestrator Crew with real-time progress events.
+
+    Progress events are emitted as PROGRESS:{json} lines that the dashboard
+    can parse into real-time agent activity updates.
+    """
+    from crews.orchestrator_crew import run_orchestrator_task
+    from services.progress_tracker import (
+        ProgressTracker, register_tracker, unregister_tracker,
+    )
+    import concurrent.futures
+    import functools
+
     memory = get_memory_service()
-    
-    # Build context from current system state
-    context = await build_context()
-    
-    # Add memory context
+
+    # Get the last user message
+    user_request = messages[-1].content if messages else ""
+
+    # Build context from conversation history
+    context_parts = []
     if memory_context:
-        context = memory_context + "\n\n" + context
-    full_system = SYSTEM_PROMPT + "\n\nCurrent context:\n" + context
-    
-    # Convert messages
-    api_messages = [
-        {"role": m.role, "content": m.content}
-        for m in messages
-    ]
-    
-    max_iterations = 10  # Prevent infinite tool loops
-    full_response = ""  # Collect full response for memory
-    
-    for _ in range(max_iterations):
-        # Debug: Log tool count
-        print(f"[DEBUG] Calling Claude with {len(TOOL_DEFINITIONS)} tools")
-        print(f"[DEBUG] Tool names: {[t['name'] for t in TOOL_DEFINITIONS[:5]]}...")
-        
-        # Call Claude with tools
-        response = await client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=4096,
-            system=full_system,
-            messages=api_messages,
-            tools=TOOL_DEFINITIONS,
+        context_parts.append(f"Previous context:\n{memory_context}")
+
+    # Add conversation history (last 5 messages)
+    for msg in messages[-5:]:
+        if msg.role == "user":
+            context_parts.append(f"User: {msg.content}")
+        elif msg.role == "assistant":
+            context_parts.append(f"Assistant: {msg.content[:200]}...")
+
+    context = "\n\n".join(context_parts) if context_parts else None
+
+    # Create progress tracker for this session
+    tracker = ProgressTracker(session_id or "anonymous")
+    if session_id:
+        register_tracker(session_id, tracker)
+
+    # Show that we're processing
+    yield "PROGRESS:" + json.dumps({"type": "thinking", "agent": "Orchestrator", "message": "Starting AI crew..."}) + "\n"
+
+    # Run through orchestrator crew (CrewAI is synchronous, so run in executor)
+    loop = asyncio.get_event_loop()
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+    try:
+        # Run crew in thread pool, passing the progress tracker
+        future = loop.run_in_executor(
+            executor,
+            functools.partial(
+                run_orchestrator_task,
+                user_request,
+                context,
+                session_id,
+                progress_tracker=tracker,
+            ),
         )
-        
-        # Debug: Log response
-        print(f"[DEBUG] Response stop_reason: {response.stop_reason}")
-        print(f"[DEBUG] Content types: {[b.type for b in response.content]}")
-        
-        # Process response
-        tool_calls = []
-        text_content = ""
-        
-        for block in response.content:
-            if block.type == "text":
-                text_content += block.text
-            elif block.type == "tool_use":
-                tool_calls.append(block)
-        
-        # If there's text, yield it
-        if text_content:
-            yield text_content
-            full_response += text_content
-        
-        # If no tool calls, we're done
-        if not tool_calls:
-            break
-        
-        # Add assistant message with tool use ONCE (before processing results)
-        api_messages.append({
-            "role": "assistant",
-            "content": response.content,
-        })
-        
-        # Execute tool calls and collect results
-        tool_results = []
-        for tool_call in tool_calls:
-            tool_msg = f"\n\n*Using {tool_call.name}...*\n"
-            yield tool_msg
-            full_response += tool_msg
-            
-            # Execute the tool
-            result = execute_tool(tool_call.name, tool_call.input)
-            
-            # Check if tool requires confirmation
-            if result.get("requires_confirmation"):
-                confirmation_msg = (
-                    f"\n\n⚠️ **CONFIRMATION REQUIRED**\n\n"
-                    f"**Action:** {tool_call.name}\n"
-                    f"**Danger Level:** {result.get('danger_level', 'medium').upper()}\n\n"
-                    f"**Preview:**\n{result.get('preview', 'No preview available')}\n\n"
-                    f"{result.get('warning', '')}\n\n"
-                    f"*Please approve in the UI or respond with 'approve' to continue.*"
-                )
-                yield confirmation_msg
-                full_response += confirmation_msg
-                
-                # Add a special marker for the UI to trigger approval dialog
-                approval_json = json.dumps({
-                    'needs_approval': {
-                        'id': tool_call.id,
-                        'type': 'message',  # Type for UI styling
-                        'title': f"Approve {tool_call.name}",
-                        'description': result.get('message', 'This action requires your approval'),
-                        'tool': tool_call.name,
-                        'args': tool_call.input,
-                        'preview': result.get('preview'),
-                        'timeout_seconds': 300  # 5 minute timeout
-                    }
-                })
-                yield f"\n\n```json\n{approval_json}\n```\n"
-                
-                # Stop processing - wait for user approval
-                # The result will indicate confirmation is needed
-                result_str = json.dumps({"status": "pending_approval", "tool": tool_call.name})
-                print(f"[INFO] Tool {tool_call.name} requires confirmation - waiting for user approval")
-            else:
-                # Log tool result
-                result_str = json.dumps(result)
-                print(f"[DEBUG] Tool {tool_call.name} result length: {len(result_str)} chars")
-                if 'error' in result:
-                    print(f"[DEBUG] Tool error: {result['error']}")
-            
-            # Truncate very large results to prevent context overflow
-            if len(result_str) > 10000:
-                # Extract just the summary/count for better context
-                try:
-                    result_obj = json.loads(result_str)
-                    if 'tasks' in result_obj and isinstance(result_obj['tasks'], list):
-                        # For bulk task operations, keep IDs but truncate details
-                        summary = {
-                            'count': result_obj.get('count', len(result_obj['tasks'])),
-                            'task_ids': [t.get('id') for t in result_obj['tasks'] if 'id' in t],
-                            'list_id': result_obj.get('list_id'),
-                            'note': f'Full details truncated. Retrieved {len(result_obj["tasks"])} tasks.'
-                        }
-                        result_str = json.dumps(summary)
-                        print(f"[WARN] Large result truncated - returning summary with {len(summary['task_ids'])} task IDs")
-                    else:
-                        result_str = result_str[:10000] + '... [TRUNCATED - use verification tool to see full data]'
-                        print(f"[WARN] Result truncated from {len(result_str)} to 10000 chars - data may be incomplete!")
-                except:
-                    result_str = result_str[:10000] + '... [TRUNCATED]'
-                    print(f"[WARN] Result truncated to 10000 chars")
-            
-            # Collect tool result
-            tool_results.append({
-                "type": "tool_result",
-                "tool_use_id": tool_call.id,
-                "content": result_str,
-            })
-        
-        # Add all tool results as a single user message
-        api_messages.append({
-            "role": "user",
-            "content": tool_results,
-        })
-    
-    # Persist conversation turn efficiently (batched write + fact extraction)
-    if session_id and full_response:
-        # Get the user message from the original messages list
-        user_content = messages[-1].content if messages else ""
-        memory.persist_turn_context(session_id, user_content, full_response)
+
+        # Drain progress queue while crew is running
+        while not future.done():
+            # Try to get progress events from the queue
+            try:
+                event = tracker.progress_queue.get_nowait()
+                if event is None:
+                    break  # Sentinel: crew finished
+                yield "PROGRESS:" + json.dumps(event) + "\n"
+            except queue.Empty:
+                pass
+
+            # Wait a bit for either the future to complete or new events
+            try:
+                await asyncio.wait_for(asyncio.shield(future), timeout=0.5)
+            except asyncio.TimeoutError:
+                yield " "  # keepalive byte
+                continue
+
+        # Drain any remaining events after crew finishes
+        while True:
+            try:
+                event = tracker.progress_queue.get_nowait()
+                if event is None:
+                    break
+                yield "PROGRESS:" + json.dumps(event) + "\n"
+            except queue.Empty:
+                break
+
+        result = future.result()
+
+        if result.get("status") == "success":
+            response_text = result.get("result", "")
+
+            # Stream the response (simulate streaming by chunking)
+            words = response_text.split()
+            chunk_size = 10
+            for i in range(0, len(words), chunk_size):
+                chunk = " ".join(words[i:i+chunk_size]) + " "
+                yield chunk
+                await asyncio.sleep(0.05)  # Small delay for streaming effect
+
+            # Persist to memory
+            if session_id and response_text:
+                memory.persist_turn_context(session_id, user_request, response_text)
+        elif result.get("status") == "cancelled":
+            yield "\n\n*Task cancelled.*\n"
+        else:
+            error_msg = result.get("error", "Unknown error")
+            yield f"❌ **Error:** {error_msg}\n\n"
+            yield "Please try rephrasing your request or check the logs for details."
+
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[ERROR] Orchestrator crew failed: {error_trace}")
+        yield f"❌ **Error processing request:** {str(e)}\n\n"
+        yield "The AI crew encountered an error. Please try again or check the logs."
+    finally:
+        if session_id:
+            unregister_tracker(session_id)
+        executor.shutdown(wait=False)
 
 
 
@@ -498,131 +469,13 @@ async def stream_openai_response(
     session_id: str = None,
     memory_context: str = "",
 ) -> AsyncGenerator[str, None]:
-    """Stream response from OpenAI API with tool calling."""
-    from services.tool_registry import get_tool_definitions, execute_tool
-    
-    # Convert tool definitions to OpenAI format (with schema validation)
-    claude_tools = get_tool_definitions()
-    openai_tools = []
-    
-    def fix_schema(schema):
-        """Fix schema for OpenAI compatibility (recursive)."""
-        if not isinstance(schema, dict):
-            return schema
-        result = {}
-        for key, value in schema.items():
-            if key == "properties" and isinstance(value, dict):
-                result[key] = {k: fix_schema(v) for k, v in value.items()}
-            elif key == "items" and isinstance(value, dict):
-                result[key] = fix_schema(value)
-            elif isinstance(value, dict):
-                result[key] = fix_schema(value)
-            elif isinstance(value, list):
-                result[key] = [fix_schema(v) if isinstance(v, dict) else v for v in value]
-            else:
-                result[key] = value
-        # Ensure arrays have items
-        if result.get("type") == "array" and "items" not in result:
-            result["items"] = {"type": "string"}
-        return result
-    
-    for tool in claude_tools:
-        try:
-            fixed_schema = fix_schema(tool["input_schema"])
-            openai_tools.append({
-                "type": "function",
-                "function": {
-                    "name": tool["name"],
-                    "description": tool["description"][:1024],  # OpenAI limit
-                    "parameters": fixed_schema
-                }
-            })
-        except Exception:
-            pass  # Skip tools with invalid schemas
-    
-    client = openai.AsyncOpenAI(api_key=api_key)
-    memory = get_memory_service()
-    
-    # Build context
-    context = await build_context()
-    if memory_context:
-        context = memory_context + "\n\n" + context
-    
-    system_prompt = SYSTEM_PROMPT + "\n\nCurrent context:\n" + context
-    
-    # Convert messages to OpenAI format
-    api_messages = [{"role": "system", "content": system_prompt}]
-    for m in messages:
-        api_messages.append({"role": m.role, "content": m.content})
-    
-    max_iterations = 10
-    full_response = ""
-    
-    for _ in range(max_iterations):
-        try:
-            response = await client.chat.completions.create(
-                model="gpt-4o",
-                messages=api_messages,
-                tools=openai_tools if openai_tools else None,
-                stream=False,
-                max_tokens=4096,
-            )
-            
-            message = response.choices[0].message
-            
-            # Check for tool calls
-            if message.tool_calls:
-                # Add assistant message with tool calls
-                api_messages.append({
-                    "role": "assistant",
-                    "content": message.content or "",
-                    "tool_calls": [
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {"name": tc.function.name, "arguments": tc.function.arguments}
-                        }
-                        for tc in message.tool_calls
-                    ]
-                })
-                
-                # Execute each tool
-                for tool_call in message.tool_calls:
-                    tool_name = tool_call.function.name
-                    tool_args = json.loads(tool_call.function.arguments)
-                    
-                    tool_msg = f"\n\n*Using {tool_name}...*\n"
-                    yield tool_msg
-                    full_response += tool_msg
-                    
-                    # Execute tool
-                    result = execute_tool(tool_name, tool_args)
-                    
-                    # Add tool result
-                    api_messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": json.dumps(result)[:8000]
-                    })
-                
-                continue
-            
-            # No tool calls - final response
-            if message.content:
-                yield message.content
-                full_response += message.content
-            break
-            
-        except Exception as e:
-            error_msg = f"\n\n⚠️ OpenAI Error: {str(e)}"
-            yield error_msg
-            full_response += error_msg
-            break
-    
-    # Persist conversation
-    if session_id and full_response:
-        user_content = messages[-1].content if messages else ""
-        memory.persist_turn_context(session_id, user_content, full_response)
+    """
+    Stream response using CrewAI Orchestrator Crew.
+
+    All tasks are now routed through CrewAI agents (same as Claude).
+    """
+    async for chunk in stream_claude_response(messages, api_key, session_id, memory_context):
+        yield chunk
 
 
 async def stream_mock_response(

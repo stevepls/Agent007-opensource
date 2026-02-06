@@ -17,6 +17,7 @@ import {
   type StatusCard,
   type ApprovalRequest,
   type OrchestratorResponse,
+  type ProgressEvent,
 } from "@/lib/utils";
 import { Menu, X, Zap, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,9 @@ export default function Dashboard() {
   const [currentProvider, setCurrentProvider] = useState<string>("connecting");
   const [preferredProvider, setPreferredProvider] = useState<Provider>("auto");
 
+  // Real-time activity tracking
+  const [currentActivity, setCurrentActivity] = useState<string>("");
+
   // Track processed updates to prevent duplicates
   const processedUpdatesRef = useRef<Set<string>>(new Set());
 
@@ -73,6 +77,8 @@ export default function Dashboard() {
     error,
     setInput,
     setMessages,
+    stop,
+    data,
   } = useChat({
     api: "/api/agent",
     id: sessionId || undefined, // Use session ID for chat identity
@@ -104,6 +110,93 @@ export default function Dashboard() {
       saveMessages(messages);
     }
   }, [messages, isLoaded, saveMessages]);
+
+  // Process real-time progress events from annotations
+  const lastDataLengthRef = useRef(0);
+  useEffect(() => {
+    if (!data || data.length === 0) return;
+    // Only process new events since last check
+    const newEvents = data.slice(lastDataLengthRef.current);
+    lastDataLengthRef.current = data.length;
+
+    for (const item of newEvents) {
+      const event = item as unknown as ProgressEvent;
+      if (!event?.type) continue;
+
+      switch (event.type) {
+        case "tool_start":
+          setCurrentActivity(`Using ${event.tool || "tool"}...`);
+          if (event.agent) {
+            setAgents((prev) =>
+              prev.map((a) =>
+                a.name.toLowerCase().includes(event.agent!.toLowerCase().split(" ")[0])
+                  ? { ...a, status: "busy" as const, current_task: `Using ${event.tool || "tool"}` }
+                  : a
+              )
+            );
+          }
+          break;
+        case "tool_done":
+          setCurrentActivity("");
+          break;
+        case "thinking":
+          setCurrentActivity(event.message || "Thinking...");
+          if (event.agent) {
+            setAgents((prev) =>
+              prev.map((a) =>
+                a.name.toLowerCase().includes(event.agent!.toLowerCase().split(" ")[0])
+                  ? { ...a, status: "active" as const, current_task: "Thinking..." }
+                  : a
+              )
+            );
+          }
+          break;
+        case "task_done":
+          setCurrentActivity("");
+          setAgents((prev) =>
+            prev.map((a) =>
+              a.status === "busy" || a.status === "active"
+                ? { ...a, status: "idle" as const, current_task: undefined }
+                : a
+            )
+          );
+          break;
+      }
+    }
+  }, [data]);
+
+  // Reset activity when loading stops
+  useEffect(() => {
+    if (!isLoading) {
+      setCurrentActivity("");
+      // Reset all agents to idle when done
+      setAgents((prev) =>
+        prev.map((a) =>
+          a.status === "busy" ? { ...a, status: "idle" as const, current_task: undefined } : a
+        )
+      );
+    }
+  }, [isLoading]);
+
+  // Cancel handler
+  const handleCancel = useCallback(async () => {
+    stop();
+    setCurrentActivity("");
+    // Reset agents to idle
+    setAgents((prev) =>
+      prev.map((a) => ({ ...a, status: "idle" as const, current_task: undefined }))
+    );
+    // Tell the backend to cancel
+    try {
+      await fetch("/api/agent/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+    } catch {
+      // Best-effort cancel
+    }
+  }, [stop, sessionId]);
 
   // Handle new chat
   const handleNewChat = useCallback(() => {
@@ -400,8 +493,8 @@ export default function Dashboard() {
           <ChatMessages
             messages={messages}
             isLoading={isLoading}
-            onAttachmentsChange={setAttachments}
             error={error}
+            currentActivity={currentActivity}
           />
         </div>
 
@@ -413,6 +506,7 @@ export default function Dashboard() {
             handleSubmit={handleSubmit}
             isLoading={isLoading}
             onAttachmentsChange={setAttachments}
+            onCancel={handleCancel}
           />
         </div>
       </main>

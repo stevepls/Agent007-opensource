@@ -4,7 +4,7 @@ import { useRef, useCallback, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, Mic, MicOff, Paperclip, Loader2, X, FileText, Image as ImageIcon, File as FileIcon, AlertCircle } from "lucide-react";
+import { Send, Mic, MicOff, Paperclip, Loader2, X, FileText, Image as ImageIcon, File as FileIcon, AlertCircle, Square } from "lucide-react";
 
 export interface Attachment {
   id: string;
@@ -18,9 +18,10 @@ export interface Attachment {
 interface ChatInputProps {
   input: string;
   handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  handleSubmit: (e: React.FormEvent<HTMLFormElement>, attachments?: Attachment[]) => void;
+  handleSubmit: (e?: { preventDefault?: () => void }, chatRequestOptions?: any) => void;
   isLoading: boolean;
   onAttachmentsChange?: (attachments: Attachment[]) => void;
+  onCancel?: () => void;
 }
 
 function getBrowserInfo() {
@@ -32,7 +33,7 @@ function getBrowserInfo() {
   };
 }
 
-export function ChatInput({ input, handleInputChange, handleSubmit, isLoading, onAttachmentsChange }: ChatInputProps) {
+export function ChatInput({ input, handleInputChange, handleSubmit, isLoading, onAttachmentsChange, onCancel }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -305,9 +306,15 @@ export function ChatInput({ input, handleInputChange, handleSubmit, isLoading, o
           </div>
         </div>
         <motion.div whileTap={{ scale: 0.95 }}>
-          <Button type="submit" size="icon" className="h-[52px] w-[52px] rounded-xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25" disabled={(!input.trim() && !attachments.length) || isLoading || isTranscribing}>
-            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-          </Button>
+          {isLoading ? (
+            <Button type="button" size="icon" className="h-[52px] w-[52px] rounded-xl bg-destructive hover:bg-destructive/90 shadow-lg shadow-destructive/25" onClick={onCancel} title="Stop generation">
+              <Square className="w-5 h-5 fill-current" />
+            </Button>
+          ) : (
+            <Button type="submit" size="icon" className="h-[52px] w-[52px] rounded-xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25" disabled={(!input.trim() && !attachments.length) || isTranscribing}>
+              <Send className="w-5 h-5" />
+            </Button>
+          )}
         </motion.div>
       </div>
       <p className="text-center text-xs text-muted-foreground mt-2">

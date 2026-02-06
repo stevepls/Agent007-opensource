@@ -31,6 +31,7 @@ export interface StatusCard {
   progress?: number;
   priority?: number;
   icon?: string;
+  action?: { label: string; href?: string; onClick?: string };
 }
 
 /**
@@ -67,6 +68,18 @@ export interface OrchestratorResponse {
   agents?: AgentUpdate[];
   status_cards?: StatusCard[];
   needs_approval?: ApprovalRequest;
+}
+
+/**
+ * Progress event from CrewAI real-time streaming
+ */
+export interface ProgressEvent {
+  type: "tool_start" | "tool_done" | "thinking" | "task_start" | "task_done";
+  agent?: string;
+  tool?: string;
+  message?: string;
+  output?: string;
+  timestamp?: number;
 }
 
 /**

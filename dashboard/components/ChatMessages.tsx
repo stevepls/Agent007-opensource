@@ -7,13 +7,14 @@ import { cn, type OrchestratorResponse } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { User, Bot, AlertCircle, Sparkles } from "lucide-react";
+import { User, Bot, AlertCircle, Sparkles, Loader2 } from "lucide-react";
 
 interface ChatMessagesProps {
   onSuggestionClick?: (suggestion: string) => void;
   messages: Message[];
   isLoading: boolean;
   error?: Error | null;
+  currentActivity?: string;
 }
 
 interface ParsedContent {
@@ -136,6 +137,7 @@ export function ChatMessages({
   messages,
   isLoading,
   error,
+  currentActivity,
 }: ChatMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -240,11 +242,18 @@ export function ChatMessages({
             <Bot className="w-4 h-4 text-white" />
           </div>
           <div className="bg-card border border-border rounded-2xl rounded-bl-md px-4 py-3">
-            <div className="typing-indicator flex gap-1">
-              <span className="w-2 h-2 rounded-full bg-muted-foreground" />
-              <span className="w-2 h-2 rounded-full bg-muted-foreground" />
-              <span className="w-2 h-2 rounded-full bg-muted-foreground" />
-            </div>
+            {currentActivity ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">{currentActivity}</span>
+              </div>
+            ) : (
+              <div className="typing-indicator flex gap-1">
+                <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+                <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+                <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+              </div>
+            )}
           </div>
         </motion.div>
       )}

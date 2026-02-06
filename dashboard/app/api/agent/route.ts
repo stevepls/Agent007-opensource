@@ -122,7 +122,7 @@ function checkGuardrails(message: string): { allowed: boolean; reason?: string; 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { messages, attachments = [], selectedAgent = "orchestrator", preferredProvider = "auto", sessionId = "" } = body;
+    const { messages, attachments = [], selectedAgent = "orchestrator", preferredProvider = "auto", sessionId = `session-${Date.now()}` } = body;
 
     if (!messages || messages.length === 0) {
       return new Response(JSON.stringify({ error: "No messages provided" }), {
@@ -151,12 +151,12 @@ export async function POST(request: NextRequest) {
           case "orchestrator":
           case "orchestrator-claude":
             if (orchestratorAvailable) {
-              return await callOrchestrator(messages, attachments, agent, "claude");
+              return await callOrchestrator(messages, attachments, agent, "claude", sessionId);
             }
             throw new Error("Orchestrator not available");
           case "orchestrator-openai":
             if (orchestratorAvailable) {
-              return await callOrchestrator(messages, attachments, agent, "openai");
+              return await callOrchestrator(messages, attachments, agent, "openai", sessionId);
             }
             throw new Error("Orchestrator not available");
           case "claude":
@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
     // 1. Try Orchestrator first (has tools access)
     if (orchestratorAvailable) {
       try {
-        return await callOrchestrator(messages, attachments, agent);
+        return await callOrchestrator(messages, attachments, agent, "auto", sessionId);
       } catch (error) {
         console.error("Orchestrator failed:", error);
       }
@@ -280,7 +280,8 @@ async function callOrchestrator(
   messages: Array<{ role: string; content: string }>,
   attachments: Attachment[],
   agent: typeof AGENTS[keyof typeof AGENTS],
-  llmProvider: string = "auto"
+  llmProvider: string = "auto",
+  sessionId: string = ""
 ) {
   const response = await fetch(`${ORCHESTRATOR_URL}/api/chat`, {
     method: "POST",
@@ -291,8 +292,9 @@ async function callOrchestrator(
       selected_agent: agent.id,
       stream: true,
       llm_provider: llmProvider,
+      session_id: sessionId,
     }),
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(300000), // 5 min - CrewAI crew can take a while
   });
 
   if (!response.ok) {
@@ -303,19 +305,39 @@ async function callOrchestrator(
   const decoder = new TextDecoder();
   const providerBadge = getProviderBadge("orchestrator");
   let sentBadge = false;
+  let lineBuffer = "";
 
   const transformStream = new TransformStream({
     transform(chunk, controller) {
-      const text = decoder.decode(chunk, { stream: true });
-      if (text.trim()) {
+      lineBuffer += decoder.decode(chunk, { stream: true });
+      const lines = lineBuffer.split("\n");
+      // Keep the last incomplete line in the buffer
+      lineBuffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (line.startsWith("PROGRESS:")) {
+          // Parse progress event and emit as Vercel AI annotation (8: prefix)
+          const progressJson = line.slice("PROGRESS:".length);
+          controller.enqueue(encoder.encode(`8:${JSON.stringify([JSON.parse(progressJson)])}\n`));
+        } else if (line.trim() && line.trim() !== " ") {
+          // Regular text content
+          if (!sentBadge) {
+            controller.enqueue(encoder.encode(`0:${JSON.stringify(providerBadge + "\n\n")}\n`));
+            sentBadge = true;
+          }
+          controller.enqueue(encoder.encode(`0:${JSON.stringify(line)}\n`));
+        }
+      }
+    },
+    flush(controller) {
+      // Flush any remaining buffer
+      if (lineBuffer.trim() && !lineBuffer.startsWith("PROGRESS:")) {
         if (!sentBadge) {
           controller.enqueue(encoder.encode(`0:${JSON.stringify(providerBadge + "\n\n")}\n`));
           sentBadge = true;
         }
-        controller.enqueue(encoder.encode(`0:${JSON.stringify(text)}\n`));
+        controller.enqueue(encoder.encode(`0:${JSON.stringify(lineBuffer)}\n`));
       }
-    },
-    flush(controller) {
       controller.enqueue(encoder.encode(`d:{"finishReason":"stop","provider":"orchestrator"}\n`));
     },
   });

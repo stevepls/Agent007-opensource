@@ -32,7 +32,7 @@ if (!Array.prototype.at) {
 
 // String.replaceAll polyfill
 if (!String.prototype.replaceAll) {
-  String.prototype.replaceAll = function (search: string | RegExp, replace: string) {
+  (String.prototype as any).replaceAll = function (search: string | RegExp, replace: string) {
     if (typeof search === "string") {
       return this.split(search).join(replace);
     }

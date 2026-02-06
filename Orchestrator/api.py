@@ -2,11 +2,10 @@
 Orchestrator REST API
 
 Provides REST endpoints for programmatic access to Orchestrator services.
-Run alongside the Streamlit UI for complete functionality.
 
 Usage:
-    uvicorn api:app --port 8502 --reload
-    
+    uvicorn api:app --host 0.0.0.0 --port $PORT --reload
+
     # Or with the Orchestrator
     python -m api
 """
@@ -441,7 +440,7 @@ async def refresh_schema_detection(
 if __name__ == "__main__":
     import uvicorn
     
-    port = int(os.getenv("API_PORT", "8502"))
+    port = int(os.getenv("PORT", "8502"))
     
     print(f"""
 ╔═══════════════════════════════════════════════════════════════╗
