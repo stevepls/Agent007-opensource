@@ -314,12 +314,15 @@ async function callOrchestrator(
       // Keep the last incomplete line in the buffer
       lineBuffer = lines.pop() || "";
 
-      for (const line of lines) {
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
         if (line.startsWith("PROGRESS:")) {
           // Parse progress event and emit as Vercel AI annotation (8: prefix)
           const progressJson = line.slice("PROGRESS:".length);
-          controller.enqueue(encoder.encode(`8:${JSON.stringify([JSON.parse(progressJson)])}\n`));
-        } else if (line.trim() && line.trim() !== " ") {
+          try {
+            controller.enqueue(encoder.encode(`8:${JSON.stringify([JSON.parse(progressJson)])}\n`));
+          } catch { /* skip malformed progress */ }
+        } else if (line && line !== " ") {
           // Regular text content
           if (!sentBadge) {
             controller.enqueue(encoder.encode(`0:${JSON.stringify(providerBadge + "\n\n")}\n`));
@@ -331,12 +334,18 @@ async function callOrchestrator(
     },
     flush(controller) {
       // Flush any remaining buffer
-      if (lineBuffer.trim() && !lineBuffer.startsWith("PROGRESS:")) {
+      const remaining = lineBuffer.trim();
+      if (remaining && remaining.startsWith("PROGRESS:")) {
+        try {
+          const progressJson = remaining.slice("PROGRESS:".length);
+          controller.enqueue(encoder.encode(`8:${JSON.stringify([JSON.parse(progressJson)])}\n`));
+        } catch { /* skip */ }
+      } else if (remaining) {
         if (!sentBadge) {
           controller.enqueue(encoder.encode(`0:${JSON.stringify(providerBadge + "\n\n")}\n`));
           sentBadge = true;
         }
-        controller.enqueue(encoder.encode(`0:${JSON.stringify(lineBuffer)}\n`));
+        controller.enqueue(encoder.encode(`0:${JSON.stringify(remaining)}\n`));
       }
       controller.enqueue(encoder.encode(`d:{"finishReason":"stop","provider":"orchestrator"}\n`));
     },
