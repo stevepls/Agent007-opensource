@@ -312,8 +312,16 @@ class ErrorResponse(BaseModel):
 
 @app.get("/")
 async def root(request: Request):
-    """Root endpoint - redirect to team-checkin UI or docs."""
-    return RedirectResponse(url="/team-checkin/ui")
+    """Root endpoint - redirect to login page or API docs."""
+    user = None
+    try:
+        user = get_current_user(request)
+    except Exception:
+        pass
+    # If authenticated, show docs; otherwise show login page
+    if user:
+        return RedirectResponse(url="/docs")
+    return RedirectResponse(url="/auth/login-page")
 
 
 @app.get("/health")

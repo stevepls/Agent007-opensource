@@ -4,21 +4,23 @@ import { NextRequest, NextResponse } from "next/server";
  * Dashboard Auth Middleware
  *
  * Checks for a valid `dashboard_session` cookie on every request.
- * If missing/invalid, redirects to the Orchestrator's Google OAuth login
- * with a `next_service` param so it bounces back after auth.
+ * If missing/invalid, redirects to the dashboard's own /login page.
  *
  * Auth flow:
- *   1. User hits dashboard → middleware sees no cookie → redirect to Orchestrator /auth/login
- *   2. Orchestrator handles Google OAuth → redirects back to /api/auth/callback?token=...
- *   3. Dashboard /api/auth/callback validates token → sets dashboard_session cookie
- *   4. Subsequent requests pass middleware check
+ *   1. User hits dashboard → middleware sees no cookie → redirect to /login page
+ *   2. User clicks "Sign in with Google" → /api/auth/start → Orchestrator /auth/login
+ *   3. Orchestrator handles Google OAuth → redirects back to /api/auth/callback?token=...
+ *   4. Dashboard /api/auth/callback validates token → sets dashboard_session cookie
+ *   5. Subsequent requests pass middleware check
  */
 
 const COOKIE_NAME = "dashboard_session";
 
 // Paths that skip auth
 const PUBLIC_PATHS = [
+  "/login",
   "/api/auth/callback",
+  "/api/auth/start",
   "/api/auth/logout",
   "/api/health",
   "/_next",
@@ -52,19 +54,8 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // No valid session → redirect to Orchestrator login
-  const orchestratorUrl =
-    process.env.ORCHESTRATOR_PUBLIC_URL ||
-    process.env.ORCHESTRATOR_API_URL ||
-    "http://localhost:8502";
-
-  // Build the callback URL that the Orchestrator should redirect to after login
-  const scheme = request.headers.get("x-forwarded-proto") || "https";
-  const host = request.headers.get("host") || "localhost:3000";
-  const callbackUrl = `${scheme}://${host}/api/auth/callback`;
-
-  const loginUrl = `${orchestratorUrl}/auth/login?next_service=${encodeURIComponent(callbackUrl)}`;
-
+  // No valid session → redirect to dashboard login page
+  const loginUrl = new URL("/login", request.url);
   return NextResponse.redirect(loginUrl);
 }
 
