@@ -1,10 +1,12 @@
 name: Deploy Agent007 to Railway
 
 on:
-  push:
-    branches:
-      - main
-      - staging
+  # Auto-deploy disabled — using `railway up` locally instead.
+  # Re-enable push trigger after updating RAILWAY_TOKEN secret.
+  # push:
+  #   branches:
+  #     - main
+  #     - staging
   workflow_dispatch:
     inputs:
       environment:
