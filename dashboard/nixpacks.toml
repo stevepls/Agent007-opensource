@@ -1,12 +1,6 @@
-# Force NIXPACKS to use Node.js provider, ignore any cached Dockerfiles
+# Ensure NIXPACKS uses Node.js provider (prevents stale cached Dockerfile usage)
 [phases.setup]
-nixPkgs = ["...", "nodejs_18", "npm-9_x"]
-
-[phases.install]
-cmds = ["npm ci"]
-
-[phases.build]
-cmds = ["npm run build"]
+nixPkgs = ["..."]
 
 [start]
 cmd = "npm start"

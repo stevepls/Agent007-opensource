@@ -15,19 +15,37 @@ import { NextRequest, NextResponse } from "next/server";
 const COOKIE_NAME = "dashboard_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
 
+/**
+ * Build the public-facing base URL for this service.
+ *
+ * Behind Railway's reverse proxy, request.url is an internal address
+ * like http://localhost:8080.  We must use forwarded headers (or an
+ * explicit env var) to produce the real public URL.
+ */
+function getPublicBaseUrl(request: NextRequest): string {
+  // Prefer explicit env var (most reliable)
+  if (process.env.DASHBOARD_PUBLIC_URL) {
+    return process.env.DASHBOARD_PUBLIC_URL;
+  }
+  // Fall back to proxy headers
+  const scheme = request.headers.get("x-forwarded-proto") || "https";
+  const host = request.headers.get("host") || "localhost:3000";
+  return `${scheme}://${host}`;
+}
+
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
+  const publicBase = getPublicBaseUrl(request);
 
   if (!token) {
     // No token → send user to dashboard login with error
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = new URL("/login", publicBase);
     loginUrl.searchParams.set("error", "Missing authentication token");
     return NextResponse.redirect(loginUrl);
   }
 
   // Validate token with the Orchestrator (server-to-server call)
   const orchestratorUrl =
-    process.env.ORCHESTRATOR_INTERNAL_URL ||
     process.env.ORCHESTRATOR_API_URL ||
     "http://localhost:8502";
 
@@ -47,7 +65,7 @@ export async function GET(request: NextRequest) {
       const errorText = await verifyResponse.text();
       console.error("Token verification failed:", verifyResponse.status, errorText);
       // Redirect to dashboard's own login page — NOT the orchestrator (avoids redirect loop)
-      const loginUrl = new URL("/login", request.url);
+      const loginUrl = new URL("/login", publicBase);
       loginUrl.searchParams.set("error", "Authentication failed. Please try again.");
       return NextResponse.redirect(loginUrl);
     }
@@ -55,7 +73,7 @@ export async function GET(request: NextRequest) {
     const userData = await verifyResponse.json();
 
     if (!userData.valid) {
-      const loginUrl = new URL("/login", request.url);
+      const loginUrl = new URL("/login", publicBase);
       loginUrl.searchParams.set("error", "Invalid authentication token. Please try again.");
       return NextResponse.redirect(loginUrl);
     }
@@ -70,11 +88,14 @@ export async function GET(request: NextRequest) {
     });
 
     // Redirect to dashboard home with session cookie
-    const dashboardUrl = new URL("/", request.url);
+    const dashboardUrl = new URL("/", publicBase);
     const response = NextResponse.redirect(dashboardUrl);
+
+    // Detect actual scheme for cookie security
+    const actualScheme = request.headers.get("x-forwarded-proto") || request.nextUrl.protocol.replace(":", "");
     response.cookies.set(COOKIE_NAME, sessionData, {
       httpOnly: true,
-      secure: request.nextUrl.protocol === "https:",
+      secure: actualScheme === "https",
       sameSite: "lax",
       path: "/",
       maxAge: SESSION_MAX_AGE,
@@ -85,7 +106,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Auth callback error:", error);
     // Redirect to dashboard's own login page — NOT the orchestrator (avoids redirect loop)
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = new URL("/login", publicBase);
     loginUrl.searchParams.set("error", "Authentication service unavailable. Please try again.");
     return NextResponse.redirect(loginUrl);
   }
