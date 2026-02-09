@@ -14,7 +14,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-CACHE_FILE = Path(__file__).parent.parent / "data" / "agent_metrics" / "project_mapping.json"
+CACHE_FILE = Path(__file__).parent.parent / "data" / "project_mapper" / "mapping_cache.json"
 CACHE_TTL = 86400  # 24 hours
 
 
@@ -23,6 +23,9 @@ def _load_cache() -> Dict[str, Any]:
     if CACHE_FILE.exists():
         try:
             data = json.loads(CACHE_FILE.read_text())
+            # Normalise key: older cache files use "mapping" (singular)
+            if "mapping" in data and "mappings" not in data:
+                data["mappings"] = data.pop("mapping")
             return data
         except Exception:
             pass

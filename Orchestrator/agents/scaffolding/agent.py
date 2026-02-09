@@ -63,14 +63,16 @@ def _to_naive_utc(dt: datetime) -> datetime:
     """Normalise *dt* to a naive-UTC datetime.
 
     - Aware datetime  → converted to UTC, tzinfo stripped.
-    - Naive datetime  → assumed local (from ``datetime.fromtimestamp()``);
-      converted to UTC via the platform's UTC offset.
+    - Naive datetime  → assumed already UTC by convention in this codebase.
+      All naive datetimes are produced by ``_utcnow()`` or by ClickUp
+      timestamp parsing (which explicitly converts to UTC before stripping
+      tzinfo).  Re-interpreting them as local time would introduce an
+      offset on non-UTC servers.
     """
     if dt.tzinfo is not None:
         return dt.astimezone(timezone.utc).replace(tzinfo=None)
-    # Naive local → attach local tz, then convert to UTC
-    local_aware = dt.astimezone()          # Python ≥3.6: assumes local tz
-    return local_aware.astimezone(timezone.utc).replace(tzinfo=None)
+    # Naive → already UTC by convention
+    return dt
 
 
 def _parse_iso_utc(s: str) -> datetime:
