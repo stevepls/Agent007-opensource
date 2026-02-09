@@ -20,6 +20,7 @@ const COOKIE_NAME = "dashboard_session";
 const PUBLIC_PATHS = [
   "/api/auth/callback",
   "/api/auth/logout",
+  "/api/health",
   "/_next",
   "/favicon.ico",
 ];
