@@ -63,13 +63,22 @@ DATABASE_URL = os.getenv(
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Create engine
-engine = create_engine(
-    DATABASE_URL,
-    echo=os.getenv("SQL_DEBUG", "false").lower() == "true",
-    # SQLite-specific settings
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
-)
+_is_sqlite = "sqlite" in DATABASE_URL
+
+_engine_kwargs = {
+    "echo": os.getenv("SQL_DEBUG", "false").lower() == "true",
+    "connect_args": {"check_same_thread": False} if _is_sqlite else {},
+}
+
+if not _is_sqlite:
+    _engine_kwargs.update({
+        "pool_size": 5,
+        "max_overflow": 10,
+        "pool_recycle": 1800,
+        "pool_pre_ping": True,
+    })
+
+engine = create_engine(DATABASE_URL, **_engine_kwargs)
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
