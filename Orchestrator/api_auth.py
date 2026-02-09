@@ -43,6 +43,23 @@ AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").lower() != "false"
 SESSION_MAX_AGE = 60 * 60 * 24 * 7  # 7 days
 COOKIE_NAME = "orchestrator_session"
 
+# Cross-domain auth: allowed external services that can receive auth tokens
+ALLOWED_REDIRECT_DOMAINS = [
+    d.strip() for d in os.getenv("ALLOWED_REDIRECT_DOMAINS", "").split(",") if d.strip()
+]
+# Auto-include dashboard domain if set
+_dashboard_url = os.getenv("DASHBOARD_PUBLIC_URL", "")
+if _dashboard_url:
+    from urllib.parse import urlparse as _urlparse
+    _parsed = _urlparse(_dashboard_url)
+    if _parsed.netloc and _parsed.netloc not in ALLOWED_REDIRECT_DOMAINS:
+        ALLOWED_REDIRECT_DOMAINS.append(_parsed.netloc)
+# Always allow Railway dashboard domain pattern
+ALLOWED_REDIRECT_DOMAINS.extend([
+    "dashboard-staging-ba60.up.railway.app",
+    "localhost:3000",
+])
+
 # Google OAuth endpoints
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -142,6 +159,30 @@ def create_session(user_info: dict) -> str:
     return _sign(payload)
 
 
+def create_cross_domain_token(user_info: dict) -> str:
+    """Create a short-lived signed token for cross-domain auth handoff."""
+    payload = {
+        "email": user_info.get("email", ""),
+        "name": user_info.get("name", ""),
+        "picture": user_info.get("picture", ""),
+        "type": "cross_domain",
+        "iat": int(time.time()),
+        "exp": int(time.time()) + 300,  # 5 minutes only
+    }
+    return _sign(payload)
+
+
+def _is_allowed_redirect(url: str) -> bool:
+    """Check if a redirect URL is allowed (prevent open redirect attacks)."""
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(url)
+        host = parsed.netloc or parsed.hostname or ""
+        return any(host == d or host.endswith(f".{d}") for d in ALLOWED_REDIRECT_DOMAINS)
+    except Exception:
+        return False
+
+
 def get_current_user(request: Request) -> Optional[dict]:
     """Extract current user from session cookie. Returns None if not authenticated."""
     if not AUTH_ENABLED:
@@ -171,6 +212,7 @@ PUBLIC_PATHS = {
     "/auth/callback",
     "/auth/logout",
     "/auth/login-page",
+    "/auth/verify-token",
     "/health",
     # /docs, /redoc, /openapi.json are NOT public — require login
 }
@@ -330,8 +372,13 @@ async def login_page(request: Request, error: Optional[str] = None):
 
 
 @router.get("/login")
-async def login(request: Request):
-    """Redirect to Google OAuth consent screen."""
+async def login(request: Request, next_service: Optional[str] = None):
+    """Redirect to Google OAuth consent screen.
+    
+    Args:
+        next_service: Optional URL of an external service to redirect to after login.
+                     Must be in ALLOWED_REDIRECT_DOMAINS for security.
+    """
     # Rate limit login attempts
     if login_limiter.is_rate_limited(request):
         return RedirectResponse(
@@ -369,6 +416,18 @@ async def login(request: Request):
         samesite="lax",
         secure=request.url.scheme == "https",
     )
+
+    # Store next_service redirect (if valid) for cross-domain auth
+    if next_service and _is_allowed_redirect(next_service):
+        response.set_cookie(
+            key="auth_next_service",
+            value=next_service,
+            max_age=600,
+            httponly=True,
+            samesite="lax",
+            secure=request.url.scheme == "https",
+        )
+
     return response
 
 
@@ -439,7 +498,33 @@ async def callback(request: Request, code: Optional[str] = None, state: Optional
     # Create session
     session_token = create_session(user_info)
 
-    # Determine where to redirect after login
+    # Check if this login was initiated by an external service (cross-domain auth)
+    next_service = request.cookies.get("auth_next_service")
+    if next_service and _is_allowed_redirect(next_service):
+        # Create a short-lived cross-domain token and redirect to the external service
+        cross_token = create_cross_domain_token(user_info)
+        separator = "&" if "?" in next_service else "?"
+        redirect_url = f"{next_service}{separator}token={cross_token}"
+
+        response = RedirectResponse(url=redirect_url)
+        # Also set Orchestrator session cookie (for direct Orchestrator access)
+        response.set_cookie(
+            key=COOKIE_NAME,
+            value=session_token,
+            max_age=SESSION_MAX_AGE,
+            httponly=True,
+            samesite="lax",
+            secure=request.url.scheme == "https",
+            path="/",
+        )
+        # Clean up temp cookies
+        response.delete_cookie("oauth_state")
+        response.delete_cookie("auth_next")
+        response.delete_cookie("auth_next_service")
+        print(f"✅ User logged in: {email} → redirecting to {next_service}")
+        return response
+
+    # Standard flow: redirect to Orchestrator page
     next_url = request.cookies.get("auth_next", "/")
 
     response = RedirectResponse(url=next_url)
@@ -455,6 +540,7 @@ async def callback(request: Request, code: Optional[str] = None, state: Optional
     # Clean up temp cookies
     response.delete_cookie("oauth_state")
     response.delete_cookie("auth_next")
+    response.delete_cookie("auth_next_service")
 
     print(f"✅ User logged in: {email}")
     return response
@@ -479,4 +565,20 @@ async def me(request: Request):
         "name": user.get("name"),
         "picture": user.get("picture"),
         "authenticated": True,
+    }
+
+
+@router.get("/verify-token")
+async def verify_token(token: str):
+    """Verify a cross-domain auth token. Used by external services to validate tokens."""
+    payload = _verify(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    if payload.get("type") != "cross_domain":
+        raise HTTPException(status_code=401, detail="Invalid token type")
+    return {
+        "valid": True,
+        "email": payload.get("email"),
+        "name": payload.get("name"),
+        "picture": payload.get("picture"),
     }
