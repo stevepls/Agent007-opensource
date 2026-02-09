@@ -191,6 +191,7 @@ When user asks:
 - "Show branches" → Use github_list_branches
 - "What's on branch X" → Use github_get_branch_commits with branch name
 - "Build a feature" → Use run_dev_task (delegates to dev crew)
+- "Check Notion" / "Notion tickets" / "What's assigned in Notion" → Use gmail_search with query "from:notify@mail.notion.so" (Notion sends assignment/update notifications via email — search Gmail to find them)
 """
 
 
