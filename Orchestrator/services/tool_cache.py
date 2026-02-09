@@ -85,7 +85,7 @@ WRITE_TOOLS = frozenset({
     "harvest_log_time", "harvest_start_timer", "harvest_stop_timer",
     "clickup_create_task", "clickup_update_task", "clickup_add_comment",
     "zendesk_create_ticket",
-    "slack_post_message", "slack_reply_to_thread",
+    "slack_post_message", "slack_reply_to_thread", "slack_send_dm",
     "gmail_create_draft",
     "sheets_update_range", "sheets_append_rows",
     "memory_remember",

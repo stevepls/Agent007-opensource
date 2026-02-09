@@ -355,6 +355,69 @@ def slack_get_dm_history(user_name: str = None, user_id: str = None, limit: int 
         return {"error": f"Failed to get DM history: {str(e)}"}
 
 
+def slack_send_dm(user_name: str = None, user_id: str = None, text: str = "") -> Dict[str, Any]:
+    """
+    Send a direct message to a user by name or ID.
+    Resolves the DM channel automatically. REQUIRES CONFIRMATION.
+
+    Args:
+        user_name: Name of the person (partial match ok)
+        user_id: Slack user ID (optional if user_name provided)
+        text: Message text to send
+    """
+    client = get_slack_client()
+
+    if not client.is_available:
+        return {"error": "Slack not configured"}
+
+    if not text:
+        return {"error": "text is required"}
+
+    if not user_name and not user_id:
+        return {"error": "Either user_name or user_id is required"}
+
+    try:
+        # Resolve user to DM channel
+        resolved_name = user_name or user_id
+        channel_id = None
+
+        if user_name and not user_id:
+            search = user_name.lower()
+            dms = client.list_dms()
+            for dm in dms:
+                dm_user = client.get_user(dm.name)
+                if dm_user:
+                    full_name = (dm_user.real_name or dm_user.name or "").lower()
+                    username = (dm_user.name or "").lower()
+                    if search in full_name or search in username:
+                        channel_id = dm.id
+                        user_id = dm.name
+                        resolved_name = dm_user.real_name or dm_user.name
+                        break
+            if not channel_id:
+                return {"error": f"Could not find DM conversation with '{user_name}'"}
+        elif user_id:
+            channel_id = client.open_dm(user_id)
+            user_info = client.get_user(user_id)
+            if user_info:
+                resolved_name = user_info.real_name or user_info.name
+
+        if not channel_id:
+            return {"error": "Could not determine DM channel"}
+
+        result = client.post_message(channel=channel_id, text=text)
+        return {
+            "success": True,
+            "channel_id": channel_id,
+            "recipient": resolved_name,
+            "text": text[:200],
+            "ts": result.get("ts"),
+            "preview": f"DM to {resolved_name}: {text[:100]}...",
+        }
+    except Exception as e:
+        return {"error": f"Failed to send DM: {str(e)}"}
+
+
 # Add to tools list
 SLACK_ENHANCED_TOOLS.extend([
     {
@@ -378,5 +441,21 @@ SLACK_ENHANCED_TOOLS.extend([
                 "limit": {"type": "integer", "description": "Number of messages (default: 10)"}
             }
         }
+    },
+    {
+        "name": "slack_send_dm",
+        "description": "Send a direct message to a person by name. Resolves the DM channel automatically. **REQUIRES USER CONFIRMATION**.",
+        "function": slack_send_dm,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "user_name": {"type": "string", "description": "Name of the person (partial match ok)"},
+                "user_id": {"type": "string", "description": "Slack user ID"},
+                "text": {"type": "string", "description": "Message text to send"},
+            },
+            "required": ["text"]
+        },
+        "requires_confirmation": True,
+        "danger_level": "high"
     },
 ])

@@ -154,7 +154,7 @@ CRITICAL RULES:
 TOOL CATEGORIES:
 - **Time Tracking**: harvest_log_time, harvest_get_time_entries, harvest_list_projects, hubstaff_get_active_entries, hubstaff_get_time_entries, hubstaff_start_time, hubstaff_stop_time, generate_timesheet, generate_draft_invoice
 - **Task Management**: clickup_create_task, clickup_list_tasks, clickup_update_task, zendesk_list_tickets
-- **Communication**: gmail_search, slack_get_recent_messages, slack_search_messages, slack_get_dm_history, slack_list_dms
+- **Communication**: gmail_search, slack_get_recent_messages, slack_search_messages, slack_get_dm_history, slack_list_dms, slack_send_dm, slack_post_message
 - **Files & Reports**: docs_read_file, sheets_read_range, sheets_create, drive_list_files
 - **Asana**: asana_list_my_tasks, asana_pull_to_clickup
 - **Development**: run_dev_task (for code changes)
@@ -184,6 +184,7 @@ When user asks:
 - "Sync Asana tasks" → Use asana_pull_to_clickup
 - "Generate a timesheet" / "Create a timesheet" → Use generate_timesheet with start_date and end_date
 - "Create an invoice" / "Draft invoice" → Use generate_draft_invoice with start_date and end_date
+- "DM someone" / "Send a message to X" → Use slack_send_dm with user_name and text
 - "Build a feature" → Use run_dev_task (delegates to dev crew)
 """
 

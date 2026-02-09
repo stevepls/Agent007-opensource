@@ -348,6 +348,12 @@ async function callOrchestrator(
           try {
             controller.enqueue(encoder.encode(`2:${JSON.stringify([{ type: "background_queued", ...JSON.parse(queuedJson) }])}\n`));
           } catch { /* skip malformed queued */ }
+        } else if (line.startsWith("STRUCTURED:")) {
+          // Structured data for table/card rendering
+          const structuredJson = line.slice("STRUCTURED:".length);
+          try {
+            controller.enqueue(encoder.encode(`2:${JSON.stringify([JSON.parse(structuredJson)])}\n`));
+          } catch { /* skip malformed structured */ }
         } else if (line && line !== " ") {
           // Regular text content
           if (!sentBadge) {
@@ -380,6 +386,11 @@ async function callOrchestrator(
         try {
           const queuedJson = remaining.slice("BACKGROUND_QUEUED:".length);
           controller.enqueue(encoder.encode(`2:${JSON.stringify([{ type: "background_queued", ...JSON.parse(queuedJson) }])}\n`));
+        } catch { /* skip */ }
+      } else if (remaining && remaining.startsWith("STRUCTURED:")) {
+        try {
+          const structuredJson = remaining.slice("STRUCTURED:".length);
+          controller.enqueue(encoder.encode(`2:${JSON.stringify([JSON.parse(structuredJson)])}\n`));
         } catch { /* skip */ }
       } else if (remaining) {
         if (!sentBadge) {

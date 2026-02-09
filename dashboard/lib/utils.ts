@@ -71,6 +71,25 @@ export interface OrchestratorResponse {
 }
 
 /**
+ * Column definition for structured data tables
+ */
+export interface StructuredColumn {
+  key: string;
+  label: string;
+}
+
+/**
+ * Structured data block for table/card rendering in chat
+ */
+export interface StructuredData {
+  type: "structured_data";
+  title: string;
+  columns: StructuredColumn[];
+  rows: Record<string, string>[];
+  total: number;
+}
+
+/**
  * Progress event from CrewAI real-time streaming
  */
 export interface ProgressEvent {

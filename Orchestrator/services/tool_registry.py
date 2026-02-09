@@ -38,7 +38,7 @@ CREW_ONLY_TOOLS = frozenset({
 # Write tools the orchestrator can use directly (communication + simple writes)
 ORCHESTRATOR_WRITES = frozenset({
     "gmail_create_draft",
-    "slack_post_message", "slack_reply_to_thread",
+    "slack_post_message", "slack_reply_to_thread", "slack_send_dm",
     "clickup_add_comment",
     "harvest_log_time",
     "hubstaff_start_time", "hubstaff_stop_time",

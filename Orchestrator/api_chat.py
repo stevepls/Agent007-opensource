@@ -406,6 +406,140 @@ def _classify_request(message: str, memory_context: str = "") -> str:
     return "orchestrator"
 
 
+# ── Structured data schemas for dashboard table rendering ──────────────
+STRUCTURED_SCHEMAS: Dict[str, Dict[str, Any]] = {
+    "clickup_list_tasks": {
+        "title": "Tasks",
+        "columns": [
+            {"key": "name", "label": "Task"},
+            {"key": "status", "label": "Status"},
+            {"key": "assignee", "label": "Assignee"},
+            {"key": "due_date", "label": "Due"},
+        ],
+        "row_path": "tasks",
+    },
+    "harvest_get_time_entries": {
+        "title": "Time Entries",
+        "columns": [
+            {"key": "project", "label": "Project"},
+            {"key": "task", "label": "Task"},
+            {"key": "hours", "label": "Hours"},
+            {"key": "notes", "label": "Notes"},
+        ],
+        "row_path": "entries",
+    },
+    "hubstaff_get_time_entries": {
+        "title": "Hubstaff Time",
+        "columns": [
+            {"key": "date", "label": "Date"},
+            {"key": "project", "label": "Project"},
+            {"key": "duration_hours", "label": "Hours"},
+        ],
+        "row_path": "entries",
+    },
+    "gmail_search": {
+        "title": "Emails",
+        "columns": [
+            {"key": "from", "label": "From"},
+            {"key": "subject", "label": "Subject"},
+            {"key": "date", "label": "Date"},
+            {"key": "snippet", "label": "Preview"},
+        ],
+        "row_path": "results",
+    },
+    "slack_get_dm_history": {
+        "title": "Messages",
+        "columns": [
+            {"key": "user", "label": "From"},
+            {"key": "text", "label": "Message"},
+            {"key": "timestamp", "label": "Time"},
+        ],
+        "row_path": "messages",
+    },
+    "slack_list_dms": {
+        "title": "DM Contacts",
+        "columns": [
+            {"key": "name", "label": "Name"},
+            {"key": "username", "label": "Username"},
+            {"key": "title", "label": "Role"},
+        ],
+        "row_path": "dm_contacts",
+    },
+    "zendesk_list_tickets": {
+        "title": "Tickets",
+        "columns": [
+            {"key": "subject", "label": "Subject"},
+            {"key": "status", "label": "Status"},
+            {"key": "priority", "label": "Priority"},
+            {"key": "assignee", "label": "Assignee"},
+        ],
+        "row_path": "tickets",
+    },
+    "asana_list_my_tasks": {
+        "title": "Asana Tasks",
+        "columns": [
+            {"key": "name", "label": "Task"},
+            {"key": "due_on", "label": "Due"},
+            {"key": "assignee_section", "label": "Section"},
+        ],
+        "row_path": "tasks",
+    },
+    "harvest_list_projects": {
+        "title": "Projects",
+        "columns": [
+            {"key": "name", "label": "Project"},
+            {"key": "client", "label": "Client"},
+            {"key": "is_active", "label": "Active"},
+        ],
+        "row_path": "projects",
+    },
+    "drive_list_files": {
+        "title": "Files",
+        "columns": [
+            {"key": "name", "label": "Name"},
+            {"key": "mimeType", "label": "Type"},
+            {"key": "modifiedTime", "label": "Modified"},
+        ],
+        "row_path": "files",
+    },
+}
+
+
+def _make_structured_data(tool_name: str, result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Extract structured table data from a tool result for dashboard rendering."""
+    schema = STRUCTURED_SCHEMAS.get(tool_name)
+    if not schema or not isinstance(result, dict) or "error" in result:
+        return None
+
+    rows_raw = result.get(schema["row_path"], [])
+    if not isinstance(rows_raw, list) or len(rows_raw) == 0:
+        return None
+
+    # Extract only the columns defined in the schema
+    rows = []
+    for item in rows_raw[:50]:  # Cap at 50 rows
+        if not isinstance(item, dict):
+            continue
+        row = {}
+        for col in schema["columns"]:
+            val = item.get(col["key"], "")
+            if isinstance(val, (dict, list)):
+                val = json.dumps(val, default=str)
+            row[col["key"]] = str(val)[:200] if val else ""
+        rows.append(row)
+
+    if not rows:
+        return None
+
+    return {
+        "type": "structured_data",
+        "title": schema["title"],
+        "columns": schema["columns"],
+        "rows": rows,
+        "total": len(rows_raw),
+    }
+
+
 def _make_status_card(tool_name: str, result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Generate a dashboard status card from a tool result."""
     if not isinstance(result, dict) or "error" in result:
@@ -676,6 +810,11 @@ async def _stream_orchestrator_response(
                     if status_card:
                         done_event["status_card"] = status_card
                     yield "PROGRESS:" + json.dumps(done_event) + "\n"
+
+                    # Emit structured data for dashboard table rendering
+                    structured = _make_structured_data(tool_name, tool_result)
+                    if structured:
+                        yield "STRUCTURED:" + json.dumps(structured) + "\n"
 
                     tool_results.append({
                         "type": "tool_result",
