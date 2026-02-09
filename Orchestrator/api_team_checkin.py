@@ -42,6 +42,27 @@ except Exception as e:
 
 router = APIRouter(prefix="/team-checkin", tags=["Team Check-in"])
 
+# ============================================================================
+# Cached Agent Instance (avoid re-initializing on every request)
+# ============================================================================
+_cached_agent: Optional[TeamCheckinAgent] = None
+_agent_init_time: Optional[datetime] = None
+AGENT_CACHE_TTL_SECONDS = 300  # Refresh every 5 minutes
+
+
+def _get_agent() -> TeamCheckinAgent:
+    """Get or create a cached TeamCheckinAgent instance."""
+    global _cached_agent, _agent_init_time
+    now = datetime.utcnow()
+    if (
+        _cached_agent is None
+        or _agent_init_time is None
+        or (now - _agent_init_time).total_seconds() > AGENT_CACHE_TTL_SECONDS
+    ):
+        _cached_agent = TeamCheckinAgent()
+        _agent_init_time = now
+    return _cached_agent
+
 # Path to approval UI HTML file
 APPROVAL_UI_PATH = Path(__file__).parent.parent / "agents" / "team_checkin" / "approval_ui.html"
 
@@ -176,7 +197,7 @@ async def approve_message(message_id: str):
     
     # Update agent state after approval
     try:
-        agent = TeamCheckinAgent()
+        agent = _get_agent()
         from agents.team_checkin.agent import TeamMember
         member = TeamMember(
             name=message.metadata.get("member_name", ""),
@@ -224,7 +245,7 @@ async def reject_message(message_id: str):
 async def trigger_followup(request: TriggerFollowupRequest = Body(...)):
     """Manually trigger follow-up check-ins for team members."""
     try:
-        agent = TeamCheckinAgent()
+        agent = _get_agent()
         queue = get_message_queue()
         messages_queued = 0
         message_ids = []
@@ -258,29 +279,31 @@ async def trigger_followup(request: TriggerFollowupRequest = Body(...)):
                 # Calculate quiet time
                 quiet_hours = agent.CHECK_INTERVAL_HOURS
                 if state.last_activity:
-                    from datetime import datetime
                     last_activity = datetime.fromisoformat(state.last_activity)
-                    quiet_hours = (datetime.now() - last_activity).total_seconds() / 3600
+                    quiet_hours = (datetime.utcnow() - last_activity).total_seconds() / 3600
                 
                 # Generate follow-up message
                 message_text = agent._generate_followup_message(member, quiet_hours)
                 
-                # Queue for approval
-                msg_id = queue.add_message(
-                    member_name=member.name,
-                    message_text=message_text,
-                    message_type="followup",
-                    member_slack_id=member.slack_user_id,
-                    context={
+                # Queue for approval via the correct queue.queue() method
+                msg = queue.queue(
+                    msg_type=MessageType.SLACK_DM,
+                    channel=member.slack_user_id or "",
+                    content=message_text,
+                    metadata={
+                        "team_checkin": True,
+                        "member_name": member.name,
+                        "message_type": "followup",
                         "quiet_hours": quiet_hours,
-                        "priority_task": member.priority_tasks[0].get("name") if member.priority_tasks else None
-                    }
+                        "priority_task": member.priority_tasks[0].get("name") if member.priority_tasks else None,
+                    },
+                    requires_approval=True,
                 )
-                message_ids.append(msg_id)
+                message_ids.append(msg.id)
                 messages_queued += 1
                 
             except Exception as e:
-                # Continue with other members if one fails
+                print(f"⚠️ Follow-up trigger failed for {member.name}: {e}")
                 continue
         
         return TriggerResponse(
@@ -302,7 +325,7 @@ async def trigger_followup(request: TriggerFollowupRequest = Body(...)):
 async def get_team_members():
     """Get list of team members."""
     try:
-        agent = TeamCheckinAgent()
+        agent = _get_agent()
         members = []
         for member in agent.team_members:
             state = agent._get_member_state(member)
@@ -325,7 +348,7 @@ async def get_team_members():
 async def trigger_morning_checkin():
     """Manually trigger morning check-ins for all team members."""
     try:
-        agent = TeamCheckinAgent()
+        agent = _get_agent()
         queue = get_message_queue()
         messages_queued = 0
         message_ids = []
@@ -335,20 +358,24 @@ async def trigger_morning_checkin():
                 # Generate morning message
                 message_text = agent._generate_morning_message(member)
                 
-                # Queue for approval
-                msg_id = queue.add_message(
-                    member_name=member.name,
-                    message_text=message_text,
-                    message_type="morning",
-                    member_slack_id=member.slack_user_id,
-                    context={
-                        "priority_tasks": member.priority_tasks
-                    }
+                # Queue for approval via the correct queue.queue() method
+                msg = queue.queue(
+                    msg_type=MessageType.SLACK_DM,
+                    channel=member.slack_user_id or "",
+                    content=message_text,
+                    metadata={
+                        "team_checkin": True,
+                        "member_name": member.name,
+                        "message_type": "morning",
+                        "priority_tasks": member.priority_tasks,
+                    },
+                    requires_approval=True,
                 )
-                message_ids.append(msg_id)
+                message_ids.append(msg.id)
                 messages_queued += 1
                 
             except Exception as e:
+                print(f"⚠️ Morning trigger failed for {member.name}: {e}")
                 continue
         
         return {

@@ -152,7 +152,8 @@ class ToolRegistry:
             return result
         except Exception as e:
             import traceback
-            return {"error": f"Tool execution failed: {str(e)}", "traceback": traceback.format_exc()}
+            traceback.print_exc()  # Log full trace server-side
+            return {"error": f"Tool execution failed: {str(e)}"}
     
     def _generate_preview(self, name: str, arguments: Dict[str, Any]) -> str:
         """Generate a preview of what the tool will do."""

@@ -86,6 +86,18 @@ htmlcov/
 # Audit database (local dev)
 audit.db
 
+# Runtime data (message queue state, caches, user PII)
+Orchestrator/data/message_queue/
+Orchestrator/data/advisor/cache/
+Orchestrator/data/advisor/snapshots/
+Orchestrator/data/agent_metrics/
+Orchestrator/data/memory/
+Orchestrator/agents/team_checkin/config/team_cache.json
+Orchestrator/agents/team_checkin/config/user_mapping.json
+Orchestrator/agents/team_checkin/config/state.json
+Orchestrator/agents/team_checkin/config/team.json
+Orchestrator/agents/scaffolding/state/
+
 # Screenshots and temporary images
 *.png
 *.jpg

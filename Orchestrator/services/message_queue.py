@@ -13,6 +13,7 @@ Default delay: 2 minutes for Slack, 5 minutes for email
 import os
 import json
 import uuid
+import tempfile
 import threading
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -144,14 +145,26 @@ class MessageQueue:
                 print(f"Error loading message queue: {e}")
     
     def _save(self):
-        """Save queue to disk."""
+        """Save queue to disk atomically (write to temp, then rename)."""
         queue_file = QUEUE_DIR / "queue.json"
         data = {
             "updated_at": datetime.utcnow().isoformat(),
             "messages": [m.to_dict() for m in self.messages.values()]
         }
-        with open(queue_file, "w") as f:
-            json.dump(data, f, indent=2)
+        # Atomic write: write to temp file in same dir, then rename
+        try:
+            fd, tmp_path = tempfile.mkstemp(dir=QUEUE_DIR, suffix=".tmp")
+            with os.fdopen(fd, "w") as f:
+                json.dump(data, f, indent=2)
+            os.replace(tmp_path, queue_file)  # Atomic on POSIX
+        except Exception:
+            # Fallback to direct write if temp file fails
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            with open(queue_file, "w") as f:
+                json.dump(data, f, indent=2)
     
     def register_sender(self, msg_type: MessageType, sender: Callable):
         """Register a sender function for a message type."""
@@ -313,6 +326,28 @@ class MessageQueue:
         """List messages waiting for approval."""
         return [m for m in self.messages.values() if m.status == MessageStatus.PENDING_APPROVAL]
     
+    def cleanup_old_messages(self, max_age_hours: int = 72):
+        """Remove terminal-state messages older than max_age_hours to prevent unbounded growth."""
+        terminal_states = {MessageStatus.SENT, MessageStatus.CANCELLED, MessageStatus.FAILED}
+        cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
+        removed = 0
+        with self._lock:
+            to_remove = []
+            for msg_id, msg in self.messages.items():
+                if msg.status in terminal_states:
+                    try:
+                        created = datetime.fromisoformat(msg.created_at)
+                        if created < cutoff:
+                            to_remove.append(msg_id)
+                    except (ValueError, TypeError):
+                        to_remove.append(msg_id)
+            for msg_id in to_remove:
+                del self.messages[msg_id]
+                removed += 1
+            if removed > 0:
+                self._save()
+        return removed
+
     def get_summary(self) -> Dict[str, Any]:
         """Get queue summary."""
         all_msgs = list(self.messages.values())

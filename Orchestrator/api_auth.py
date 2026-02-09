@@ -321,7 +321,10 @@ async def login_page(request: Request, error: Optional[str] = None):
     """Serve the login page."""
     error_block = ""
     if error:
-        error_block = f'<div class="error-msg">{error}</div>'
+        # Escape HTML to prevent reflected XSS
+        import html as _html
+        safe_error = _html.escape(error)
+        error_block = f'<div class="error-msg">{safe_error}</div>'
     html = LOGIN_PAGE_HTML.replace("{{ERROR_BLOCK}}", error_block)
     return HTMLResponse(content=html)
 

@@ -74,6 +74,17 @@ async def lifespan(app: FastAPI):
     from services.task_queue import get_task_queue
     scheduler = get_prefetch_scheduler()
     scheduler.start()
+
+    # Clean up old messages from queue on startup
+    try:
+        from services.message_queue import get_message_queue
+        queue = get_message_queue()
+        removed = queue.cleanup_old_messages(max_age_hours=72)
+        if removed:
+            print(f"🧹 Cleaned up {removed} old messages from queue")
+    except Exception as e:
+        print(f"⚠️ Queue cleanup skipped: {e}")
+
     yield
     scheduler.stop()
     get_task_queue().shutdown()
