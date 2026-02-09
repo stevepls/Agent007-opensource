@@ -156,6 +156,7 @@ TOOL CATEGORIES:
 - **Task Management**: clickup_create_task, clickup_list_tasks, clickup_update_task, zendesk_list_tickets
 - **Communication**: gmail_search, slack_get_recent_messages, slack_search_messages
 - **Files**: docs_read_file, sheets_read_range, drive_list_files
+- **Asana**: asana_list_my_tasks, asana_pull_to_clickup
 - **Development**: run_dev_task (for code changes)
 
 RESPONSE STYLE:
@@ -177,6 +178,8 @@ When user asks:
 - "Check email" → Use gmail_search
 - "Create a task" → Use clickup_create_task
 - "What did I work on?" → Use harvest_get_time_entries
+- "Show my Asana tasks" → Use asana_list_my_tasks
+- "Sync Asana tasks" → Use asana_pull_to_clickup
 - "Build a feature" → Use run_dev_task (delegates to dev crew)
 """
 
@@ -366,10 +369,11 @@ def run_orchestrator_task(
         # Create crew
         crew = create_orchestrator_crew(verbose=True)
 
-        # Build task description
-        task_description = user_request
+        # Build task description with current date/time so the LLM knows the real date
+        now = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
+        task_description = f"CURRENT DATE/TIME: {now}\n\n{user_request}"
         if context:
-            task_description = f"{user_request}\n\nContext:\n{context}"
+            task_description = f"CURRENT DATE/TIME: {now}\n\n{user_request}\n\nContext:\n{context}"
 
         # Create task
         task = Task(

@@ -42,6 +42,7 @@ ORCHESTRATOR_WRITES = frozenset({
     "clickup_add_comment",
     "harvest_log_time",
     "hubstaff_start_time", "hubstaff_stop_time",
+    "asana_pull_to_clickup",
     "memory_remember",
 })
 

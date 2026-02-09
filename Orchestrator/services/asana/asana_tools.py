@@ -38,8 +38,8 @@ def asana_list_my_tasks(project_name: str = "MLN") -> Dict[str, Any]:
         return me
     my_gid = me.get("gid")
 
-    # Get tasks assigned to me
-    raw_tasks = client.get_project_tasks(project_gid, assignee_gid=my_gid)
+    # Get incomplete tasks assigned to me (completed_since="now" excludes closed tasks)
+    raw_tasks = client.get_project_tasks(project_gid, assignee_gid=my_gid, completed_since="now")
 
     tasks = []
     for t in raw_tasks:
@@ -106,11 +106,11 @@ def asana_pull_to_clickup(
         return me
     my_gid = me.get("gid")
 
-    raw_tasks = client.get_project_tasks(project_gid, assignee_gid=my_gid)
+    raw_tasks = client.get_project_tasks(project_gid, assignee_gid=my_gid, completed_since="now")
     if not raw_tasks:
         return {
             "project": project_display,
-            "message": "No tasks assigned to you in this project.",
+            "message": "No open tasks assigned to you in this project.",
             "sync_results": [],
         }
 

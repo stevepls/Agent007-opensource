@@ -361,6 +361,7 @@ TOOL_DOMAINS = [
     "calendar", "meeting", "schedule", "event",
     "slack", "message", "channel",
     "notification", "notion", "airtable",
+    "asana", "sync asana", "pull asana",
     "drive", "docs", "sheet", "spreadsheet", "file",
     "remember", "recall", "memory",
     "comment", "reply", "send", "draft",

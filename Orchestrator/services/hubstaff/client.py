@@ -156,41 +156,56 @@ class HubstaffClient:
     def get_active_time_entries(self, user_id: Optional[int] = None) -> List[TimeEntry]:
         """
         Get active (running) time entries.
-        
+
+        Note: The /time_entries endpoint was deprecated (301 redirect).
+        Active entries aren't available via /activities/daily, so we
+        return an empty list when the legacy endpoint fails.
+
         Args:
             user_id: Filter by user ID (optional)
-        
+
         Returns:
             List of active TimeEntry objects
         """
-        params = {"active": "true"}
-        if user_id:
-            params["user_ids[]"] = user_id
-        if self.org_id:
-            params["organization_id"] = self.org_id
-        
-        data = self._request("GET", "/time_entries", params=params)
-        
-        entries = []
-        for entry_data in data.get("time_entries", []):
-            entries.append(self._parse_time_entry(entry_data))
-        
-        return entries
+        try:
+            params = {"active": "true"}
+            if user_id:
+                params["user_ids[]"] = user_id
+            if self.org_id:
+                params["organization_id"] = self.org_id
+            data = self._request("GET", "/time_entries", params=params)
+            entries = []
+            for entry_data in data.get("time_entries", []):
+                entries.append(self._parse_time_entry(entry_data))
+            return entries
+        except Exception:
+            import logging
+            logging.getLogger("hubstaff").debug(
+                "get_active_time_entries: /time_entries endpoint unavailable"
+            )
+            return []
     
     def get_user_time_entries(
-        self, 
-        user_id: int, 
+        self,
+        user_id: int,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None
     ) -> List[TimeEntry]:
         """
         Get time entries for a specific user.
-        
+
+        Uses /organizations/{org_id}/activities/daily which returns
+        daily aggregates per project.  Each daily_activity becomes one
+        TimeEntry (aggregated — no individual start/stop times).
+
+        Falls back to the legacy /time_entries endpoint if no org_id
+        is configured (unlikely in practice).
+
         Args:
             user_id: User ID
             start_date: Start date (defaults to today)
             end_date: End date (defaults to today)
-        
+
         Returns:
             List of TimeEntry objects
         """
@@ -198,21 +213,41 @@ class HubstaffClient:
             start_date = date.today()
         if not end_date:
             end_date = date.today()
-        
+
+        # Prefer the working /activities/daily endpoint
+        if self.org_id:
+            params = {
+                "date[start]": start_date.isoformat(),
+                "date[stop]": end_date.isoformat(),
+                "user_ids[]": user_id,
+            }
+            data = self._request(
+                "GET",
+                f"/organizations/{self.org_id}/activities/daily",
+                params=params,
+            )
+            entries = []
+            for act in data.get("daily_activities", []):
+                entries.append(TimeEntry(
+                    id=act.get("id", 0),
+                    user_id=act.get("user_id", user_id),
+                    project_id=act.get("project_id"),
+                    task_id=act.get("task_id"),
+                    tracked=act.get("tracked", 0),
+                    date=act.get("date", ""),
+                ))
+            return entries
+
+        # Legacy fallback (may 301 redirect)
         params = {
             "user_ids[]": user_id,
             "start_date": start_date.isoformat(),
-            "end_date": end_date.isoformat()
+            "end_date": end_date.isoformat(),
         }
-        if self.org_id:
-            params["organization_id"] = self.org_id
-        
         data = self._request("GET", "/time_entries", params=params)
-        
         entries = []
         for entry_data in data.get("time_entries", []):
             entries.append(self._parse_time_entry(entry_data))
-        
         return entries
     
     def stop_time_entry(self, time_entry_id: int) -> bool:

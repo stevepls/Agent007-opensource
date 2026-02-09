@@ -90,6 +90,7 @@ WRITE_TOOLS = frozenset({
     "sheets_update_range", "sheets_append_rows",
     "memory_remember",
     "run_dev_task",
+    "asana_pull_to_clickup",
 })
 
 # After a write succeeds, invalidate these read caches
