@@ -500,8 +500,8 @@
                             </div>
                         ` : ''}
                         <div class="message-actions">
-                            <button class="btn-success" onclick="approveMessage('${msg.id}')">✅ Approve & Send</button>
-                            <button class="btn-danger" onclick="rejectMessage('${msg.id}')">❌ Reject</button>
+                            <button class="btn-success" onclick="approveMessage('${escapeHtml(msg.id)}')">✅ Approve & Send</button>
+                            <button class="btn-danger" onclick="rejectMessage('${escapeHtml(msg.id)}')">❌ Reject</button>
                         </div>
                     </div>
                 `).join('');

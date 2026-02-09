@@ -1668,6 +1668,10 @@ Rules:
             # Check if list has any updates since last run
             if not self._has_list_changed():
                 self.logger.info("No changes in list since last check, nothing to do.")
+                # Update timestamp so we don't re-check the same window next run
+                state = self._load_state()
+                state["last_list_check"] = datetime.now().isoformat()
+                self._save_state(state)
                 return []
 
             # Ensure repo is ready

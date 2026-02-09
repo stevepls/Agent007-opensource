@@ -185,19 +185,11 @@ try:
                     from fastapi.responses import JSONResponse
                     return JSONResponse(
                         status_code=401,
-                        content={"detail": "Not authenticated. Please login at /auth/login-page"}
+                        content={"detail": "Not authenticated. Please login via the dashboard."}
                     )
-                # For browser requests, redirect to login
-                response = RedirectResponse(url="/auth/login-page")
-                # Remember where they were trying to go
-                response.set_cookie(
-                    key="auth_next",
-                    value=path,
-                    max_age=600,
-                    httponly=True,
-                    samesite="lax",
-                )
-                return response
+                # For browser requests, redirect to Dashboard (the one UI)
+                dashboard_url = os.getenv("DASHBOARD_PUBLIC_URL", "https://dashboard-staging-ba60.up.railway.app")
+                return RedirectResponse(url=dashboard_url)
 
             # Attach user to request state
             request.state.user = user
@@ -312,16 +304,17 @@ class ErrorResponse(BaseModel):
 
 @app.get("/")
 async def root(request: Request):
-    """Root endpoint - redirect to login page or API docs."""
+    """Root endpoint - redirect to Dashboard (the one UI) or API docs."""
+    dashboard_url = os.getenv("DASHBOARD_PUBLIC_URL", "https://dashboard-staging-ba60.up.railway.app")
     user = None
     try:
         user = get_current_user(request)
     except Exception:
         pass
-    # If authenticated, show docs; otherwise show login page
+    # If authenticated, show API docs; otherwise redirect to Dashboard
     if user:
         return RedirectResponse(url="/docs")
-    return RedirectResponse(url="/auth/login-page")
+    return RedirectResponse(url=dashboard_url)
 
 
 @app.get("/health")
