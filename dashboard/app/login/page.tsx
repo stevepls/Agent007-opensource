@@ -1,5 +1,7 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { Zap } from "lucide-react";
 
 /**
@@ -7,11 +9,13 @@ import { Zap } from "lucide-react";
  *
  * Shows a branded sign-in page with a "Sign in with Google" button.
  * When clicked, initiates the OAuth flow through the Orchestrator.
+ * Displays error messages from failed auth attempts.
  */
-export default function LoginPage() {
+function LoginContent() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get("error");
+
   const handleSignIn = () => {
-    // Redirect to orchestrator's OAuth login flow
-    // The middleware will have set the callback URL, but we build it fresh here
     window.location.href = "/api/auth/start";
   };
 
@@ -36,6 +40,13 @@ export default function LoginPage() {
             <p className="mb-8 text-sm text-muted-foreground">
               Command Center
             </p>
+
+            {/* Error message */}
+            {error && (
+              <div className="mb-6 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                {error}
+              </div>
+            )}
 
             {/* Sign in button */}
             <button
@@ -72,5 +83,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
   );
 }

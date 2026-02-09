@@ -7,6 +7,9 @@ import { NextRequest, NextResponse } from "next/server";
  * validates it, and sets a dashboard_session cookie.
  *
  * Flow: Orchestrator redirects here with ?token=<signed_token>
+ *
+ * On error: redirects to the dashboard's own /login page (NOT back to
+ * the Orchestrator) to prevent infinite redirect loops.
  */
 
 const COOKIE_NAME = "dashboard_session";
@@ -16,16 +19,20 @@ export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
 
   if (!token) {
-    return new NextResponse("Missing token parameter", { status: 400 });
+    // No token → send user to dashboard login with error
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("error", "Missing authentication token");
+    return NextResponse.redirect(loginUrl);
   }
 
-  // Validate token with the Orchestrator
+  // Validate token with the Orchestrator (server-to-server call)
   const orchestratorUrl =
     process.env.ORCHESTRATOR_INTERNAL_URL ||
     process.env.ORCHESTRATOR_API_URL ||
     "http://localhost:8502";
 
   try {
+    console.log(`🔑 Verifying token with orchestrator at: ${orchestratorUrl}/auth/verify-token`);
     const verifyResponse = await fetch(
       `${orchestratorUrl}/auth/verify-token?token=${encodeURIComponent(token)}`,
       {
@@ -39,15 +46,17 @@ export async function GET(request: NextRequest) {
     if (!verifyResponse.ok) {
       const errorText = await verifyResponse.text();
       console.error("Token verification failed:", verifyResponse.status, errorText);
-      // Redirect to orchestrator login
-      const loginUrl = getLoginUrl(request);
+      // Redirect to dashboard's own login page — NOT the orchestrator (avoids redirect loop)
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("error", "Authentication failed. Please try again.");
       return NextResponse.redirect(loginUrl);
     }
 
     const userData = await verifyResponse.json();
 
     if (!userData.valid) {
-      const loginUrl = getLoginUrl(request);
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("error", "Invalid authentication token. Please try again.");
       return NextResponse.redirect(loginUrl);
     }
 
@@ -75,20 +84,9 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Auth callback error:", error);
-    const loginUrl = getLoginUrl(request);
+    // Redirect to dashboard's own login page — NOT the orchestrator (avoids redirect loop)
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("error", "Authentication service unavailable. Please try again.");
     return NextResponse.redirect(loginUrl);
   }
-}
-
-function getLoginUrl(request: NextRequest): string {
-  const orchestratorUrl =
-    process.env.ORCHESTRATOR_PUBLIC_URL ||
-    process.env.ORCHESTRATOR_API_URL ||
-    "http://localhost:8502";
-
-  const scheme = request.headers.get("x-forwarded-proto") || "https";
-  const host = request.headers.get("host") || "localhost:3000";
-  const callbackUrl = `${scheme}://${host}/api/auth/callback`;
-
-  return `${orchestratorUrl}/auth/login?next_service=${encodeURIComponent(callbackUrl)}`;
 }

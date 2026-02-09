@@ -524,8 +524,13 @@ async def callback(request: Request, code: Optional[str] = None, state: Optional
         print(f"✅ User logged in: {email} → redirecting to {next_service}")
         return response
 
-    # Standard flow: redirect to Orchestrator page
-    next_url = request.cookies.get("auth_next", "/")
+    # Standard flow: redirect to Orchestrator page (or dashboard if configured)
+    dashboard_url = os.getenv("DASHBOARD_PUBLIC_URL", "")
+    if dashboard_url:
+        # Prefer redirecting to the dashboard — it's the primary UI
+        next_url = dashboard_url
+    else:
+        next_url = request.cookies.get("auth_next", "/docs")
 
     response = RedirectResponse(url=next_url)
     response.set_cookie(
