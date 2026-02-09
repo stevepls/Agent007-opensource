@@ -93,6 +93,8 @@ class ToolRegistry:
         self._register_advisor_tools()
         # Hubstaff
         self._register_hubstaff_tools()
+        # GitHub (REST API)
+        self._register_github_tools()
     
     def register(
         self,
@@ -1045,6 +1047,29 @@ class ToolRegistry:
                 
                 return {"success": success, "task_id": task_id}
             
+            def clickup_get_comments(task_id: str) -> Dict[str, Any]:
+                """Get all comments on a ClickUp task."""
+                api_token = os.getenv("CLICKUP_API_TOKEN")
+                if not api_token:
+                    return {"error": "ClickUp not configured"}
+
+                client = get_clickup_client()
+                comments = client.get_comments(task_id)
+
+                return {
+                    "task_id": task_id,
+                    "count": len(comments),
+                    "comments": [
+                        {
+                            "id": c.id,
+                            "user": c.user,
+                            "text": c.text,
+                            "date": c.date.isoformat() if c.date else None,
+                        }
+                        for c in comments
+                    ],
+                }
+
             def clickup_list_spaces() -> Dict[str, Any]:
                 """List ClickUp workspaces, spaces, and lists."""
                 api_token = os.getenv("CLICKUP_API_TOKEN")
@@ -1139,15 +1164,29 @@ class ToolRegistry:
             
             self.register(
                 "clickup_add_comment",
-                "Add a comment to a ClickUp task.",
+                "Add a comment to a ClickUp task. Parameters: task_id (string) and comment (string).",
                 clickup_add_comment,
                 {
                     "type": "object",
                     "properties": {
                         "task_id": {"type": "string", "description": "ClickUp task ID"},
-                        "comment": {"type": "string", "description": "Comment text"}
+                        "comment": {"type": "string", "description": "The comment text to post. NOTE: parameter name is 'comment', NOT 'comment_text'."}
                     },
                     "required": ["task_id", "comment"]
+                },
+                category="clickup"
+            )
+
+            self.register(
+                "clickup_get_comments",
+                "Get all comments on a ClickUp task. Use to read conversation history and context.",
+                clickup_get_comments,
+                {
+                    "type": "object",
+                    "properties": {
+                        "task_id": {"type": "string", "description": "ClickUp task ID"}
+                    },
+                    "required": ["task_id"]
                 },
                 category="clickup"
             )
@@ -2697,6 +2736,230 @@ class ToolRegistry:
 
         except ImportError:
             pass  # Hubstaff tools not available
+
+    def _register_github_tools(self):
+        """Register GitHub tools via REST API (works on Railway without gh CLI)."""
+        import requests
+
+        github_token = os.getenv("GITHUB_TOKEN")
+        default_repo = os.getenv("GITHUB_REPO", "stevepls/Agent007")
+
+        if not github_token:
+            print("[WARN] GITHUB_TOKEN not set — GitHub tools will not be available")
+            return
+
+        headers = {
+            "Authorization": f"token {github_token}",
+            "Accept": "application/vnd.github.v3+json",
+        }
+
+        def github_list_prs(repo: str = "", state: str = "open") -> Dict[str, Any]:
+            """List pull requests on a GitHub repository."""
+            r = default_repo if not repo else repo
+            resp = requests.get(
+                f"https://api.github.com/repos/{r}/pulls",
+                headers=headers,
+                params={"state": state, "per_page": 15},
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                return {"error": f"GitHub API error: {resp.status_code} {resp.text[:200]}"}
+
+            prs = []
+            for pr in resp.json():
+                prs.append({
+                    "number": pr["number"],
+                    "title": pr["title"],
+                    "state": pr["state"],
+                    "author": pr["user"]["login"],
+                    "head": pr["head"]["ref"],
+                    "base": pr["base"]["ref"],
+                    "url": pr["html_url"],
+                    "created_at": pr["created_at"],
+                    "updated_at": pr["updated_at"],
+                    "draft": pr.get("draft", False),
+                })
+            return {"repo": r, "count": len(prs), "prs": prs}
+
+        def github_list_branches(repo: str = "") -> Dict[str, Any]:
+            """List branches on a GitHub repository."""
+            r = default_repo if not repo else repo
+            resp = requests.get(
+                f"https://api.github.com/repos/{r}/branches",
+                headers=headers,
+                params={"per_page": 30},
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                return {"error": f"GitHub API error: {resp.status_code}"}
+
+            branches = [{"name": b["name"], "protected": b.get("protected", False)} for b in resp.json()]
+            return {"repo": r, "count": len(branches), "branches": branches}
+
+        def github_get_pr(pr_number: int, repo: str = "") -> Dict[str, Any]:
+            """Get details of a specific pull request including files changed."""
+            r = default_repo if not repo else repo
+            resp = requests.get(
+                f"https://api.github.com/repos/{r}/pulls/{pr_number}",
+                headers=headers,
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                return {"error": f"PR #{pr_number} not found"}
+
+            pr = resp.json()
+            # Get files changed
+            files_resp = requests.get(
+                f"https://api.github.com/repos/{r}/pulls/{pr_number}/files",
+                headers=headers,
+                params={"per_page": 30},
+                timeout=15,
+            )
+            files = []
+            if files_resp.status_code == 200:
+                for f in files_resp.json():
+                    files.append({
+                        "filename": f["filename"],
+                        "status": f["status"],
+                        "additions": f["additions"],
+                        "deletions": f["deletions"],
+                    })
+
+            return {
+                "number": pr["number"],
+                "title": pr["title"],
+                "state": pr["state"],
+                "author": pr["user"]["login"],
+                "head": pr["head"]["ref"],
+                "base": pr["base"]["ref"],
+                "body": (pr.get("body") or "")[:1000],
+                "mergeable": pr.get("mergeable"),
+                "additions": pr.get("additions", 0),
+                "deletions": pr.get("deletions", 0),
+                "changed_files": pr.get("changed_files", 0),
+                "url": pr["html_url"],
+                "files": files,
+            }
+
+        def github_get_branch_commits(branch: str, repo: str = "", limit: int = 10) -> Dict[str, Any]:
+            """Get recent commits on a branch."""
+            r = default_repo if not repo else repo
+            resp = requests.get(
+                f"https://api.github.com/repos/{r}/commits",
+                headers=headers,
+                params={"sha": branch, "per_page": limit},
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                return {"error": f"Branch '{branch}' not found or API error: {resp.status_code}"}
+
+            commits = []
+            for c in resp.json():
+                commits.append({
+                    "sha": c["sha"][:8],
+                    "message": c["commit"]["message"].split("\n")[0][:120],
+                    "author": c["commit"]["author"]["name"],
+                    "date": c["commit"]["author"]["date"],
+                })
+            return {"repo": r, "branch": branch, "count": len(commits), "commits": commits}
+
+        def github_search_code(query: str, repo: str = "") -> Dict[str, Any]:
+            """Search code in a GitHub repository."""
+            r = default_repo if not repo else repo
+            full_query = f"{query} repo:{r}"
+            resp = requests.get(
+                "https://api.github.com/search/code",
+                headers=headers,
+                params={"q": full_query, "per_page": 10},
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                return {"error": f"Search failed: {resp.status_code}"}
+
+            results = []
+            for item in resp.json().get("items", []):
+                results.append({
+                    "path": item["path"],
+                    "name": item["name"],
+                    "url": item["html_url"],
+                })
+            return {"query": query, "repo": r, "count": len(results), "results": results}
+
+        # Register tools
+        self.register(
+            "github_list_prs",
+            "List pull requests on a GitHub repository. Shows open PRs by default.",
+            github_list_prs,
+            {
+                "type": "object",
+                "properties": {
+                    "repo": {"type": "string", "description": "Repository (owner/name). Default: stevepls/Agent007"},
+                    "state": {"type": "string", "description": "PR state: open, closed, all (default: open)"},
+                },
+            },
+            category="github"
+        )
+
+        self.register(
+            "github_list_branches",
+            "List branches on a GitHub repository.",
+            github_list_branches,
+            {
+                "type": "object",
+                "properties": {
+                    "repo": {"type": "string", "description": "Repository (owner/name). Default: stevepls/Agent007"},
+                },
+            },
+            category="github"
+        )
+
+        self.register(
+            "github_get_pr",
+            "Get details of a specific pull request including files changed.",
+            github_get_pr,
+            {
+                "type": "object",
+                "properties": {
+                    "pr_number": {"type": "integer", "description": "PR number"},
+                    "repo": {"type": "string", "description": "Repository (owner/name). Default: stevepls/Agent007"},
+                },
+                "required": ["pr_number"]
+            },
+            category="github"
+        )
+
+        self.register(
+            "github_get_branch_commits",
+            "Get recent commits on a branch.",
+            github_get_branch_commits,
+            {
+                "type": "object",
+                "properties": {
+                    "branch": {"type": "string", "description": "Branch name"},
+                    "repo": {"type": "string", "description": "Repository (owner/name). Default: stevepls/Agent007"},
+                    "limit": {"type": "integer", "description": "Number of commits (default: 10)"},
+                },
+                "required": ["branch"]
+            },
+            category="github"
+        )
+
+        self.register(
+            "github_search_code",
+            "Search for code in a GitHub repository.",
+            github_search_code,
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"},
+                    "repo": {"type": "string", "description": "Repository (owner/name). Default: stevepls/Agent007"},
+                },
+                "required": ["query"]
+            },
+            category="github"
+        )
+
+        print(f"[INFO] Loaded 5 GitHub API tools (repo: {default_repo})")
 
 
 # ============================================================================

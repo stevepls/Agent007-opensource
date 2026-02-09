@@ -371,6 +371,7 @@ TOOL_DOMAINS = [
     "update sheet", "generate report",
     "remember", "recall", "memory",
     "comment", "reply", "send", "draft", "commit",
+    "github", "pull request", "branch", "pr ", "repo",
     "build",
 ]
 
@@ -501,6 +502,44 @@ STRUCTURED_SCHEMAS: Dict[str, Dict[str, Any]] = {
             {"key": "modifiedTime", "label": "Modified"},
         ],
         "row_path": "files",
+    },
+    "clickup_get_comments": {
+        "title": "Task Comments",
+        "columns": [
+            {"key": "user", "label": "Author"},
+            {"key": "text", "label": "Comment"},
+            {"key": "date", "label": "Date"},
+        ],
+        "row_path": "comments",
+    },
+    "github_list_prs": {
+        "title": "Pull Requests",
+        "columns": [
+            {"key": "number", "label": "#"},
+            {"key": "title", "label": "Title"},
+            {"key": "author", "label": "Author"},
+            {"key": "head", "label": "Branch"},
+            {"key": "state", "label": "State"},
+        ],
+        "row_path": "prs",
+    },
+    "github_list_branches": {
+        "title": "Branches",
+        "columns": [
+            {"key": "name", "label": "Branch"},
+            {"key": "protected", "label": "Protected"},
+        ],
+        "row_path": "branches",
+    },
+    "github_get_branch_commits": {
+        "title": "Commits",
+        "columns": [
+            {"key": "sha", "label": "SHA"},
+            {"key": "message", "label": "Message"},
+            {"key": "author", "label": "Author"},
+            {"key": "date", "label": "Date"},
+        ],
+        "row_path": "commits",
     },
 }
 
