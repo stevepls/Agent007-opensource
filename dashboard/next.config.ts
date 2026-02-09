@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // NOTE: "standalone" requires `node .next/standalone/server.js` to start,
+  // but our Procfile uses `npm start` (next start). Removed to avoid mismatch.
+  // output: "standalone",
   experimental: {
     // Enable Server Actions
   },
