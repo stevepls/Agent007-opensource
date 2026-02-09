@@ -195,11 +195,27 @@ def get_current_user(request: Request) -> Optional[dict]:
 
 
 def _get_redirect_uri(request: Request) -> str:
-    """Build the OAuth callback URI based on the current request."""
+    """Build the OAuth callback URI based on the current request.
+    
+    Supports explicit override via GOOGLE_OAUTH_REDIRECT_URI env var,
+    or auto-detection from proxy headers (Railway, etc).
+    """
+    # Allow explicit override (most reliable for production)
+    explicit = os.getenv("GOOGLE_OAUTH_REDIRECT_URI")
+    if explicit:
+        return explicit
+
     # Use X-Forwarded headers if behind a proxy (Railway)
     scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
-    host = request.headers.get("x-forwarded-host", request.url.netloc)
-    return f"{scheme}://{host}/auth/callback"
+    # Railway sets Host header to public domain; x-forwarded-host may not be set
+    host = (
+        request.headers.get("x-forwarded-host")
+        or request.headers.get("host")
+        or request.url.netloc
+    )
+    redirect_uri = f"{scheme}://{host}/auth/callback"
+    print(f"[OAuth] redirect_uri={redirect_uri} (scheme={scheme}, host={host})")
+    return redirect_uri
 
 
 # ============================================================================
@@ -406,15 +422,22 @@ async def login(request: Request, next_service: Optional[str] = None):
         "prompt": "select_account",
     }
 
+    # Detect actual scheme (may differ from request.url.scheme behind proxy)
+    actual_scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+    is_secure = actual_scheme == "https"
+
+    google_url = f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
+    print(f"[OAuth] /auth/login → redirect_uri={redirect_uri}, next_service={next_service}, google_url={google_url[:120]}...")
+
     # Store state in a short-lived cookie
-    response = RedirectResponse(url=f"{GOOGLE_AUTH_URL}?{urlencode(params)}")
+    response = RedirectResponse(url=google_url)
     response.set_cookie(
         key="oauth_state",
         value=state,
         max_age=600,  # 10 minutes
         httponly=True,
         samesite="lax",
-        secure=request.url.scheme == "https",
+        secure=is_secure,
     )
 
     # Store next_service redirect (if valid) for cross-domain auth
@@ -425,8 +448,10 @@ async def login(request: Request, next_service: Optional[str] = None):
             max_age=600,
             httponly=True,
             samesite="lax",
-            secure=request.url.scheme == "https",
+            secure=is_secure,
         )
+    elif next_service:
+        print(f"[OAuth] ⚠ next_service rejected by allow-list: {next_service}")
 
     return response
 
@@ -443,6 +468,7 @@ async def callback(request: Request, code: Optional[str] = None, state: Optional
         )
 
     if error:
+        print(f"[OAuth] /auth/callback error from Google: {error}")
         return RedirectResponse(url=f"/auth/login-page?error={quote_plus(error)}")
 
     if not code:
@@ -451,9 +477,15 @@ async def callback(request: Request, code: Optional[str] = None, state: Optional
     # Verify state
     stored_state = request.cookies.get("oauth_state")
     if not stored_state or stored_state != state:
-        return RedirectResponse(url="/auth/login-page?error=Invalid+state+parameter")
+        print(f"[OAuth] State mismatch: stored={stored_state!r}, received={state!r}")
+        return RedirectResponse(url="/auth/login-page?error=Invalid+state+parameter.+Cookies+may+be+blocked.")
+
+    # Detect actual scheme for cookie security
+    actual_scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+    is_secure = actual_scheme == "https"
 
     redirect_uri = _get_redirect_uri(request)
+    print(f"[OAuth] /auth/callback → redirect_uri={redirect_uri}")
 
     # Exchange code for tokens
     try:
@@ -469,7 +501,9 @@ async def callback(request: Request, code: Optional[str] = None, state: Optional
                 },
             )
             if token_response.status_code != 200:
-                error_detail = token_response.json().get("error_description", "Token exchange failed")
+                error_data = token_response.json()
+                error_detail = error_data.get("error_description", "Token exchange failed")
+                print(f"[OAuth] Token exchange failed: {token_response.status_code} {error_data}")
                 return RedirectResponse(url=f"/auth/login-page?error={quote_plus(error_detail)}")
 
             tokens = token_response.json()
@@ -486,6 +520,7 @@ async def callback(request: Request, code: Optional[str] = None, state: Optional
             user_info = userinfo_response.json()
 
     except Exception as e:
+        print(f"[OAuth] Exception during token exchange: {e}")
         return RedirectResponse(url=f"/auth/login-page?error={quote_plus(str(e))}")
 
     # Check email allowlist
@@ -514,7 +549,7 @@ async def callback(request: Request, code: Optional[str] = None, state: Optional
             max_age=SESSION_MAX_AGE,
             httponly=True,
             samesite="lax",
-            secure=request.url.scheme == "https",
+            secure=is_secure,
             path="/",
         )
         # Clean up temp cookies
@@ -524,10 +559,9 @@ async def callback(request: Request, code: Optional[str] = None, state: Optional
         print(f"✅ User logged in: {email} → redirecting to {next_service}")
         return response
 
-    # Standard flow: redirect to Orchestrator page (or dashboard if configured)
+    # Standard flow: redirect to Dashboard (primary UI) or API docs
     dashboard_url = os.getenv("DASHBOARD_PUBLIC_URL", "")
     if dashboard_url:
-        # Prefer redirecting to the dashboard — it's the primary UI
         next_url = dashboard_url
     else:
         next_url = request.cookies.get("auth_next", "/docs")
@@ -539,7 +573,7 @@ async def callback(request: Request, code: Optional[str] = None, state: Optional
         max_age=SESSION_MAX_AGE,
         httponly=True,
         samesite="lax",
-        secure=request.url.scheme == "https",
+        secure=is_secure,
         path="/",
     )
     # Clean up temp cookies
@@ -547,7 +581,7 @@ async def callback(request: Request, code: Optional[str] = None, state: Optional
     response.delete_cookie("auth_next")
     response.delete_cookie("auth_next_service")
 
-    print(f"✅ User logged in: {email}")
+    print(f"✅ User logged in: {email} → {next_url}")
     return response
 
 
