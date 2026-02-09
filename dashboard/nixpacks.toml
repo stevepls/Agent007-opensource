@@ -1,6 +1,5 @@
-# Ensure NIXPACKS uses Node.js provider (prevents stale cached Dockerfile usage)
-[phases.setup]
-nixPkgs = ["..."]
+# Nixpacks build config — Node.js provider auto-detected from package.json
+# This file ensures nixpacks uses its Node provider instead of any cached Dockerfile.
 
 [start]
 cmd = "npm start"

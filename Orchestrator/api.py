@@ -163,8 +163,16 @@ try:
     app.include_router(auth_router)
     print(f"✅ Auth router registered (AUTH_ENABLED={AUTH_ENABLED})")
 
+    # Service-to-service API key (dashboard → orchestrator calls)
+    _SERVICE_API_KEY = os.getenv("SERVICE_API_KEY", os.getenv("SESSION_SECRET_KEY", ""))
+
     class AuthMiddleware(BaseHTTPMiddleware):
-        """Middleware to enforce authentication on all non-public routes."""
+        """Middleware to enforce authentication on all non-public routes.
+
+        Accepts either:
+        - A valid session cookie (browser users)
+        - An X-Service-Key header matching SERVICE_API_KEY (dashboard backend)
+        """
         async def dispatch(self, request: Request, call_next):
             path = request.url.path
 
@@ -176,7 +184,13 @@ try:
             if not AUTH_ENABLED:
                 return await call_next(request)
 
-            # Check session
+            # Accept service-to-service API key (for dashboard → orchestrator calls)
+            service_key = request.headers.get("x-service-key", "")
+            if service_key and _SERVICE_API_KEY and service_key == _SERVICE_API_KEY:
+                request.state.user = {"email": "dashboard@internal", "name": "Dashboard Service"}
+                return await call_next(request)
+
+            # Check session cookie
             user = get_current_user(request)
             if not user:
                 # For API calls (JSON), return 401

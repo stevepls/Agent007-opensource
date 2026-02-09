@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_API_URL || "http://localhost:8502";
 const CLAUDE_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+// Service-to-service key for authenticated Orchestrator calls (matches SESSION_SECRET_KEY)
+const SERVICE_API_KEY = process.env.SERVICE_API_KEY || process.env.SESSION_SECRET_KEY || "";
 
 // Track which provider is currently active
 type AIProvider = "claude" | "openai" | "orchestrator" | "mock";
@@ -229,8 +231,11 @@ export async function POST(request: NextRequest) {
 
 async function checkOrchestrator(): Promise<boolean> {
   try {
+    const headers: Record<string, string> = {};
+    if (SERVICE_API_KEY) headers["X-Service-Key"] = SERVICE_API_KEY;
     const response = await fetch(`${ORCHESTRATOR_URL}/health`, {
       method: "GET",
+      headers,
       signal: AbortSignal.timeout(2000),
     });
     return response.ok;
@@ -283,9 +288,12 @@ async function callOrchestrator(
   llmProvider: string = "auto",
   sessionId: string = ""
 ) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (SERVICE_API_KEY) headers["X-Service-Key"] = SERVICE_API_KEY;
+
   const response = await fetch(`${ORCHESTRATOR_URL}/api/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       messages,
       attachments,
