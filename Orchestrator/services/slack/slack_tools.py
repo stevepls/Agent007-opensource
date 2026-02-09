@@ -87,13 +87,13 @@ def slack_get_thread_context(channel: str, thread_ts: str) -> Dict[str, Any]:
             "message_count": len(messages),
             "messages": [
                 {
-                    "user": m.user_name,
+                    "user": m.user,
                     "text": m.text,
                     "timestamp": m.timestamp.isoformat() if m.timestamp else None,
                 }
                 for m in messages
             ],
-            "full_context": "\\n\\n".join([f"[{m.user_name}]: {m.text}" for m in messages])
+            "full_context": "\\n\\n".join([f"[{m.user}]: {m.text}" for m in messages])
         }
     except Exception as e:
         return {"error": f"Failed to get thread: {str(e)}"}
@@ -276,52 +276,80 @@ def slack_list_dms() -> Dict[str, Any]:
 def slack_get_dm_history(user_name: str = None, user_id: str = None, limit: int = 10) -> Dict[str, Any]:
     """
     Get recent messages from a DM conversation.
-    
+
     Args:
-        user_name: Name of the person (optional if user_id provided)
+        user_name: Name of the person (partial match, optional if user_id provided)
         user_id: Slack user ID (optional if user_name provided)
         limit: Number of messages to retrieve (default: 10)
     """
     client = get_slack_client()
-    
+
     if not client.is_available:
         return {"error": "Slack not configured"}
-    
+
+    if not client.has_user_token:
+        return {"error": "Reading DMs requires a Slack user token (xoxp-). "
+                "Bot tokens cannot access user-to-user DM history. "
+                "Set SLACK_USER_TOKEN in environment or slack-secrets.yml."}
+
     if not user_name and not user_id:
         return {"error": "Either user_name or user_id is required"}
-    
+
+    channel_id = None
+    resolved_name = user_name or user_id
+
     try:
-        # Find the user if name provided
+        # Find the user if name provided — resolve DM user IDs to real names
         if user_name and not user_id:
-            user = client.get_user_by_email(f"{user_name}@")  # This won't work well
-            # Better: search through DMs for matching name
+            search = user_name.lower()
             dms = client.list_dms()
             for dm in dms:
-                if user_name.lower() in dm.name.lower():
-                    channel_id = dm.id
-                    break
-            else:
-                return {"error": f"Could not find DM with user '{user_name}'"}
+                # dm.name is the user ID for DM channels, resolve to real name
+                dm_user = client.get_user(dm.name)
+                if dm_user:
+                    full_name = (dm_user.real_name or dm_user.name or "").lower()
+                    username = (dm_user.name or "").lower()
+                    if search in full_name or search in username:
+                        channel_id = dm.id
+                        user_id = dm.name
+                        resolved_name = dm_user.real_name or dm_user.name
+                        break
+            if not channel_id:
+                return {"error": f"Could not find DM conversation with '{user_name}'. "
+                        "Try using their Slack user ID instead."}
         elif user_id:
-            # Open DM channel with user
+            # Open/find DM channel with user
             channel_id = client.open_dm(user_id)
-        else:
+            # Resolve name for display
+            user_info = client.get_user(user_id)
+            if user_info:
+                resolved_name = user_info.real_name or user_info.name
+
+        if not channel_id:
             return {"error": "Could not determine DM channel"}
-        
+
         # Get messages
         messages = client.get_messages(channel_id, limit=limit)
-        
+
+        # Resolve user IDs to names in messages
+        user_cache: Dict[str, str] = {}
+        formatted_messages = []
+        for m in messages:
+            if m.user not in user_cache:
+                u = client.get_user(m.user)
+                user_cache[m.user] = (u.real_name or u.name) if u else m.user
+            formatted_messages.append({
+                "user": user_cache[m.user],
+                "user_id": m.user,
+                "text": m.text[:500],
+                "timestamp": m.timestamp.isoformat() if m.timestamp else None,
+            })
+
         return {
             "channel_id": channel_id,
-            "message_count": len(messages),
-            "messages": [
-                {
-                    "user": m.user_name,
-                    "text": m.text[:200],  # Truncate long messages
-                    "timestamp": m.timestamp.isoformat() if m.timestamp else None,
-                }
-                for m in messages
-            ]
+            "contact": resolved_name,
+            "message_count": len(formatted_messages),
+            "messages": formatted_messages,
         }
     except Exception as e:
         return {"error": f"Failed to get DM history: {str(e)}"}
