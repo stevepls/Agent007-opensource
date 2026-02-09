@@ -320,14 +320,26 @@ async function callOrchestrator(
           // Parse progress event and emit as Vercel AI annotation (8: prefix)
           const progressJson = line.slice("PROGRESS:".length);
           try {
-            controller.enqueue(encoder.encode(`8:${JSON.stringify([JSON.parse(progressJson)])}\n`));
+            controller.enqueue(encoder.encode(`2:${JSON.stringify([JSON.parse(progressJson)])}\n`));
           } catch { /* skip malformed progress */ }
         } else if (line.startsWith("FRESHNESS:")) {
           // Parse freshness summary and emit as annotation
           const freshnessJson = line.slice("FRESHNESS:".length);
           try {
-            controller.enqueue(encoder.encode(`8:${JSON.stringify([{ type: "freshness", tools: JSON.parse(freshnessJson) }])}\n`));
+            controller.enqueue(encoder.encode(`2:${JSON.stringify([{ type: "freshness", tools: JSON.parse(freshnessJson) }])}\n`));
           } catch { /* skip malformed freshness */ }
+        } else if (line.startsWith("BACKGROUND_UPDATE:")) {
+          // Completed background task result
+          const updateJson = line.slice("BACKGROUND_UPDATE:".length);
+          try {
+            controller.enqueue(encoder.encode(`2:${JSON.stringify([{ type: "background_update", ...JSON.parse(updateJson) }])}\n`));
+          } catch { /* skip malformed update */ }
+        } else if (line.startsWith("BACKGROUND_QUEUED:")) {
+          // New task queued acknowledgment
+          const queuedJson = line.slice("BACKGROUND_QUEUED:".length);
+          try {
+            controller.enqueue(encoder.encode(`2:${JSON.stringify([{ type: "background_queued", ...JSON.parse(queuedJson) }])}\n`));
+          } catch { /* skip malformed queued */ }
         } else if (line && line !== " ") {
           // Regular text content
           if (!sentBadge) {
@@ -344,12 +356,22 @@ async function callOrchestrator(
       if (remaining && remaining.startsWith("PROGRESS:")) {
         try {
           const progressJson = remaining.slice("PROGRESS:".length);
-          controller.enqueue(encoder.encode(`8:${JSON.stringify([JSON.parse(progressJson)])}\n`));
+          controller.enqueue(encoder.encode(`2:${JSON.stringify([JSON.parse(progressJson)])}\n`));
         } catch { /* skip */ }
       } else if (remaining && remaining.startsWith("FRESHNESS:")) {
         try {
           const freshnessJson = remaining.slice("FRESHNESS:".length);
-          controller.enqueue(encoder.encode(`8:${JSON.stringify([{ type: "freshness", tools: JSON.parse(freshnessJson) }])}\n`));
+          controller.enqueue(encoder.encode(`2:${JSON.stringify([{ type: "freshness", tools: JSON.parse(freshnessJson) }])}\n`));
+        } catch { /* skip */ }
+      } else if (remaining && remaining.startsWith("BACKGROUND_UPDATE:")) {
+        try {
+          const updateJson = remaining.slice("BACKGROUND_UPDATE:".length);
+          controller.enqueue(encoder.encode(`2:${JSON.stringify([{ type: "background_update", ...JSON.parse(updateJson) }])}\n`));
+        } catch { /* skip */ }
+      } else if (remaining && remaining.startsWith("BACKGROUND_QUEUED:")) {
+        try {
+          const queuedJson = remaining.slice("BACKGROUND_QUEUED:".length);
+          controller.enqueue(encoder.encode(`2:${JSON.stringify([{ type: "background_queued", ...JSON.parse(queuedJson) }])}\n`));
         } catch { /* skip */ }
       } else if (remaining) {
         if (!sentBadge) {

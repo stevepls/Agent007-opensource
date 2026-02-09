@@ -188,14 +188,24 @@ class NotificationHub:
         
         return notifications
     
-    def _parse_notion_email(self, email: Dict[str, Any]) -> Optional[Notification]:
-        """Parse a Notion notification email."""
+    def _parse_notion_email(self, email) -> Optional[Notification]:
+        """Parse a Notion notification email (supports dict or EmailMessage dataclass)."""
         try:
-            subject = email.get("subject", "")
-            body = email.get("body", "") or email.get("snippet", "")
-            sender = email.get("from", "Notion")
-            date_str = email.get("date", "")
-            message_id = email.get("id", "")
+            # Handle both dict and dataclass
+            if hasattr(email, 'subject'):
+                # EmailMessage dataclass
+                subject = email.subject
+                body = email.body or email.snippet
+                sender = email.from_email or "Notion"
+                date_str = email.date
+                message_id = email.id
+            else:
+                # Dict format
+                subject = email.get("subject", "")
+                body = email.get("body", "") or email.get("snippet", "")
+                sender = email.get("from", "Notion")
+                date_str = email.get("date", "")
+                message_id = email.get("id", "")
             
             # Extract text from HTML if needed
             if "<" in body:
@@ -305,13 +315,22 @@ class NotificationHub:
         
         return notifications
     
-    def _parse_slack_email(self, email: Dict[str, Any]) -> Optional[Notification]:
-        """Parse a Slack notification email."""
+    def _parse_slack_email(self, email) -> Optional[Notification]:
+        """Parse a Slack notification email (supports dict or EmailMessage dataclass)."""
         try:
-            subject = email.get("subject", "")
-            body = email.get("body", "") or email.get("snippet", "")
-            date_str = email.get("date", "")
-            message_id = email.get("id", "")
+            # Handle both dict and dataclass
+            if hasattr(email, 'subject'):
+                # EmailMessage dataclass
+                subject = email.subject
+                body = email.body or email.snippet
+                date_str = email.date
+                message_id = email.id
+            else:
+                # Dict format
+                subject = email.get("subject", "")
+                body = email.get("body", "") or email.get("snippet", "")
+                date_str = email.get("date", "")
+                message_id = email.get("id", "")
             
             # Extract text from HTML
             if "<" in body:

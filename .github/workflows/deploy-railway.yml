@@ -1,0 +1,168 @@
+name: Deploy Agent007 to Railway
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+jobs:
+  # ========================================================================
+  # Detect which services changed
+  # ========================================================================
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      orchestrator: ${{ steps.changes.outputs.orchestrator }}
+      dashboard: ${{ steps.changes.outputs.dashboard }}
+      syncaudit: ${{ steps.changes.outputs.syncaudit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed paths
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          echo "orchestrator=$( echo "$CHANGED" | grep -q '^Orchestrator/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          echo "dashboard=$( echo "$CHANGED" | grep -q '^dashboard/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
+          echo "syncaudit=$( echo "$CHANGED" | grep -q '^SyncAudit/' && echo true || echo false )" >> "$GITHUB_OUTPUT"
+
+  # ========================================================================
+  # Deploy Orchestrator (FastAPI)
+  # ========================================================================
+  deploy-orchestrator:
+    name: Deploy Orchestrator
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.orchestrator == 'true' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: |
+          curl -fsSL https://railway.app/install.sh | sh
+
+      - name: Deploy Orchestrator
+        id: deploy
+        working-directory: ./Orchestrator
+        run: |
+          railway up --service orchestrator --detach
+          echo "url=$(railway domain --service orchestrator 2>/dev/null || echo 'pending')" >> "$GITHUB_OUTPUT"
+
+      - name: Health check
+        if: success()
+        run: |
+          sleep 30
+          URL="${{ steps.deploy.outputs.url }}"
+          if [ "$URL" != "pending" ] && [ -n "$URL" ]; then
+            echo "Checking health at https://$URL/health..."
+            curl -sf "https://$URL/health" && echo "✅ Orchestrator healthy" || echo "⚠️ Health check pending"
+          fi
+
+  # ========================================================================
+  # Deploy Dashboard (Next.js)
+  # ========================================================================
+  deploy-dashboard:
+    name: Deploy Dashboard
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-orchestrator]
+    if: |
+      always() &&
+      (needs.detect-changes.outputs.dashboard == 'true' || github.event_name == 'workflow_dispatch') &&
+      (needs.deploy-orchestrator.result == 'success' || needs.deploy-orchestrator.result == 'skipped')
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: |
+          curl -fsSL https://railway.app/install.sh | sh
+
+      - name: Deploy Dashboard
+        id: deploy
+        working-directory: ./dashboard
+        run: |
+          railway up --service dashboard --detach
+          echo "url=$(railway domain --service dashboard 2>/dev/null || echo 'pending')" >> "$GITHUB_OUTPUT"
+
+      - name: Health check
+        if: success()
+        run: |
+          sleep 30
+          URL="${{ steps.deploy.outputs.url }}"
+          if [ "$URL" != "pending" ] && [ -n "$URL" ]; then
+            echo "Checking health at https://$URL/..."
+            curl -sf "https://$URL/" && echo "✅ Dashboard healthy" || echo "⚠️ Health check pending"
+          fi
+
+  # ========================================================================
+  # Deploy SyncAudit (FastAPI)
+  # ========================================================================
+  deploy-syncaudit:
+    name: Deploy SyncAudit
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.syncaudit == 'true' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: |
+          curl -fsSL https://railway.app/install.sh | sh
+
+      - name: Deploy SyncAudit
+        id: deploy
+        working-directory: ./SyncAudit
+        run: |
+          railway up --service syncaudit --detach
+          echo "url=$(railway domain --service syncaudit 2>/dev/null || echo 'pending')" >> "$GITHUB_OUTPUT"
+
+  # ========================================================================
+  # Notify
+  # ========================================================================
+  notify:
+    name: Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-orchestrator, deploy-dashboard, deploy-syncaudit]
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Orchestrator | ${{ needs.deploy-orchestrator.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dashboard | ${{ needs.deploy-dashboard.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| SyncAudit | ${{ needs.deploy-syncaudit.result }} |" >> $GITHUB_STEP_SUMMARY

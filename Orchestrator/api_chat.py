@@ -327,13 +327,375 @@ async def chat(request: ChatRequest):
 @router.post("/cancel/{session_id}")
 async def cancel_task(session_id: str):
     """Cancel a running crew task by session ID."""
-    from services.progress_tracker import get_tracker
+    from services.task_queue import get_task_queue
 
-    tracker = get_tracker(session_id)
-    if tracker:
-        tracker.cancel()
-        return {"success": True, "message": f"Cancellation requested for session {session_id}"}
+    task_queue = get_task_queue()
+    # Find tasks for this session that are still running
+    for task in task_queue.list_tasks():
+        if task.session_id == session_id and task.status in ("queued", "running"):
+            task_queue.cancel_task(task.id)
+            return {"success": True, "message": f"Cancellation requested for task {task.id}"}
     return {"success": False, "message": "No active task found for this session"}
+
+
+# ── Complex tasks that require CrewAI agents ─────────────────────────
+CREW_KEYWORDS = [
+    "create task", "create a task", "create new task",
+    "create ticket", "create a ticket", "create subtask",
+    "batch create", "create tasks",
+    "deploy", "build", "run dev", "dev task",
+    "pull request", "commit",
+    "update sheet", "write code", "fix bug", "implement", "refactor",
+    "create doc", "assign task", "bulk", "migrate", "generate report",
+    "tasks from", "doc to clickup", "google doc to",
+    "create checklist", "create space", "create folder",
+    "update task",
+]
+
+# ── Domains that signal the orchestrator should use tools ─────────────
+TOOL_DOMAINS = [
+    "email", "gmail", "unread", "inbox",
+    "harvest", "time entr", "time track", "hours", "timer", "log time", "log hours",
+    "clickup", "task", "ticket", "to do", "todo",
+    "zendesk", "support ticket",
+    "calendar", "meeting", "schedule", "event",
+    "slack", "message", "channel",
+    "notification", "notion", "airtable",
+    "drive", "docs", "sheet", "spreadsheet", "file",
+    "remember", "recall", "memory",
+    "comment", "reply", "send", "draft",
+]
+
+
+def _classify_request(message: str, memory_context: str = "") -> str:
+    """Classify how to handle a request: 'direct', 'orchestrator', or 'crew'.
+
+    - 'direct': simple chat, no tools needed
+    - 'orchestrator': handle with Claude + native tool_use (most requests)
+    - 'crew': complex multi-step tasks needing CrewAI agents
+    """
+    msg = message.lower().strip()
+
+    # Complex/batch operations -> crew
+    if any(kw in msg for kw in CREW_KEYWORDS):
+        return "crew"
+
+    # If the message mentions any tool domain -> orchestrator handles it directly
+    if any(kw in msg for kw in TOOL_DOMAINS):
+        return "orchestrator"
+
+    # If memory has relevant context, Claude can answer directly
+    if memory_context and len(memory_context) > 50:
+        return "direct"
+
+    # Short conversational messages — no tools needed
+    if len(msg.split()) <= 12:
+        return "direct"
+
+    # Default: let the orchestrator decide (it has tools if it needs them)
+    return "orchestrator"
+
+
+def _make_status_card(tool_name: str, result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Generate a dashboard status card from a tool result."""
+    if not isinstance(result, dict) or "error" in result:
+        return None
+
+    if tool_name == "gmail_get_unread_count":
+        count = result.get("unread_count", 0)
+        return {
+            "id": "email-status",
+            "type": "warning" if count > 50 else "info",
+            "title": f"{count} Unread Emails",
+            "description": "Inbox status",
+        }
+    elif tool_name == "gmail_search":
+        count = result.get("count", 0)
+        return {
+            "id": "email-search",
+            "type": "info",
+            "title": f"{count} Emails Found",
+            "description": "Search results",
+        }
+    elif tool_name in ("harvest_get_time_entries", "harvest_status"):
+        hours = result.get("total_hours", 0)
+        entries = len(result.get("entries", []))
+        return {
+            "id": "harvest-status",
+            "type": "metric",
+            "title": f"{hours:.1f}h Logged Today",
+            "description": f"{entries} time entries",
+        }
+    elif tool_name == "harvest_log_time":
+        if result.get("success"):
+            return {
+                "id": f"harvest-logged-{result.get('entry_id', '')}",
+                "type": "success",
+                "title": f"Logged {result.get('hours', 0)}h",
+                "description": result.get("project", ""),
+            }
+    elif tool_name == "harvest_list_projects":
+        count = result.get("count", 0)
+        return {
+            "id": "harvest-projects",
+            "type": "info",
+            "title": f"{count} Active Projects",
+            "description": "Harvest projects",
+        }
+    elif tool_name == "calendar_get_events":
+        events = result.get("events", result.get("upcoming", []))
+        count = len(events) if isinstance(events, list) else result.get("count", 0)
+        return {
+            "id": "calendar-status",
+            "type": "info",
+            "title": f"{count} Upcoming Events",
+            "description": "Calendar",
+        }
+    elif tool_name == "clickup_list_tasks":
+        tasks = result.get("tasks", [])
+        return {
+            "id": "clickup-tasks",
+            "type": "info",
+            "title": f"{len(tasks)} Tasks",
+            "description": "ClickUp",
+        }
+    elif tool_name == "zendesk_list_tickets":
+        tickets = result.get("tickets", [])
+        return {
+            "id": "zendesk-tickets",
+            "type": "info",
+            "title": f"{len(tickets)} Tickets",
+            "description": "Zendesk",
+        }
+    elif tool_name == "notification_fetch_all":
+        notifs = result.get("notifications", [])
+        return {
+            "id": "notifications",
+            "type": "info" if len(notifs) < 10 else "warning",
+            "title": f"{len(notifs)} Notifications",
+            "description": "All sources",
+        }
+    elif tool_name == "slack_get_recent_messages":
+        msgs = result.get("messages", [])
+        return {
+            "id": "slack-messages",
+            "type": "info",
+            "title": f"{len(msgs)} Messages",
+            "description": "Slack",
+        }
+    return None
+
+
+async def _stream_direct_response(
+    messages: List[ChatMessage],
+    memory_context: str = "",
+    session_id: str = None,
+) -> AsyncGenerator[str, None]:
+    """Answer simple questions directly via Claude API — no tools."""
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    if not api_key or not ANTHROPIC_AVAILABLE:
+        return
+
+    memory = get_memory_service()
+    user_request = messages[-1].content if messages else ""
+
+    system = (
+        "You are Agent007, a friendly AI assistant that helps Steve manage "
+        "software development and business operations. Answer conversationally. "
+        "Keep answers concise.\n\n"
+        "You can help with:\n"
+        "- Time tracking (Harvest)\n"
+        "- Task management (ClickUp, Zendesk)\n"
+        "- Communication (Gmail, Slack)\n"
+        "- File management (Google Drive, Docs, Sheets)\n"
+        "- Development tasks\n"
+        "- General questions and conversation"
+    )
+    if memory_context:
+        system += f"\n\nRelevant context from memory:\n{memory_context}"
+
+    client = anthropic.Anthropic(api_key=api_key)
+    api_messages = [
+        {"role": m.role if m.role in ("user", "assistant") else "user", "content": m.content}
+        for m in messages[-10:]
+        if m.content and m.content.strip()
+    ]
+    if not api_messages:
+        yield "How can I help you?"
+        return
+
+    try:
+        with client.messages.stream(
+            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-20250514"),
+            max_tokens=1024,
+            system=system,
+            messages=api_messages,
+        ) as stream:
+            full_response = ""
+            for text in stream.text_stream:
+                full_response += text
+                yield text
+
+        if session_id and full_response:
+            memory.persist_turn_context(session_id, user_request, full_response)
+
+    except Exception as e:
+        yield f"\n\nError: {str(e)}"
+
+
+async def _stream_orchestrator_response(
+    messages: List[ChatMessage],
+    memory_context: str = "",
+    session_id: str = None,
+) -> AsyncGenerator[str, None]:
+    """Handle requests using Claude API with native tool_use.
+
+    Multi-turn loop: Claude calls tools, we execute them via ToolRegistry
+    (which handles caching + safety), feed results back, repeat until done.
+    """
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    if not api_key or not ANTHROPIC_AVAILABLE:
+        yield "Error: Anthropic API not available\n"
+        return
+
+    from services.tool_registry import get_registry
+
+    registry = get_registry()
+    memory = get_memory_service()
+    user_request = messages[-1].content if messages else ""
+    tool_defs = registry.get_orchestrator_definitions()
+
+    # System prompt
+    system = SYSTEM_PROMPT
+    if memory_context:
+        system += f"\n\nRelevant context from memory:\n{memory_context}"
+
+    # Build message history — filter empty content to avoid 400 errors
+    api_messages = []
+    for m in messages[-10:]:
+        content = m.content
+        if not content or not content.strip():
+            continue
+        role = m.role if m.role in ("user", "assistant") else "user"
+        api_messages.append({"role": role, "content": content})
+
+    if not api_messages:
+        yield "How can I help you?"
+        return
+
+    # Ensure first message is from user
+    if api_messages[0]["role"] == "assistant":
+        api_messages = api_messages[1:]
+
+    client = anthropic.Anthropic(api_key=api_key)
+    model = os.getenv("DEFAULT_MODEL", "claude-sonnet-4-20250514")
+    full_response = ""
+    tool_freshness = {}
+    MAX_ITERATIONS = 8
+
+    try:
+        for iteration in range(MAX_ITERATIONS):
+            response = client.messages.create(
+                model=model,
+                max_tokens=4096,
+                system=system,
+                tools=tool_defs,
+                messages=api_messages,
+            )
+
+            has_tool_use = False
+            tool_results = []
+
+            for block in response.content:
+                if block.type == "text" and block.text:
+                    full_response += block.text
+                    # Each text block on its own line so PROGRESS lines stay separate
+                    yield block.text + "\n"
+
+                elif block.type == "tool_use":
+                    has_tool_use = True
+                    tool_name = block.name
+                    tool_input = block.input
+                    tool_use_id = block.id
+
+                    # Emit progress: tool starting
+                    yield "PROGRESS:" + json.dumps({
+                        "type": "tool_start",
+                        "agent": "Orchestrator",
+                        "tool": tool_name,
+                        "message": f"Using {tool_name}...",
+                    }) + "\n"
+
+                    # Execute tool via registry (caching + safety built in)
+                    tool_result = registry.execute(tool_name, tool_input)
+
+                    # Handle confirmation-required tools
+                    if isinstance(tool_result, dict) and tool_result.get("requires_confirmation"):
+                        preview = tool_result.get("preview", "")
+                        msg = tool_result.get("message", "")
+                        confirmation_text = f"\n\n**{msg}**\n\n{preview}\n\nPlease confirm this action."
+                        full_response += confirmation_text
+                        yield confirmation_text
+                        # Store pending action for follow-up
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": tool_use_id,
+                            "content": json.dumps({"status": "awaiting_confirmation", "preview": preview}),
+                        })
+                        has_tool_use = False  # Stop the loop
+                        break
+
+                    # Track freshness
+                    if isinstance(tool_result, dict):
+                        cache_meta = tool_result.get("_cache_meta", {})
+                        if cache_meta.get("source"):
+                            tool_freshness[tool_name] = cache_meta["source"]
+
+                    # Build a status card from tool result
+                    status_card = _make_status_card(tool_name, tool_result)
+
+                    # Emit progress: tool done
+                    result_str = json.dumps(tool_result, default=str)
+                    done_event: Dict[str, Any] = {
+                        "type": "tool_done",
+                        "agent": "Orchestrator",
+                        "tool": tool_name,
+                        "message": f"{tool_name} complete",
+                        "cache_source": tool_freshness.get(tool_name, "live"),
+                    }
+                    if status_card:
+                        done_event["status_card"] = status_card
+                    yield "PROGRESS:" + json.dumps(done_event) + "\n"
+
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": tool_use_id,
+                        "content": result_str,
+                    })
+
+            # If no tool calls or Claude said end_turn, we're done
+            if not has_tool_use or response.stop_reason == "end_turn":
+                break
+
+            # Build messages for next iteration
+            api_messages.append({"role": "assistant", "content": response.content})
+            api_messages.append({"role": "user", "content": tool_results})
+
+        # Emit freshness summary
+        if tool_freshness:
+            yield "FRESHNESS:" + json.dumps(tool_freshness) + "\n"
+
+        # Persist to memory
+        if session_id and full_response:
+            memory.persist_turn_context(session_id, user_request, full_response)
+
+    except anthropic.BadRequestError as e:
+        print(f"[ERROR] Orchestrator API error: {e}")
+        yield f"\n\nAPI Error: {str(e)}"
+    except Exception as e:
+        import traceback
+        print(f"[ERROR] Orchestrator tool loop failed: {traceback.format_exc()}")
+        yield f"\n\nError: {str(e)}"
 
 
 async def stream_claude_response(
@@ -343,17 +705,19 @@ async def stream_claude_response(
     memory_context: str = "",
 ) -> AsyncGenerator[str, None]:
     """
-    Stream response using CrewAI Orchestrator Crew with real-time progress events.
+    Stream response — fast path for simple questions, crew for tool tasks.
 
-    Progress events are emitted as PROGRESS:{json} lines that the dashboard
-    can parse into real-time agent activity updates.
+    Simple questions (greetings, chitchat, general knowledge) are answered
+    directly via Claude API.  Requests that need tools (time tracking, tasks,
+    email, etc.) go through the background CrewAI crew.
+
+    Protocol lines (crew path only):
+    - BACKGROUND_UPDATE:{json}  — completed task result
+    - BACKGROUND_QUEUED:{json}  — new task acknowledged
+    - PROGRESS:{json}           — real-time tool/agent activity
+    - FRESHNESS:{json}          — data freshness summary
     """
-    from crews.orchestrator_crew import run_orchestrator_task
-    from services.progress_tracker import (
-        ProgressTracker, register_tracker, unregister_tracker,
-    )
-    import concurrent.futures
-    import functools
+    from services.task_queue import get_task_queue
 
     memory = get_memory_service()
 
@@ -374,56 +738,77 @@ async def stream_claude_response(
 
     context = "\n\n".join(context_parts) if context_parts else None
 
-    # Create progress tracker for this session
-    tracker = ProgressTracker(session_id or "anonymous")
-    if session_id:
-        register_tracker(session_id, tracker)
+    task_queue = get_task_queue()
 
-    # Track tool freshness for summary
-    tool_freshness: dict = {}
+    # ── Phase 1: Report completed background tasks (FIFO) ─────────────
+    for completed_task in task_queue.get_unreported_updates():
+        update_payload = {
+            "task_id": completed_task.id,
+            "request": completed_task.user_request[:100],
+            "status": completed_task.status,
+            "result": completed_task.result[:500] if completed_task.result else None,
+            "error": completed_task.error,
+        }
+        yield "BACKGROUND_UPDATE:" + json.dumps(update_payload) + "\n"
+        task_queue.mark_reported(completed_task.id)
 
-    # Show that we're processing
+    # ── Route: direct (chat), orchestrator (tools), or crew (complex) ──
+    route = _classify_request(user_request, memory_context)
+
+    if route == "direct":
+        async for chunk in _stream_direct_response(messages, memory_context, session_id=session_id):
+            yield chunk
+        return
+
+    if route == "orchestrator":
+        async for chunk in _stream_orchestrator_response(
+            messages, memory_context, session_id=session_id
+        ):
+            yield chunk
+        return
+
+    # ── Phase 2: Submit tool request to background queue ──────────────
+    task_id = task_queue.submit(user_request, context, session_id)
+    queued_payload = {
+        "task_id": task_id,
+        "position": task_queue.get_running_count(),
+        "request": user_request[:100],
+    }
+    yield "BACKGROUND_QUEUED:" + json.dumps(queued_payload) + "\n"
+
     yield "PROGRESS:" + json.dumps({"type": "thinking", "agent": "Orchestrator", "message": "Starting AI crew..."}) + "\n"
 
-    # Run through orchestrator crew (CrewAI is synchronous, so run in executor)
-    loop = asyncio.get_event_loop()
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    # ── Phase 3: Stream progress for this task ────────────────────────
+    tracker = task_queue.get_task_tracker(task_id)
+    if not tracker:
+        yield "Error: tracker not found for task\n"
+        return
+
+    tool_freshness: dict = {}
 
     try:
-        # Run crew in thread pool, passing the progress tracker
-        future = loop.run_in_executor(
-            executor,
-            functools.partial(
-                run_orchestrator_task,
-                user_request,
-                context,
-                session_id,
-                progress_tracker=tracker,
-            ),
-        )
+        # Drain progress events while task is running
+        while True:
+            bg_task = task_queue.get_task(task_id)
+            task_done = bg_task and bg_task.status in ("completed", "failed")
 
-        # Drain progress queue while crew is running
-        while not future.done():
             # Try to get progress events from the queue
             try:
                 event = tracker.progress_queue.get_nowait()
                 if event is None:
                     break  # Sentinel: crew finished
-                # Collect freshness data from tool_done events
                 if event.get("type") == "tool_done" and event.get("cache_source"):
                     tool_freshness[event["tool"]] = event["cache_source"]
                 yield "PROGRESS:" + json.dumps(event) + "\n"
             except queue.Empty:
-                pass
-
-            # Wait a bit for either the future to complete or new events
-            try:
-                await asyncio.wait_for(asyncio.shield(future), timeout=0.5)
-            except asyncio.TimeoutError:
+                if task_done:
+                    break
+                # Sleep briefly then send keepalive
+                await asyncio.sleep(0.5)
                 yield " "  # keepalive byte
                 continue
 
-        # Drain any remaining events after crew finishes
+        # Drain any remaining events
         while True:
             try:
                 event = tracker.progress_queue.get_nowait()
@@ -439,10 +824,10 @@ async def stream_claude_response(
         if tool_freshness:
             yield "FRESHNESS:" + json.dumps(tool_freshness) + "\n"
 
-        result = future.result()
-
-        if result.get("status") == "success":
-            response_text = result.get("result", "")
+        # Stream the result
+        bg_task = task_queue.get_task(task_id)
+        if bg_task and bg_task.status == "completed" and bg_task.result:
+            response_text = bg_task.result
 
             # Stream the response (simulate streaming by chunking)
             words = response_text.split()
@@ -450,28 +835,34 @@ async def stream_claude_response(
             for i in range(0, len(words), chunk_size):
                 chunk = " ".join(words[i:i+chunk_size]) + " "
                 yield chunk
-                await asyncio.sleep(0.05)  # Small delay for streaming effect
+                await asyncio.sleep(0.05)
 
             # Persist to memory
             if session_id and response_text:
                 memory.persist_turn_context(session_id, user_request, response_text)
-        elif result.get("status") == "cancelled":
-            yield "\n\n*Task cancelled.*\n"
+
+            # Mark reported since we streamed it live
+            task_queue.mark_reported(task_id)
+
+        elif bg_task and bg_task.status == "failed":
+            error_msg = bg_task.error or "Unknown error"
+            if "cancel" in error_msg.lower():
+                yield "\n\n*Task cancelled.*\n"
+            else:
+                yield f"Error: {error_msg}\n\n"
+                yield "Please try rephrasing your request or check the logs for details."
+            task_queue.mark_reported(task_id)
+
         else:
-            error_msg = result.get("error", "Unknown error")
-            yield f"❌ **Error:** {error_msg}\n\n"
-            yield "Please try rephrasing your request or check the logs for details."
+            # Task still running — it will be reported on next request
+            yield "Task is still running in the background. Results will be reported when ready.\n"
 
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
-        print(f"[ERROR] Orchestrator crew failed: {error_trace}")
-        yield f"❌ **Error processing request:** {str(e)}\n\n"
+        print(f"[ERROR] Orchestrator stream failed: {error_trace}")
+        yield f"Error processing request: {str(e)}\n\n"
         yield "The AI crew encountered an error. Please try again or check the logs."
-    finally:
-        if session_id:
-            unregister_tracker(session_id)
-        executor.shutdown(wait=False)
 
 
 

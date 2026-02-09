@@ -260,6 +260,10 @@ class GmailClient:
         """Search emails with Gmail query syntax."""
         return self.list_messages(query=query, max_results=max_results, label=None)
     
+    def search_emails(self, query: str, max_results: int = 10) -> List[EmailMessage]:
+        """Alias for search() - for backward compatibility."""
+        return self.search(query=query, max_results=max_results)
+    
     # =========================================================================
     # WRITE OPERATIONS (through message queue)
     # =========================================================================

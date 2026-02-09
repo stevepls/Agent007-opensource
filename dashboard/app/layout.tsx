@@ -29,6 +29,7 @@ export default function RootLayout({
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} font-sans min-h-screen bg-gradient-to-br from-background via-background to-background`}
+        suppressHydrationWarning
       >
         {/* Ambient background effects */}
         <div className="fixed inset-0 -z-10 overflow-hidden">

@@ -15,6 +15,7 @@ interface ChatMessagesProps {
   isLoading: boolean;
   error?: Error | null;
   currentActivity?: string;
+  activityLog?: string[];
 }
 
 interface ParsedContent {
@@ -138,6 +139,7 @@ export function ChatMessages({
   isLoading,
   error,
   currentActivity,
+  activityLog = [],
 }: ChatMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -231,17 +233,34 @@ export function ChatMessages({
         })}
       </AnimatePresence>
 
-      {/* Loading indicator */}
+      {/* Loading indicator with activity log */}
       {isLoading && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="flex gap-3"
         >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center flex-shrink-0">
             <Bot className="w-4 h-4 text-white" />
           </div>
-          <div className="bg-card border border-border rounded-2xl rounded-bl-md px-4 py-3">
+          <div className="bg-card border border-border rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%]">
+            {/* Activity log - show thought process */}
+            {activityLog.length > 0 && (
+              <div className="space-y-1 mb-2">
+                {activityLog.map((entry, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "text-xs text-muted-foreground transition-opacity",
+                      i === activityLog.length - 1 ? "opacity-100" : "opacity-50"
+                    )}
+                  >
+                    {entry}
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Current activity spinner */}
             {currentActivity ? (
               <div className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-primary" />

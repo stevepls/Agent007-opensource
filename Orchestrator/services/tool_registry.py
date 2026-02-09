@@ -20,6 +20,32 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 
 
 # ============================================================================
+# Orchestrator Tool Access Control
+# ============================================================================
+
+# Tools that require CrewAI (complex, multi-step, batch operations)
+CREW_ONLY_TOOLS = frozenset({
+    "clickup_create_task", "clickup_update_task", "clickup_create_tasks_batch",
+    "clickup_create_subtask", "clickup_create_subtasks_batch",
+    "clickup_create_list", "clickup_create_space", "clickup_create_folder",
+    "clickup_assign_tasks", "clickup_add_checklist", "clickup_delete_checklist",
+    "google_doc_to_clickup_tasks",
+    "zendesk_create_ticket",
+    "sheets_update_range", "sheets_append_rows",
+    "run_dev_task", "get_agent_status",
+})
+
+# Write tools the orchestrator can use directly (communication + simple writes)
+ORCHESTRATOR_WRITES = frozenset({
+    "gmail_create_draft",
+    "slack_post_message", "slack_reply_to_thread",
+    "clickup_add_comment",
+    "harvest_log_time",
+    "memory_remember",
+})
+
+
+# ============================================================================
 # Tool Registry
 # ============================================================================
 
@@ -152,6 +178,27 @@ class ToolRegistry:
             }
             for t in self._tools.values()
         ]
+
+    def get_orchestrator_definitions(self) -> List[Dict[str, Any]]:
+        """Get tool definitions for the orchestrator's direct Claude tool_use access.
+
+        Returns ALL read tools plus allowed communication/simple write tools.
+        Excludes complex/batch tools that should go through CrewAI crew.
+        """
+        from services.tool_cache import WRITE_TOOLS
+
+        defs = []
+        for name, tool in self._tools.items():
+            if name in CREW_ONLY_TOOLS:
+                continue
+            is_write = name in WRITE_TOOLS
+            if not is_write or name in ORCHESTRATOR_WRITES:
+                defs.append({
+                    "name": tool["name"],
+                    "description": tool["description"],
+                    "input_schema": tool["parameters"],
+                })
+        return defs
     
     def get_tools_by_category(self, category: str) -> List[str]:
         """Get tool names by category."""

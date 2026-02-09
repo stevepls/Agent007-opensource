@@ -10,7 +10,7 @@ langchain-openai>=0.0.5
 
 # Utilities
 python-dotenv==1.0.0
-pydantic==2.6.0
+pydantic>=2.6.0,<3
 requests>=2.31.0
 pandas>=2.0.0
 
@@ -36,6 +36,10 @@ slack-sdk>=3.23.0
 # Uses LanguageTool API - no additional deps needed (uses requests)
 
 # REST API
-fastapi>=0.109.0
-uvicorn>=0.27.0
-httpx>=0.27.0  # Async HTTP client for Harvest API
+fastapi==0.109.2
+starlette==0.36.3
+uvicorn==0.27.1
+httpx==0.27.0  # Async HTTP client for Harvest API
+
+# Team check-in agent
+pytz>=2024.1  # Timezone handling

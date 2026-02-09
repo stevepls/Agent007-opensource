@@ -17,8 +17,10 @@ from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Query, Body
+from fastapi import FastAPI, HTTPException, Query, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel, Field
 
 # Add current directory to path
@@ -69,10 +71,12 @@ except ImportError:
 async def lifespan(app: FastAPI):
     """Start/stop background services."""
     from services.prefetch_scheduler import get_prefetch_scheduler
+    from services.task_queue import get_task_queue
     scheduler = get_prefetch_scheduler()
     scheduler.start()
     yield
     scheduler.stop()
+    get_task_queue().shutdown()
 
 
 app = FastAPI(
@@ -84,18 +88,138 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS for local development
+# ============================================================================
+# CORS — locked to known origins only
+# ============================================================================
+ALLOWED_ORIGINS = [
+    origin.strip() for origin in
+    os.getenv("ALLOWED_ORIGINS", "").split(",") if origin.strip()
+] or [
+    "https://orchestrator-staging-dda3.up.railway.app",
+    "https://dashboard-staging-ba60.up.railway.app",
+    "http://localhost:8502",
+    "http://localhost:3000",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# ============================================================================
+# Security Headers Middleware
+# ============================================================================
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to every response."""
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        # Prevent clickjacking — only allow our own frames
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        # Prevent MIME type sniffing
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        # XSS protection (legacy browsers)
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        # Referrer policy — don't leak full URLs
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        # Permissions policy — disable unnecessary browser features
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        # Content Security Policy — only load resources from self + Google (for OAuth/profile pics)
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' https://*.googleusercontent.com data:; "
+            "connect-src 'self'; "
+            "font-src 'self'; "
+            "frame-ancestors 'self';"
+        )
+        # Strict Transport Security — force HTTPS for 1 year
+        if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+# ============================================================================
+# Authentication
+# ============================================================================
+
+# Import auth module
+try:
+    from api_auth import router as auth_router, get_current_user, is_public_path, AUTH_ENABLED, COOKIE_NAME
+    app.include_router(auth_router)
+    print(f"✅ Auth router registered (AUTH_ENABLED={AUTH_ENABLED})")
+
+    class AuthMiddleware(BaseHTTPMiddleware):
+        """Middleware to enforce authentication on all non-public routes."""
+        async def dispatch(self, request: Request, call_next):
+            path = request.url.path
+
+            # Skip auth check for public paths
+            if is_public_path(path):
+                return await call_next(request)
+
+            # Skip auth if disabled
+            if not AUTH_ENABLED:
+                return await call_next(request)
+
+            # Check session
+            user = get_current_user(request)
+            if not user:
+                # For API calls (JSON), return 401
+                accept = request.headers.get("accept", "")
+                if "application/json" in accept or path.startswith("/api/") or path.startswith("/openapi"):
+                    from fastapi.responses import JSONResponse
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Not authenticated. Please login at /auth/login-page"}
+                    )
+                # For browser requests, redirect to login
+                response = RedirectResponse(url="/auth/login-page")
+                # Remember where they were trying to go
+                response.set_cookie(
+                    key="auth_next",
+                    value=path,
+                    max_age=600,
+                    httponly=True,
+                    samesite="lax",
+                )
+                return response
+
+            # Attach user to request state
+            request.state.user = user
+            return await call_next(request)
+
+    app.add_middleware(AuthMiddleware)
+
+except Exception as auth_err:
+    print(f"⚠️ Auth module not loaded (auth disabled): {auth_err}")
+    AUTH_ENABLED = False
 
 # Include chat router for dashboard integration
 if CHAT_AVAILABLE and chat_router:
     app.include_router(chat_router)
+
+# Include team check-in router
+try:
+    from api_team_checkin import router as team_checkin_router
+    app.include_router(team_checkin_router)
+    print("✅ Team check-in router registered")
+    # Ensure Slack sender is registered on startup
+    try:
+        from services.message_queue import get_message_queue, MessageType
+        queue = get_message_queue()
+        if MessageType.SLACK_DM not in queue._senders:
+            from agents.team_checkin.agent import TeamCheckinAgent
+            TeamCheckinAgent()  # Initialize to register sender
+    except Exception as sender_err:
+        print(f"⚠️ Slack sender registration deferred: {sender_err}")
+except Exception as e:
+    print(f"⚠️ Team check-in router not loaded: {e}")
+    import traceback
+    traceback.print_exc()
 
 # Include harvest router for time tracking
 if HARVEST_AVAILABLE and harvest_router:
@@ -175,6 +299,12 @@ class ErrorResponse(BaseModel):
 # Health Check
 # ============================================================================
 
+@app.get("/")
+async def root(request: Request):
+    """Root endpoint - redirect to team-checkin UI or docs."""
+    return RedirectResponse(url="/team-checkin/ui")
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
@@ -187,8 +317,10 @@ async def health_check():
     # Cache & prefetch status
     from services.tool_cache import get_tool_cache
     from services.prefetch_scheduler import get_prefetch_scheduler
+    from services.task_queue import get_task_queue
     cache = get_tool_cache()
     scheduler = get_prefetch_scheduler()
+    task_queue = get_task_queue()
 
     return {
         "status": "healthy",
@@ -201,6 +333,7 @@ async def health_check():
         },
         "cache": cache.get_stats(),
         "prefetch": scheduler.get_status(),
+        "task_queue": task_queue.get_status(),
     }
 
 
@@ -226,6 +359,50 @@ async def cache_invalidate(tool_name: Optional[str] = Query(None, description="T
     cache = get_tool_cache()
     cache.invalidate(tool_name)
     return {"success": True, "message": f"Invalidated {'all' if not tool_name else tool_name} cache entries"}
+
+
+# ============================================================================
+# Background Task Queue Endpoints
+# ============================================================================
+
+@app.get("/api/tasks", tags=["Tasks"])
+async def list_tasks(status: Optional[str] = Query(None, description="Filter by status: queued, running, completed, failed")):
+    """List all background tasks."""
+    from services.task_queue import get_task_queue
+    tasks = get_task_queue().list_tasks(status=status)
+    return {"tasks": [t.to_dict() for t in tasks], "count": len(tasks)}
+
+
+@app.get("/api/tasks/updates", tags=["Tasks"])
+async def get_task_updates():
+    """Get unreported completed tasks (FIFO order) for polling."""
+    from services.task_queue import get_task_queue
+    queue = get_task_queue()
+    updates = queue.get_unreported_updates()
+    return {
+        "updates": [t.to_dict() for t in updates],
+        "count": len(updates),
+    }
+
+
+@app.get("/api/tasks/{task_id}", tags=["Tasks"])
+async def get_task(task_id: str):
+    """Get a specific background task's details and result."""
+    from services.task_queue import get_task_queue
+    task = get_task_queue().get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task.to_dict()
+
+
+@app.post("/api/tasks/{task_id}/cancel", tags=["Tasks"])
+async def cancel_background_task(task_id: str):
+    """Cancel a running or queued background task."""
+    from services.task_queue import get_task_queue
+    success = get_task_queue().cancel_task(task_id)
+    if success:
+        return {"success": True, "message": f"Cancellation requested for task {task_id}"}
+    raise HTTPException(status_code=404, detail="Task not found or not cancellable")
 
 
 # ============================================================================

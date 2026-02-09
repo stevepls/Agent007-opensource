@@ -370,6 +370,40 @@ class BriefingEngine:
         
         return items
     
+    def _get_business_advisories(self) -> List[BriefingItem]:
+        """Get proactive business advisories from the Business Advisor."""
+        items = []
+        
+        try:
+            from services.business_advisor import get_advisor, Severity
+            
+            advisor = get_advisor()
+            advisories = advisor.get_advisories(refresh=False)
+            
+            severity_map = {
+                Severity.CRITICAL: Priority.CRITICAL,
+                Severity.WARNING: Priority.HIGH,
+                Severity.INFO: Priority.MEDIUM,
+                Severity.POSITIVE: Priority.LOW,
+            }
+            
+            for adv in advisories[:10]:
+                items.append(BriefingItem(
+                    id=f"advisor-{adv.id}",
+                    type=ItemType.INSIGHT,
+                    priority=severity_map.get(adv.severity, Priority.MEDIUM),
+                    title=adv.title,
+                    description=f"{adv.detail}\n\n**Recommendation:** {adv.recommendation}",
+                    source=f"advisor/{adv.source}",
+                    metadata=adv.data,
+                ))
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"[WARN] Business advisor briefing failed: {e}")
+        
+        return items
+    
     def get_briefing(self, max_items: int = 10, refresh: bool = False) -> List[BriefingItem]:
         """
         Get a prioritized briefing of items needing attention.
@@ -395,6 +429,7 @@ class BriefingEngine:
         items.extend(self._get_todos())
         items.extend(self._get_errors())
         items.extend(self._generate_suggestions())
+        items.extend(self._get_business_advisories())
         
         # Filter dismissed
         items = [i for i in items if i.id not in self._dismissed_items]

@@ -1,0 +1,1665 @@
+{
+  "cached_at": "2026-02-08T23:40:56.464676",
+  "members": [
+    {
+      "clickup_user_id": 75377482,
+      "clickup_username": "Nishant Kumar",
+      "clickup_name": "Nishant Kumar",
+      "clickup_email": "nishantfreelance90@gmail.com",
+      "active_tasks": [
+        {
+          "id": "868d9z5rd",
+          "name": "Review Google Tag Manger account",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868d9z5rd",
+          "date_created": "1743430479374",
+          "date_updated": "1743436713050"
+        },
+        {
+          "id": "868d4ybyq",
+          "name": "Add download count on Downloads tab",
+          "status": "on hold",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868d4ybyq",
+          "date_created": "1742415981691",
+          "date_updated": "1742475804304"
+        },
+        {
+          "id": "868d4w2an",
+          "name": "Internal Ticket | fix all sender domains and checkout",
+          "status": "on hold",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868d4w2an",
+          "date_created": "1742410816721",
+          "date_updated": "1742475346766"
+        },
+        {
+          "id": "868cdtebq",
+          "name": "Look Into USPS For LCP Sites",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868cdtebq",
+          "date_created": "1738774538637",
+          "date_updated": "1739349509681"
+        },
+        {
+          "id": "868c38gvy",
+          "name": "Sync Shopify Theme with Git Repo",
+          "status": "internal review",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868c38gvy",
+          "date_created": "1737403052651",
+          "date_updated": "1762317190455"
+        },
+        {
+          "id": "868aza8af",
+          "name": "Add Content to Website",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868aza8af",
+          "date_created": "1732306685595",
+          "date_updated": "1734980182268"
+        },
+        {
+          "id": "868hbqae7",
+          "name": "Move all rise.ai notifiations to klaviyo",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868hbqae7",
+          "date_created": "1770141359843",
+          "date_updated": "1770317323248"
+        },
+        {
+          "id": "868ha53p8",
+          "name": "Review Product Restriction Feature + Create Documentation",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868ha53p8",
+          "date_created": "1769792909787",
+          "date_updated": "1770311908559"
+        },
+        {
+          "id": "868h9p3fg",
+          "name": "Add document Page to All Custom Apps",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868h9p3fg",
+          "date_created": "1769706043650",
+          "date_updated": "1770143066627"
+        },
+        {
+          "id": "868h3gxwr",
+          "name": "Review ShipStation Orders",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868h3gxwr",
+          "date_created": "1768491007700",
+          "date_updated": "1769008963404"
+        },
+        {
+          "id": "868h2dh7u",
+          "name": "Calendar UI Jitteriness & Other Calendar UI/UX Issues ",
+          "status": "to do",
+          "priority": 3,
+          "due_date": "1769158800000",
+          "url": "https://app.clickup.com/t/868h2dh7u",
+          "date_created": "1768324675180",
+          "date_updated": "1769009330164"
+        },
+        {
+          "id": "868gwph20",
+          "name": "Need to inspect all API calls used in calendar on checkout page and cache which we can",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868gwph20",
+          "date_created": "1767207504187",
+          "date_updated": "1768670547972"
+        },
+        {
+          "id": "868gvcfvj",
+          "name": "make delivery date field more pronounced at checkout",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868gvcfvj",
+          "date_created": "1766758200199",
+          "date_updated": "1768666953808"
+        },
+        {
+          "id": "868gtrzar",
+          "name": "Orders marked as rural incorrectly",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868gtrzar",
+          "date_created": "1766165319996",
+          "date_updated": "1767115400722"
+        },
+        {
+          "id": "868gnpyw8",
+          "name": "Hold Status Reversed Unintentionally",
+          "status": "to do",
+          "priority": "urgent",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868gnpyw8",
+          "date_created": "1765378411853",
+          "date_updated": "1765539850081"
+        },
+        {
+          "id": "868gh9en6",
+          "name": "Packing Slip Customization | Product Title & Unit Modification",
+          "status": "in progress",
+          "priority": "high",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868gh9en6",
+          "date_created": "1764355496971",
+          "date_updated": "1766005729030"
+        },
+        {
+          "id": "868gddtwc",
+          "name": "Holiday surcharge fees are displayed, but not charging correct amount to customers",
+          "status": "in progress",
+          "priority": "urgent",
+          "due_date": "1763442000000",
+          "url": "https://app.clickup.com/t/868gddtwc",
+          "date_created": "1763464882272",
+          "date_updated": "1763563850198"
+        },
+        {
+          "id": "868g9bz84",
+          "name": "Optimize Checkout Load Time/Split Shipment",
+          "status": "to do",
+          "priority": 3,
+          "due_date": "1763629200000",
+          "url": "https://app.clickup.com/t/868g9bz84",
+          "date_created": "1762467465913",
+          "date_updated": "1762467557425"
+        },
+        {
+          "id": "868g589bp",
+          "name": "Bulk update delivery date module",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868g589bp",
+          "date_created": "1761737271004",
+          "date_updated": "1768206872698"
+        },
+        {
+          "id": "868g3xck4",
+          "name": "verify that store credit emails are sent fron notifications@",
+          "status": "in progress",
+          "priority": "high",
+          "due_date": "1761710400000",
+          "url": "https://app.clickup.com/t/868g3xck4",
+          "date_created": "1761443072523",
+          "date_updated": "1762450983059"
+        },
+        {
+          "id": "868g2ydtb",
+          "name": "Investigate if we need to updated PLS Shipstation Sync App to support more variants",
+          "status": "to do",
+          "priority": "high",
+          "due_date": "1761278400000",
+          "url": "https://app.clickup.com/t/868g2ydtb",
+          "date_created": "1761211023221",
+          "date_updated": "1761211053055"
+        },
+        {
+          "id": "868fp4jce",
+          "name": "Order # S-MLN-600872 |Product Restriction Not Working | fresh fish on friday bug",
+          "status": "in progress",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868fp4jce",
+          "date_created": "1758556299693",
+          "date_updated": "1760625186493"
+        },
+        {
+          "id": "868fp4gb0",
+          "name": "order 604384 | Saturday Shipping Allowed on Inelegible Order",
+          "status": "in progress",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868fp4gb0",
+          "date_created": "1758556103435",
+          "date_updated": "1759955163016"
+        },
+        {
+          "id": "868ffq2br",
+          "name": "Recording expired gift card redemption",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868ffq2br",
+          "date_created": "1757080212457",
+          "date_updated": "1761244354868"
+        },
+        {
+          "id": "868f835ru",
+          "name": "fresh tuna not restricting to configured date",
+          "status": "to do",
+          "priority": "urgent",
+          "due_date": "1761120000000",
+          "url": "https://app.clickup.com/t/868f835ru",
+          "date_created": "1755542444019",
+          "date_updated": "1761165536033"
+        },
+        {
+          "id": "868f6cwzt",
+          "name": "599169 checked out without AVS and billing verificaiton",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868f6cwzt",
+          "date_created": "1755105915957",
+          "date_updated": "1755179300690"
+        },
+        {
+          "id": "868f1f79w",
+          "name": "amazon orders not syncing to amazon - please double check connection",
+          "status": "in progress",
+          "priority": "high",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868f1f79w",
+          "date_created": "1754318949402",
+          "date_updated": "1754411305896"
+        },
+        {
+          "id": "868f0n8j9",
+          "name": "Issue AfterShip Refunds Through Store Credit Instead of Gift Cards",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868f0n8j9",
+          "date_created": "1754059050024",
+          "date_updated": "1755234775020"
+        },
+        {
+          "id": "868evxj2h",
+          "name": "unable to add 'live surf and turf' to cart and checkout, saying out of stock when in stock.",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868evxj2h",
+          "date_created": "1753190040080",
+          "date_updated": "1753190379167"
+        },
+        {
+          "id": "868e7ehaf",
+          "name": "create expansion store",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868e7ehaf",
+          "date_created": "1749017518354",
+          "date_updated": "1749017541792"
+        },
+        {
+          "id": "868e264rr",
+          "name": "Expired gift card report by month",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868e264rr",
+          "date_created": "1747926558390",
+          "date_updated": "1750285615309"
+        },
+        {
+          "id": "868dwk98b",
+          "name": "Unable to cancel orders with donations",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868dwk98b",
+          "date_created": "1746800764729",
+          "date_updated": "1747219199940"
+        },
+        {
+          "id": "868dvj6at",
+          "name": "Suggested address module doesn\u2019t work when logged in with shoppay",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868dvj6at",
+          "date_created": "1746637731295",
+          "date_updated": "1753357981601"
+        },
+        {
+          "id": "868ap25t7",
+          "name": "add top quality store badge  to website",
+          "status": "to do",
+          "priority": 3,
+          "due_date": "1765530000000",
+          "url": "https://app.clickup.com/t/868ap25t7",
+          "date_created": "1730996864096",
+          "date_updated": "1768054930501"
+        },
+        {
+          "id": "868h8e1g7",
+          "name": "Test 24 hour Notice Warming/Restriction + City Warning/Restriction",
+          "status": "in progress",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868h8e1g7",
+          "date_created": "1769507163330",
+          "date_updated": "1769710978046"
+        },
+        {
+          "id": "868h16e2d",
+          "name": "Make Phone Number Field Required",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868h16e2d",
+          "date_created": "1768158133817",
+          "date_updated": "1768160252652"
+        },
+        {
+          "id": "868h16d0z",
+          "name": "Long term maintenance of Legacy Online Drivers Ed Site  | Restored course.apdriving.com",
+          "status": "in progress",
+          "priority": "high",
+          "due_date": "1768122000000",
+          "url": "https://app.clickup.com/t/868h16d0z",
+          "date_created": "1768157156780",
+          "date_updated": "1768160688442"
+        },
+        {
+          "id": "868gy12k4",
+          "name": "QA Ticket: Test\u00a0Credit\u00a0System\u00a0& Appointment Management Changes",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868gy12k4",
+          "date_created": "1767638800097",
+          "date_updated": "1769476954991"
+        }
+      ],
+      "priority_tasks": [],
+      "slack_user_id": "U062AH0BRMZ",
+      "github_username": "",
+      "hubstaff_user_id": null,
+      "repos": []
+    },
+    {
+      "clickup_user_id": 67442221,
+      "clickup_username": "osvaldo jose villalobos torres",
+      "clickup_name": "osvaldo jose villalobos torres",
+      "clickup_email": "geekslabcolombia@gmail.com",
+      "active_tasks": [
+        {
+          "id": "8688a7d0e",
+          "name": "Onboarding process",
+          "status": "welcome",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/8688a7d0e",
+          "date_created": "1714074436191",
+          "date_updated": "1714075317189"
+        },
+        {
+          "id": "86886znqz",
+          "name": "Design onboarding process for new Customers",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86886znqz",
+          "date_created": "1713292581900",
+          "date_updated": "1715872735278"
+        },
+        {
+          "id": "8686tr115",
+          "name": "Recruitment",
+          "status": "Open",
+          "priority": 3,
+          "due_date": "1703322000000",
+          "url": "https://app.clickup.com/t/8686tr115",
+          "date_created": "1703079804914",
+          "date_updated": "1703681683405"
+        },
+        {
+          "id": "8688ztx53",
+          "name": "Migration of the Company Website from Hostgator to Cloudways",
+          "status": "in progress",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/8688ztx53",
+          "date_created": "1720109521007",
+          "date_updated": "1720121837101"
+        },
+        {
+          "id": "86886zgxf",
+          "name": "Add New Services to the Website",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86886zgxf",
+          "date_created": "1713291961356",
+          "date_updated": "1713547767442"
+        },
+        {
+          "id": "86886zdf6",
+          "name": "Display issue with services Section",
+          "status": "in progress",
+          "priority": "high",
+          "due_date": "1713344400000",
+          "url": "https://app.clickup.com/t/86886zdf6",
+          "date_created": "1713291575409",
+          "date_updated": "1713364733058"
+        },
+        {
+          "id": "86884q1gy",
+          "name": "Make the items in portfolio section clickable ( not just the words)",
+          "status": "blocked",
+          "priority": "high",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86884q1gy",
+          "date_created": "1712674151253",
+          "date_updated": "1712757115248"
+        },
+        {
+          "id": "86884ay3y",
+          "name": "Update website images to .webp",
+          "status": "blocked",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86884ay3y",
+          "date_created": "1712592333307",
+          "date_updated": "1712755582229"
+        },
+        {
+          "id": "8687689jn",
+          "name": "Filter out Internal Traffic from Google Analytics Data",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/8687689jn",
+          "date_created": "1706624962452",
+          "date_updated": "1712015326062"
+        },
+        {
+          "id": "86874b56c",
+          "name": "Perform Competitor Keyword Analysis.",
+          "status": "Open",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86874b56c",
+          "date_created": "1706066114670",
+          "date_updated": "1706132408793"
+        },
+        {
+          "id": "86874b49h",
+          "name": "Add Case Studies and Links to Client Projects to the Site.",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": "1712134800000",
+          "url": "https://app.clickup.com/t/86874b49h",
+          "date_created": "1706065752233",
+          "date_updated": "1712757006404"
+        },
+        {
+          "id": "86874arcx",
+          "name": "Improve Website Page Speed Insight Score to 90%",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86874arcx",
+          "date_created": "1706063142233",
+          "date_updated": "1720015806616"
+        },
+        {
+          "id": "868836vyg",
+          "name": "SEO Optimization",
+          "status": "to do",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868836vyg",
+          "date_created": "1712154247293",
+          "date_updated": "1712854045900"
+        },
+        {
+          "id": "868836v88",
+          "name": "Uptime Monitoring",
+          "status": "to do",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868836v88",
+          "date_created": "1712154168404",
+          "date_updated": "1712154204568"
+        },
+        {
+          "id": "868836q3z",
+          "name": "Functionality Tests",
+          "status": "to do",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868836q3z",
+          "date_created": "1712153628974",
+          "date_updated": "1715610355580"
+        },
+        {
+          "id": "868836pb8",
+          "name": "Backups",
+          "status": "to do",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868836pb8",
+          "date_created": "1712153516308",
+          "date_updated": "1712323874692"
+        },
+        {
+          "id": "868836mp2",
+          "name": "Review Comments and Spam",
+          "status": "to do",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868836mp2",
+          "date_created": "1712153327613",
+          "date_updated": "1712153457015"
+        },
+        {
+          "id": "868836kdv",
+          "name": "Security Monitoring",
+          "status": "to do",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868836kdv",
+          "date_created": "1712153135555",
+          "date_updated": "1712153300502"
+        },
+        {
+          "id": "868836jz2",
+          "name": "Performance Optimization",
+          "status": "to do",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868836jz2",
+          "date_created": "1712153058900",
+          "date_updated": "1715609414793"
+        },
+        {
+          "id": "868836hv9",
+          "name": "Plugin Update",
+          "status": "to do",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868836hv9",
+          "date_created": "1712152889295",
+          "date_updated": "1715609912347"
+        },
+        {
+          "id": "868836hfn",
+          "name": "Theme Update",
+          "status": "to do",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868836hfn",
+          "date_created": "1712152817388",
+          "date_updated": "1712325742676"
+        },
+        {
+          "id": "868836cx3",
+          "name": "WordPress Core Update",
+          "status": "to do",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868836cx3",
+          "date_created": "1712152085208",
+          "date_updated": "1715609687253"
+        },
+        {
+          "id": "86880v5rm",
+          "name": "Generate a report of all tickets that are in progress but no time tracked in the last 24 hours",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86880v5rm",
+          "date_created": "1711543501802",
+          "date_updated": "1712329737441"
+        },
+        {
+          "id": "8688v52py",
+          "name": "Evaluate pay per lead platforms",
+          "status": "in progress",
+          "priority": "high",
+          "due_date": "1718874000000",
+          "url": "https://app.clickup.com/t/8688v52py",
+          "date_created": "1718850540560",
+          "date_updated": "1718990428908"
+        },
+        {
+          "id": "86884qqwg",
+          "name": "Re-write \"consulting\" content to be E-commerce specific",
+          "status": "needs qa",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86884qqwg",
+          "date_created": "1712676669265",
+          "date_updated": "1713365492218"
+        },
+        {
+          "id": "86884qmct",
+          "name": "Add \"Business Process Automation\" as a Service on Website",
+          "status": "needs qa",
+          "priority": "normal",
+          "due_date": "1713513600000",
+          "url": "https://app.clickup.com/t/86884qmct",
+          "date_created": "1712676192775",
+          "date_updated": "1713365068801"
+        },
+        {
+          "id": "86874mhtb",
+          "name": "Join Affiliate Programs and Generate Content Affiliate Links",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86874mhtb",
+          "date_created": "1706106401462",
+          "date_updated": "1706106697683"
+        },
+        {
+          "id": "86874mhah",
+          "name": "Create \" Want to Join Our UpWork Agency? \" page",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86874mhah",
+          "date_created": "1706106299640",
+          "date_updated": "1712760166441"
+        },
+        {
+          "id": "86874d124",
+          "name": "Optimize Lorena's Upwork Profile. Get her hired as first virtual assistant",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86874d124",
+          "date_created": "1706070374360",
+          "date_updated": "1706070448584"
+        },
+        {
+          "id": "86874ce56",
+          "name": "Create email campaign asking existing clients to recommend other clients",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86874ce56",
+          "date_created": "1706069882710",
+          "date_updated": "1706070378493"
+        },
+        {
+          "id": "86874c8jq",
+          "name": "Create email campaign targeting other agencies",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86874c8jq",
+          "date_created": "1706069740520",
+          "date_updated": "1706069849773"
+        },
+        {
+          "id": "86874b9wm",
+          "name": "Optimize Yelp Profile",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86874b9wm",
+          "date_created": "1706068003910",
+          "date_updated": "1706202270561"
+        },
+        {
+          "id": "86874b6dx",
+          "name": "Create an email campaign/segment for up selling existing/past clients",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86874b6dx",
+          "date_created": "1706066635915",
+          "date_updated": "1706068016836"
+        },
+        {
+          "id": "86874b5vq",
+          "name": "Solicit Reviews on Yelp For Existing Clients",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86874b5vq",
+          "date_created": "1706066402882",
+          "date_updated": "1706067553152"
+        },
+        {
+          "id": "8686tr1u5",
+          "name": "Start Social media",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/8686tr1u5",
+          "date_created": "1703080010455",
+          "date_updated": "1703080089150"
+        },
+        {
+          "id": "8686g6b21",
+          "name": "Use ChatGPT and Other tools to Generate 5 Step Cold Email Marketing Campaign Copy",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/8686g6b21",
+          "date_created": "1700588904880",
+          "date_updated": "1701094658406"
+        }
+      ],
+      "priority_tasks": [],
+      "slack_user_id": "",
+      "github_username": "",
+      "hubstaff_user_id": null,
+      "repos": []
+    },
+    {
+      "clickup_user_id": 42404240,
+      "clickup_username": "Steve Bien-Aime",
+      "clickup_name": "Steve Bien-Aime",
+      "clickup_email": "steve@peoplelikesoftware.com",
+      "active_tasks": [
+        {
+          "id": "86886znqz",
+          "name": "Design onboarding process for new Customers",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86886znqz",
+          "date_created": "1713292581900",
+          "date_updated": "1715872735278"
+        },
+        {
+          "id": "86882qnte",
+          "name": "Create New Status that triggers deployment to staging.",
+          "status": "to do",
+          "priority": 3,
+          "due_date": "1715936400000",
+          "url": "https://app.clickup.com/t/86882qnte",
+          "date_created": "1712079441849",
+          "date_updated": "1713889136318"
+        },
+        {
+          "id": "8686vpjw8",
+          "name": "Create templates and automatons for managing data and configurations in local and dev/staging environments",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/8686vpjw8",
+          "date_created": "1703833388787",
+          "date_updated": "1703833510547"
+        },
+        {
+          "id": "868hdtbvr",
+          "name": "Add Recurring charges to Queue",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868hdtbvr",
+          "date_created": "1770610462569",
+          "date_updated": "1770610464726"
+        },
+        {
+          "id": "868hdtbv1",
+          "name": "Authentication/Security Review for all Custom API endpoints",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868hdtbv1",
+          "date_created": "1770610404118",
+          "date_updated": "1770610433361"
+        },
+        {
+          "id": "868djm7je",
+          "name": "Add Site Monitoring Tools/Notifications/Reports for Visibility",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868djm7je",
+          "date_created": "1744900255341",
+          "date_updated": "1770610334828"
+        },
+        {
+          "id": "868d1drz4",
+          "name": "     Investigate SMTP Server Timeout | Add email queue",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868d1drz4",
+          "date_created": "1741789580726",
+          "date_updated": "1770610363680"
+        },
+        {
+          "id": "868881rra",
+          "name": "Disable Legacy API Endpoints",
+          "status": "internal review ",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868881rra",
+          "date_created": "1713500268202",
+          "date_updated": "1770610484692"
+        },
+        {
+          "id": "868h2yymn",
+          "name": "Session/Cart Mismatch In Ovafit ",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868h2yymn",
+          "date_created": "1768407266117",
+          "date_updated": "1768407402967"
+        },
+        {
+          "id": "868a9200h",
+          "name": "Shop Cabinets Page Enhancement",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868a9200h",
+          "date_created": "1729015737572",
+          "date_updated": "1730226368366"
+        },
+        {
+          "id": "8687era8t",
+          "name": "Add Group Account Functionality ",
+          "status": "ready for production",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/8687era8t",
+          "date_created": "1708955863146",
+          "date_updated": "1713968471704"
+        },
+        {
+          "id": "86875pj8k",
+          "name": "Optimize Website Copy",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86875pj8k",
+          "date_created": "1706477507900",
+          "date_updated": "1706535445523"
+        },
+        {
+          "id": "868hcy3cr",
+          "name": "Gaining nav access",
+          "status": "in progress",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868hcy3cr",
+          "date_created": "1770321649674",
+          "date_updated": "1770368626111"
+        },
+        {
+          "id": "868g8dg7y",
+          "name": "Client Meeting | Get Remote Access to Nav",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868g8dg7y",
+          "date_created": "1762318710694",
+          "date_updated": "1762318957637"
+        },
+        {
+          "id": "868anb8uh",
+          "name": "SEO ( Url rewrites ) / Domain/DNS updates , Email Configuration",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868anb8uh",
+          "date_created": "1730907389105",
+          "date_updated": "1741191221472"
+        },
+        {
+          "id": "868g3xck4",
+          "name": "verify that store credit emails are sent fron notifications@",
+          "status": "in progress",
+          "priority": "high",
+          "due_date": "1761710400000",
+          "url": "https://app.clickup.com/t/868g3xck4",
+          "date_created": "1761443072523",
+          "date_updated": "1762450983059"
+        },
+        {
+          "id": "868emg53t",
+          "name": "Create a custom app that makes the data from Magento search",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868emg53t",
+          "date_created": "1751495996013",
+          "date_updated": "1751496121882"
+        },
+        {
+          "id": "868e7ehaf",
+          "name": "create expansion store",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868e7ehaf",
+          "date_created": "1749017518354",
+          "date_updated": "1749017541792"
+        },
+        {
+          "id": "868e7eh9u",
+          "name": "Client Meetings",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868e7eh9u",
+          "date_created": "1749017438287",
+          "date_updated": "1749017452084"
+        },
+        {
+          "id": "868dwk98b",
+          "name": "Unable to cancel orders with donations",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868dwk98b",
+          "date_created": "1746800764729",
+          "date_updated": "1747219199940"
+        },
+        {
+          "id": "868dvj6at",
+          "name": "Suggested address module doesn\u2019t work when logged in with shoppay",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868dvj6at",
+          "date_created": "1746637731295",
+          "date_updated": "1753357981601"
+        },
+        {
+          "id": "868dve3rv",
+          "name": "Site changes",
+          "status": "internal review",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868dve3rv",
+          "date_created": "1746625659206",
+          "date_updated": "1746706574395"
+        },
+        {
+          "id": "8688cpvhw",
+          "name": "create case study for shopify migration",
+          "status": "to do",
+          "priority": 3,
+          "due_date": "1715677200000",
+          "url": "https://app.clickup.com/t/8688cpvhw",
+          "date_created": "1714773944235",
+          "date_updated": "1714774296485"
+        },
+        {
+          "id": "86874barh",
+          "name": "Create LinkedIn Campaign",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86874barh",
+          "date_created": "1706068263101",
+          "date_updated": "1706070343883"
+        },
+        {
+          "id": "86874b5vq",
+          "name": "Solicit Reviews on Yelp For Existing Clients",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86874b5vq",
+          "date_created": "1706066402882",
+          "date_updated": "1706067553152"
+        },
+        {
+          "id": "868h16e2d",
+          "name": "Make Phone Number Field Required",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868h16e2d",
+          "date_created": "1768158133817",
+          "date_updated": "1768160252652"
+        },
+        {
+          "id": "868h16d0z",
+          "name": "Long term maintenance of Legacy Online Drivers Ed Site  | Restored course.apdriving.com",
+          "status": "in progress",
+          "priority": "high",
+          "due_date": "1768122000000",
+          "url": "https://app.clickup.com/t/868h16d0z",
+          "date_created": "1768157156780",
+          "date_updated": "1768160688442"
+        },
+        {
+          "id": "868hdt44d",
+          "name": "Project Management Task Template",
+          "status": "ongoing",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868hdt44d",
+          "date_created": "1770605369927",
+          "date_updated": "1770605480424"
+        },
+        {
+          "id": "868h4jx8g",
+          "name": "Configure Google Pay Using Auth.net",
+          "status": "Open",
+          "priority": "normal",
+          "due_date": "1770800400000",
+          "url": "https://app.clickup.com/t/868h4jx8g",
+          "date_created": "1768761110450",
+          "date_updated": "1770564735618"
+        },
+        {
+          "id": "868h4jwu3",
+          "name": "Security: Apply Critical Security Patches & Upgrade from 2.4.6-p10 to Latest 2.4.6-pX (Current: p13 as of Jan 2026)",
+          "status": "ready for staging",
+          "priority": "high",
+          "due_date": "1770627600000",
+          "url": "https://app.clickup.com/t/868h4jwu3",
+          "date_created": "1768760661433",
+          "date_updated": "1770606232444"
+        }
+      ],
+      "priority_tasks": [
+        {
+          "id": "868h4jx8g",
+          "name": "Configure Google Pay Using Auth.net",
+          "status": "Open",
+          "priority": "normal",
+          "due_date": "1770800400000",
+          "url": "https://app.clickup.com/t/868h4jx8g",
+          "date_created": "1768761110450",
+          "date_updated": "1770564735618"
+        },
+        {
+          "id": "868h4jwu3",
+          "name": "Security: Apply Critical Security Patches & Upgrade from 2.4.6-p10 to Latest 2.4.6-pX (Current: p13 as of Jan 2026)",
+          "status": "ready for staging",
+          "priority": "high",
+          "due_date": "1770627600000",
+          "url": "https://app.clickup.com/t/868h4jwu3",
+          "date_created": "1768760661433",
+          "date_updated": "1770606232444"
+        }
+      ],
+      "slack_user_id": "U037NC6M362",
+      "github_username": "",
+      "hubstaff_user_id": null,
+      "repos": []
+    },
+    {
+      "clickup_user_id": 54200842,
+      "clickup_username": "Muhammad Ahmad Anwar",
+      "clickup_name": "Muhammad Ahmad Anwar",
+      "clickup_email": "muhammad.ahmad.anwar@gmail.com",
+      "active_tasks": [
+        {
+          "id": "868bffx9h",
+          "name": "Integrate Paytrace Payment Gateway ",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868bffx9h",
+          "date_created": "1734706099373",
+          "date_updated": "1734706841269"
+        },
+        {
+          "id": "868a9200h",
+          "name": "Shop Cabinets Page Enhancement",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868a9200h",
+          "date_created": "1729015737572",
+          "date_updated": "1730226368366"
+        },
+        {
+          "id": "86898cye9",
+          "name": "Spam account using the company email",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86898cye9",
+          "date_created": "1722865569466",
+          "date_updated": "1724250104500"
+        },
+        {
+          "id": "86898c0jr",
+          "name": "Fraudulent Orders",
+          "status": "in progress",
+          "priority": "high",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86898c0jr",
+          "date_created": "1722859267103",
+          "date_updated": "1723219557163"
+        },
+        {
+          "id": "868hcy3cr",
+          "name": "Gaining nav access",
+          "status": "in progress",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868hcy3cr",
+          "date_created": "1770321649674",
+          "date_updated": "1770368626111"
+        },
+        {
+          "id": "868h1h03d",
+          "name": "Re: china and other traffic",
+          "status": "internal review",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868h1h03d",
+          "date_created": "1768227038816",
+          "date_updated": "1770548253886"
+        },
+        {
+          "id": "868c38gvy",
+          "name": "Sync Shopify Theme with Git Repo",
+          "status": "internal review",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868c38gvy",
+          "date_created": "1737403052651",
+          "date_updated": "1762317190455"
+        },
+        {
+          "id": "868h3fc65",
+          "name": "test available_in_app attribute",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868h3fc65",
+          "date_created": "1768488519754",
+          "date_updated": "1768488593881"
+        },
+        {
+          "id": "868g589bp",
+          "name": "Bulk update delivery date module",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868g589bp",
+          "date_created": "1761737271004",
+          "date_updated": "1768206872698"
+        },
+        {
+          "id": "86897cj0c",
+          "name": "Fix Cold Email Spam Issue",
+          "status": "in progress",
+          "priority": "urgent",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86897cj0c",
+          "date_created": "1722444029680",
+          "date_updated": "1722876693664"
+        },
+        {
+          "id": "868gz3gh4",
+          "name": "Investigate why so many vendor bill line items are assigned to 4001 Account",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868gz3gh4",
+          "date_created": "1767772128246",
+          "date_updated": "1767773556954"
+        },
+        {
+          "id": "868gvudgh",
+          "name": "Contacts/Contact Addresses within Vendors/Customers not mapped/migrated",
+          "status": "internal review",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868gvudgh",
+          "date_created": "1766978322993",
+          "date_updated": "1767737664059"
+        },
+        {
+          "id": "868gvckxy",
+          "name": "Add vendor #, customer #, and account # columns to respective records in odoo",
+          "status": "internal review",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868gvckxy",
+          "date_created": "1766759765141",
+          "date_updated": "1767737722299"
+        },
+        {
+          "id": "868hb7trf",
+          "name": "PCOS Phase 1 & Phase 2 Security Audit",
+          "status": "needs qa",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868hb7trf",
+          "date_created": "1770068933817",
+          "date_updated": "1770487025987"
+        },
+        {
+          "id": "868hdt44d",
+          "name": "Project Management Task Template",
+          "status": "ongoing",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868hdt44d",
+          "date_created": "1770605369927",
+          "date_updated": "1770605480424"
+        },
+        {
+          "id": "868hdpr7j",
+          "name": "Improve Header Search Autocomplete Results Styling",
+          "status": "to do",
+          "priority": 3,
+          "due_date": "1770973200000",
+          "url": "https://app.clickup.com/t/868hdpr7j",
+          "date_created": "1770559900196",
+          "date_updated": "1770611194546"
+        },
+        {
+          "id": "868hdpqaw",
+          "name": "Merge USPS shipping options - Similar to how it is shown on krakenkratom.com, where First Class is hidden once free Priority threshold has been reached",
+          "status": "to do",
+          "priority": 3,
+          "due_date": "1770973200000",
+          "url": "https://app.clickup.com/t/868hdpqaw",
+          "date_created": "1770558621000",
+          "date_updated": "1770611249468"
+        },
+        {
+          "id": "868hdpqak",
+          "name": "WordPress integration - Test FishPig integration module",
+          "status": "to do",
+          "priority": 3,
+          "due_date": "1771578000000",
+          "url": "https://app.clickup.com/t/868hdpqak",
+          "date_created": "1770558609575",
+          "date_updated": "1770611276860"
+        },
+        {
+          "id": "868hdpq72",
+          "name": "Install the module and configure magento-opentelemetry-module",
+          "status": "to do",
+          "priority": 3,
+          "due_date": "1770973200000",
+          "url": "https://app.clickup.com/t/868hdpq72",
+          "date_created": "1770558448912",
+          "date_updated": "1770611318834"
+        },
+        {
+          "id": "868h4jykp",
+          "name": "Finish Apple Pay QR code feature",
+          "status": "Open",
+          "priority": "normal",
+          "due_date": "1772182800000",
+          "url": "https://app.clickup.com/t/868h4jykp",
+          "date_created": "1768762387443",
+          "date_updated": "1770564735618"
+        },
+        {
+          "id": "868h4jxbn",
+          "name": "Implement Custom Site-Wide Age Verification Popup (Age Gate) for Kratom Store \u2013 Magento 2.4.6",
+          "status": "customer review",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868h4jxbn",
+          "date_created": "1768761179818",
+          "date_updated": "1770564102723"
+        }
+      ],
+      "priority_tasks": [
+        {
+          "id": "868hdpr7j",
+          "name": "Improve Header Search Autocomplete Results Styling",
+          "status": "to do",
+          "priority": 3,
+          "due_date": "1770973200000",
+          "url": "https://app.clickup.com/t/868hdpr7j",
+          "date_created": "1770559900196",
+          "date_updated": "1770611194546"
+        },
+        {
+          "id": "868hdpqaw",
+          "name": "Merge USPS shipping options - Similar to how it is shown on krakenkratom.com, where First Class is hidden once free Priority threshold has been reached",
+          "status": "to do",
+          "priority": 3,
+          "due_date": "1770973200000",
+          "url": "https://app.clickup.com/t/868hdpqaw",
+          "date_created": "1770558621000",
+          "date_updated": "1770611249468"
+        },
+        {
+          "id": "868hdpq72",
+          "name": "Install the module and configure magento-opentelemetry-module",
+          "status": "to do",
+          "priority": 3,
+          "due_date": "1770973200000",
+          "url": "https://app.clickup.com/t/868hdpq72",
+          "date_created": "1770558448912",
+          "date_updated": "1770611318834"
+        }
+      ],
+      "slack_user_id": "U07CVQH4733",
+      "github_username": "",
+      "hubstaff_user_id": null,
+      "repos": []
+    },
+    {
+      "clickup_user_id": 57096304,
+      "clickup_username": "Thayguel Raymond",
+      "clickup_name": "Thayguel Raymond",
+      "clickup_email": "thayguel@peoplelikesoftware.com",
+      "active_tasks": [
+        {
+          "id": "85yuvwjed",
+          "name": "JPDM",
+          "status": "to do",
+          "priority": "high",
+          "due_date": "1680868800000",
+          "url": "https://app.clickup.com/t/85yuvwjed",
+          "date_created": "1672405231078",
+          "date_updated": "1678470390029"
+        },
+        {
+          "id": "8676yt2f6",
+          "name": "Maine Lobster",
+          "status": "Open",
+          "priority": "high",
+          "due_date": "1770642000000",
+          "url": "https://app.clickup.com/t/8676yt2f6",
+          "date_created": "1671471839064",
+          "date_updated": "1714003134783"
+        },
+        {
+          "id": "8676yrx7t",
+          "name": "Nemesis",
+          "status": "to do",
+          "priority": "high",
+          "due_date": "1774872000000",
+          "url": "https://app.clickup.com/t/8676yrx7t",
+          "date_created": "1671471192627",
+          "date_updated": "1683059007980"
+        },
+        {
+          "id": "8676yrtw6",
+          "name": "Game Exchange",
+          "status": "to do",
+          "priority": "high",
+          "due_date": "1772370000000",
+          "url": "https://app.clickup.com/t/8676yrtw6",
+          "date_created": "1671470593391",
+          "date_updated": "1700313902942"
+        },
+        {
+          "id": "8676yrrp1",
+          "name": "Tank Depot(ACC)",
+          "status": "to do",
+          "priority": "high",
+          "due_date": "1684504800000",
+          "url": "https://app.clickup.com/t/8676yrrp1",
+          "date_created": "1671470313853",
+          "date_updated": "1683295193897"
+        },
+        {
+          "id": "8676yrqxe",
+          "name": "The Forge Lab",
+          "status": "to do",
+          "priority": "high",
+          "due_date": "1684152000000",
+          "url": "https://app.clickup.com/t/8676yrqxe",
+          "date_created": "1671470056484",
+          "date_updated": "1682953551123"
+        },
+        {
+          "id": "8676yrq57",
+          "name": "LCP",
+          "status": "to do",
+          "priority": "high",
+          "due_date": "1680523200000",
+          "url": "https://app.clickup.com/t/8676yrq57",
+          "date_created": "1671469867891",
+          "date_updated": "1680538375819"
+        },
+        {
+          "id": "8676yrntv",
+          "name": "TCS(the cabinet saver)",
+          "status": "to do",
+          "priority": "high",
+          "due_date": "1685620800000",
+          "url": "https://app.clickup.com/t/8676yrntv",
+          "date_created": "1671469739882",
+          "date_updated": "1682959062379"
+        }
+      ],
+      "priority_tasks": [
+        {
+          "id": "8676yt2f6",
+          "name": "Maine Lobster",
+          "status": "Open",
+          "priority": "high",
+          "due_date": "1770642000000",
+          "url": "https://app.clickup.com/t/8676yt2f6",
+          "date_created": "1671471839064",
+          "date_updated": "1714003134783"
+        }
+      ],
+      "slack_user_id": "",
+      "github_username": "",
+      "hubstaff_user_id": null,
+      "repos": []
+    },
+    {
+      "clickup_user_id": 42404241,
+      "clickup_username": "Mark Saintil",
+      "clickup_name": "Mark Saintil",
+      "clickup_email": "mark@peoplelikesoftware.com",
+      "active_tasks": [
+        {
+          "id": "8688x29xn",
+          "name": "Create Operational Reports",
+          "status": "in progress",
+          "priority": "normal",
+          "due_date": "1719565200000",
+          "url": "https://app.clickup.com/t/8688x29xn",
+          "date_created": "1719418606419",
+          "date_updated": "1719418658780"
+        },
+        {
+          "id": "86886znqz",
+          "name": "Design onboarding process for new Customers",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86886znqz",
+          "date_created": "1713292581900",
+          "date_updated": "1715872735278"
+        },
+        {
+          "id": "86881axf7",
+          "name": "Add Client Update Templates/Automations to Zendesk",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86881axf7",
+          "date_created": "1711646223053",
+          "date_updated": "1713297106761"
+        },
+        {
+          "id": "86888kt2j",
+          "name": "Customer quotes missing",
+          "status": "ready for production",
+          "priority": "urgent",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86888kt2j",
+          "date_created": "1713794754775",
+          "date_updated": "1713903299113"
+        },
+        {
+          "id": "86886fht3",
+          "name": "Add PDF to order confirmation emails",
+          "status": "waiting on the customer",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/86886fht3",
+          "date_created": "1713199981706",
+          "date_updated": "1713973371016"
+        },
+        {
+          "id": "8687y4ykq",
+          "name": "Mass Pricing Plugin",
+          "status": "waiting on the customer",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/8687y4ykq",
+          "date_created": "1710887085754",
+          "date_updated": "1713973379111"
+        },
+        {
+          "id": "8687era8t",
+          "name": "Add Group Account Functionality ",
+          "status": "ready for production",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/8687era8t",
+          "date_created": "1708955863146",
+          "date_updated": "1713968471704"
+        },
+        {
+          "id": "868dvj6at",
+          "name": "Suggested address module doesn\u2019t work when logged in with shoppay",
+          "status": "to do",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868dvj6at",
+          "date_created": "1746637731295",
+          "date_updated": "1753357981601"
+        }
+      ],
+      "priority_tasks": [],
+      "slack_user_id": "",
+      "github_username": "",
+      "hubstaff_user_id": null,
+      "repos": []
+    },
+    {
+      "clickup_user_id": 60197501,
+      "clickup_username": "Cedric Tifuh",
+      "clickup_name": "Cedric Tifuh",
+      "clickup_email": "tifuh@peoplelikesoftware.com",
+      "active_tasks": [
+        {
+          "id": "868hcf484",
+          "name": "UX/UI of the self-checkout page",
+          "status": "in progress",
+          "priority": "high",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868hcf484",
+          "date_created": "1770238780502",
+          "date_updated": "1770610491510"
+        },
+        {
+          "id": "868hcepzh",
+          "name": "updates to the db schema re: payment plans",
+          "status": "in progress",
+          "priority": "high",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868hcepzh",
+          "date_created": "1770237830527",
+          "date_updated": "1770333853812"
+        },
+        {
+          "id": "868gua2p6",
+          "name": "Add ACH  Support for Recurring Charges ",
+          "status": "waiting on the customer",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868gua2p6",
+          "date_created": "1766410976614",
+          "date_updated": "1770610475665"
+        },
+        {
+          "id": "868f783pv",
+          "name": "Update Staging Environment | Allow Production Payment Processing Testing",
+          "status": "in progress",
+          "priority": "high",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868f783pv",
+          "date_created": "1755270723811",
+          "date_updated": "1770609858966"
+        },
+        {
+          "id": "868767urg",
+          "name": "Custom PayGo Price Payment Plan Amount Discrepancy",
+          "status": "on hold",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868767urg",
+          "date_created": "1706621996541",
+          "date_updated": "1731677740136"
+        }
+      ],
+      "priority_tasks": [],
+      "slack_user_id": "U04995SLG22",
+      "github_username": "",
+      "hubstaff_user_id": null,
+      "repos": []
+    },
+    {
+      "clickup_user_id": 75413872,
+      "clickup_username": "Andrei Matskevich",
+      "clickup_name": "Andrei Matskevich",
+      "clickup_email": "andik85@gmail.com",
+      "active_tasks": [
+        {
+          "id": "868767urg",
+          "name": "Custom PayGo Price Payment Plan Amount Discrepancy",
+          "status": "on hold",
+          "priority": "normal",
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868767urg",
+          "date_created": "1706621996541",
+          "date_updated": "1731677740136"
+        }
+      ],
+      "priority_tasks": [],
+      "slack_user_id": "",
+      "github_username": "",
+      "hubstaff_user_id": null,
+      "repos": []
+    },
+    {
+      "clickup_user_id": 26138980,
+      "clickup_username": "Michael Jean",
+      "clickup_name": "Michael Jean",
+      "clickup_email": "michael@peoplelikesoftware.com",
+      "active_tasks": [
+        {
+          "id": "868a9200h",
+          "name": "Shop Cabinets Page Enhancement",
+          "status": "in progress",
+          "priority": 3,
+          "due_date": null,
+          "url": "https://app.clickup.com/t/868a9200h",
+          "date_created": "1729015737572",
+          "date_updated": "1730226368366"
+        }
+      ],
+      "priority_tasks": [],
+      "slack_user_id": "U038JQNL4BS",
+      "github_username": "",
+      "hubstaff_user_id": null,
+      "repos": []
+    }
+  ]
+}

@@ -19,8 +19,8 @@ except ImportError:
     CREWAI_AVAILABLE = False
     BaseTool = object
 
-from ..services.sheets import GoogleSheetsClient, get_sheets_client
-from ..governance.confirmations import require_confirmation, ConfirmationLevel
+from services.sheets import GoogleSheetsClient, get_sheets_client
+from governance.confirmations import require_confirmation, ConfirmationLevel
 
 
 # =============================================================================

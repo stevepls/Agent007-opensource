@@ -16,7 +16,7 @@ except ImportError:
     CREWAI_AVAILABLE = False
     BaseTool = object
 
-from ..governance.checklists import (
+from governance.checklists import (
     run_all_checklists,
     check_documentation,
     check_security,

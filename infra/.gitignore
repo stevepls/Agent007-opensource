@@ -1,0 +1,7 @@
+# Never commit real secrets
+*.env.local
+*.env.*.local
+.env
+
+# Railway local config
+.railway

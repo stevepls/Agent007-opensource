@@ -20,7 +20,7 @@ def clickup_api_request(method: str, endpoint: str, data: dict = None) -> Dict[s
     if not token:
         return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
     
-    url = f"https://api.clickup.com/api/v2{endpoint}"
+    url = f"https://api.clickup.com/api/v2/{endpoint}"
     headers = {"Authorization": token, "Content-Type": "application/json"}
     
     try:
@@ -665,3 +665,890 @@ CLICKUP_ENHANCED_TOOLS.append({
         "required": ["list_id", "tasks"]
     }
 })
+
+
+def clickup_search_tasks(query: str, space_id: str = None, list_id: str = None) -> Dict[str, Any]:
+    """
+    Search for tasks by name/keyword across the workspace.
+    
+    Args:
+        query: Search term to find in task names (required)
+        space_id: Optional - limit search to a specific space
+        list_id: Optional - limit search to a specific list
+    
+    Returns matching tasks with their IDs, names, and URLs.
+    """
+    token = get_api_token()
+    if not token:
+        return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+    
+    if not query:
+        return {"error": "query is required"}
+    
+    results = []
+    query_lower = query.lower()
+    
+    # Get all teams
+    teams = clickup_api_request("GET", "team")
+    if "error" in teams:
+        return teams
+    
+    for team in teams.get("teams", []):
+        team_id = team["id"]
+        
+        # If list_id provided, just search that list
+        if list_id:
+            tasks = clickup_api_request("GET", f"list/{list_id}/task")
+            if "tasks" in tasks:
+                for task in tasks["tasks"]:
+                    if query_lower in task.get("name", "").lower():
+                        results.append({
+                            "id": task["id"],
+                            "name": task["name"],
+                            "status": task.get("status", {}).get("status"),
+                            "url": task.get("url"),
+                            "list": task.get("list", {}).get("name"),
+                            "assignees": [a.get("username") for a in task.get("assignees", [])]
+                        })
+            break
+        
+        # Get spaces
+        spaces = clickup_api_request("GET", f"team/{team_id}/space")
+        for space in spaces.get("spaces", []):
+            if space_id and space["id"] != space_id:
+                continue
+            
+            # Get folderless lists
+            lists = clickup_api_request("GET", f"space/{space['id']}/list")
+            for lst in lists.get("lists", []):
+                tasks = clickup_api_request("GET", f"list/{lst['id']}/task")
+                if "tasks" in tasks:
+                    for task in tasks["tasks"]:
+                        if query_lower in task.get("name", "").lower():
+                            results.append({
+                                "id": task["id"],
+                                "name": task["name"],
+                                "status": task.get("status", {}).get("status"),
+                                "url": task.get("url"),
+                                "space": space["name"],
+                                "list": lst["name"],
+                                "assignees": [a.get("username") for a in task.get("assignees", [])]
+                            })
+    
+    return {
+        "query": query,
+        "count": len(results),
+        "tasks": results
+    }
+
+
+def clickup_get_workspace_members() -> Dict[str, Any]:
+    """
+    Get all workspace members with their user IDs.
+    Use this to find assignee IDs for task assignment.
+    
+    Returns list of members with id, username, email.
+    """
+    token = get_api_token()
+    if not token:
+        return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+    
+    teams = clickup_api_request("GET", "team")
+    if "error" in teams:
+        return teams
+    
+    all_members = []
+    seen_ids = set()
+    
+    for team in teams.get("teams", []):
+        for member in team.get("members", []):
+            user = member.get("user", {})
+            user_id = user.get("id")
+            if user_id and user_id not in seen_ids:
+                seen_ids.add(user_id)
+                all_members.append({
+                    "id": user_id,
+                    "username": user.get("username"),
+                    "email": user.get("email"),
+                    "initials": user.get("initials"),
+                })
+    
+    return {
+        "count": len(all_members),
+        "members": all_members
+    }
+
+
+def clickup_find_member_by_name(name: str) -> Dict[str, Any]:
+    """
+    Find a workspace member by name (partial match).
+    Returns matching members with their IDs for task assignment.
+    
+    Args:
+        name: Name or partial name to search for (required)
+    """
+    if not name:
+        return {"error": "name is required"}
+    
+    members_result = clickup_get_workspace_members()
+    if "error" in members_result:
+        return members_result
+    
+    name_lower = name.lower()
+    matches = []
+    
+    for member in members_result.get("members", []):
+        username = member.get("username", "") or ""
+        email = member.get("email", "") or ""
+        
+        if name_lower in username.lower() or name_lower in email.lower():
+            matches.append(member)
+    
+    return {
+        "query": name,
+        "count": len(matches),
+        "members": matches
+    }
+
+
+def clickup_create_subtasks_batch(
+    parent_task_id: str,
+    subtasks: List[str],
+    assignee_id: int = None,
+) -> Dict[str, Any]:
+    """
+    Create multiple subtasks under a parent task and optionally assign them all.
+    
+    Args:
+        parent_task_id: The parent task ID (required)
+        subtasks: List of subtask names to create (required)
+        assignee_id: Optional user ID to assign all subtasks to
+    
+    Returns created subtasks with their IDs.
+    """
+    token = get_api_token()
+    if not token:
+        return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+    
+    if not parent_task_id or not subtasks:
+        return {"error": "parent_task_id and subtasks are required"}
+    
+    # Get parent task to find list_id
+    parent = clickup_api_request("GET", f"task/{parent_task_id}")
+    if "error" in parent:
+        return parent
+    list_id = parent.get("list", {}).get("id")
+    if not list_id:
+        return {"error": "Could not determine list_id from parent task"}
+    
+    created = []
+    failed = []
+    
+    for subtask_name in subtasks:
+        data = {
+            "name": subtask_name,
+            "parent": parent_task_id
+        }
+        if assignee_id:
+            data["assignees"] = [assignee_id]
+        
+        result = clickup_api_request("POST", f"list/{list_id}/task", data)
+        
+        if "id" in result:
+            created.append({
+                "id": result["id"],
+                "name": result["name"],
+                "url": result.get("url"),
+                "assignees": [a.get("username") for a in result.get("assignees", [])]
+            })
+        else:
+            failed.append({"name": subtask_name, "error": result.get("error", "Unknown error")})
+    
+    return {
+        "parent_task_id": parent_task_id,
+        "created_count": len(created),
+        "failed_count": len(failed),
+        "subtasks": created,
+        "failed": failed if failed else None
+    }
+
+
+def clickup_add_checklist(
+    task_id: str,
+    checklist_name: str,
+    items: List[str]
+) -> Dict[str, Any]:
+    """
+    Add a checklist with items to a task.
+    Note: Checklist items cannot be assigned to users. Use subtasks for assignable items.
+    
+    Args:
+        task_id: The task to add checklist to (required)
+        checklist_name: Name of the checklist (required)
+        items: List of checklist item names (required)
+    
+    Returns checklist details with ID.
+    """
+    token = get_api_token()
+    if not token:
+        return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+    
+    if not task_id or not checklist_name or not items:
+        return {"error": "task_id, checklist_name, and items are required"}
+    
+    # Create checklist
+    checklist_result = clickup_api_request("POST", f"task/{task_id}/checklist", {"name": checklist_name})
+    
+    if "checklist" not in checklist_result:
+        return {"error": f"Failed to create checklist: {checklist_result}"}
+    
+    checklist_id = checklist_result["checklist"]["id"]
+    added_items = []
+    
+    # Add items
+    for item_name in items:
+        item_result = clickup_api_request("POST", f"checklist/{checklist_id}/checklist_item", {"name": item_name})
+        if "checklist" in item_result:
+            added_items.append(item_name)
+    
+    return {
+        "success": True,
+        "task_id": task_id,
+        "checklist_id": checklist_id,
+        "checklist_name": checklist_name,
+        "items_added": len(added_items),
+        "items": added_items,
+        "note": "Checklist items cannot be assigned. Use clickup_create_subtasks_batch for assignable items."
+    }
+
+
+def clickup_delete_checklist(checklist_id: str) -> Dict[str, Any]:
+    """
+    Delete a checklist from a task.
+    
+    Args:
+        checklist_id: The checklist ID to delete (required)
+    """
+    token = get_api_token()
+    if not token:
+        return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+    
+    if not checklist_id:
+        return {"error": "checklist_id is required"}
+    
+    # Need to add DELETE support to clickup_api_request
+    headers = {"Authorization": token}
+    try:
+        resp = requests.delete(
+            f"https://api.clickup.com/api/v2/checklist/{checklist_id}",
+            headers=headers,
+            timeout=30
+        )
+        if resp.status_code == 200:
+            return {"success": True, "message": f"Checklist {checklist_id} deleted"}
+        return {"error": f"Failed to delete: {resp.status_code}"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# Register new tools
+CLICKUP_ENHANCED_TOOLS.extend([
+    {
+        "name": "clickup_search_tasks",
+        "description": "Search for tasks by name/keyword across the workspace. Returns matching tasks with IDs, status, and URLs.",
+        "function": clickup_search_tasks,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search term to find in task names (required)"},
+                "space_id": {"type": "string", "description": "Optional - limit search to a specific space"},
+                "list_id": {"type": "string", "description": "Optional - limit search to a specific list"},
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "clickup_get_workspace_members",
+        "description": "Get all workspace members with their user IDs. Use this to find assignee IDs for task assignment.",
+        "function": clickup_get_workspace_members,
+        "parameters": {"type": "object", "properties": {}}
+    },
+    {
+        "name": "clickup_find_member_by_name",
+        "description": "Find a workspace member by name (partial match). Returns matching members with IDs for task assignment.",
+        "function": clickup_find_member_by_name,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Name or partial name to search for (required)"},
+            },
+            "required": ["name"]
+        }
+    },
+    {
+        "name": "clickup_create_subtasks_batch",
+        "description": "Create multiple subtasks under a parent task and optionally assign them all to one user. Use instead of checklists when items need assignees.",
+        "function": clickup_create_subtasks_batch,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "parent_task_id": {"type": "string", "description": "The parent task ID (required)"},
+                "subtasks": {"type": "array", "items": {"type": "string"}, "description": "List of subtask names (required)"},
+                "assignee_id": {"type": "integer", "description": "Optional user ID to assign all subtasks to"},
+            },
+            "required": ["parent_task_id", "subtasks"]
+        }
+    },
+    {
+        "name": "clickup_add_checklist",
+        "description": "Add a checklist with items to a task. NOTE: Checklist items CANNOT be assigned. Use clickup_create_subtasks_batch for assignable items.",
+        "function": clickup_add_checklist,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "The task to add checklist to (required)"},
+                "checklist_name": {"type": "string", "description": "Name of the checklist (required)"},
+                "items": {"type": "array", "items": {"type": "string"}, "description": "List of checklist item names (required)"},
+            },
+            "required": ["task_id", "checklist_name", "items"]
+        }
+    },
+    {
+        "name": "clickup_delete_checklist",
+        "description": "Delete a checklist from a task.",
+        "function": clickup_delete_checklist,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "checklist_id": {"type": "string", "description": "The checklist ID to delete (required)"},
+            },
+            "required": ["checklist_id"]
+        }
+    },
+])
+
+
+# ============================================================================
+# Task Assignment Tools
+# ============================================================================
+
+def clickup_assign_tasks(
+    task_ids: List[str],
+    assignee_ids: List[int],
+    assignee_names: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """
+    Assign multiple tasks to users.
+    
+    Args:
+        task_ids: List of task IDs to assign (required)
+        assignee_ids: List of user IDs to assign tasks to (required)
+        assignee_names: Optional list of names for display (for better error messages)
+    
+    Returns summary of assignments.
+    """
+    token = get_api_token()
+    if not token:
+        return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+    
+    if not task_ids or not assignee_ids:
+        return {"error": "task_ids and assignee_ids are required"}
+    
+    assigned = []
+    failed = []
+    
+    for task_id in task_ids:
+        try:
+            # Get task name for better error reporting
+            task_info = clickup_api_request("GET", f"task/{task_id}")
+            task_name = task_info.get("name", task_id) if "error" not in task_info else task_id
+            
+            # Assign users
+            result = clickup_api_request("PUT", f"task/{task_id}", {"assignees": assignee_ids})
+            
+            if "error" not in result:
+                assigned.append({
+                    "task_id": task_id,
+                    "task_name": task_name,
+                    "url": result.get("url", f"https://app.clickup.com/t/{task_id}")
+                })
+            else:
+                failed.append({
+                    "task_id": task_id,
+                    "task_name": task_name,
+                    "error": result.get("error", "Unknown error")
+                })
+        except Exception as e:
+            failed.append({
+                "task_id": task_id,
+                "error": str(e)
+            })
+    
+    return {
+        "success": len(assigned) > 0,
+        "total_tasks": len(task_ids),
+        "assigned_count": len(assigned),
+        "failed_count": len(failed),
+        "assignees": assignee_names or [f"User {uid}" for uid in assignee_ids],
+        "assigned_tasks": assigned,
+        "failed_tasks": failed if failed else None
+    }
+
+
+def clickup_find_assignees_by_name(names: List[str]) -> Dict[str, Any]:
+    """
+    Find ClickUp user IDs by name (for use with clickup_assign_tasks).
+    
+    Args:
+        names: List of names to search for (e.g., ["Steve", "Muhammad"])
+    
+    Returns user IDs and details.
+    """
+    token = get_api_token()
+    if not token:
+        return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+    
+    teams = clickup_api_request("GET", "team")
+    if "error" in teams:
+        return teams
+    
+    found_users = []
+    not_found = []
+    
+    for name in names:
+        name_lower = name.lower()
+        matched = False
+        
+        for team in teams.get("teams", []):
+            for member in team.get("members", []):
+                user = member.get("user", {})
+                username = (user.get("username", "") or "").lower()
+                email = (user.get("email", "") or "").lower()
+                
+                if name_lower in username or name_lower in email:
+                    found_users.append({
+                        "id": user.get("id"),
+                        "username": user.get("username"),
+                        "email": user.get("email"),
+                        "search_name": name
+                    })
+                    matched = True
+                    break
+            
+            if matched:
+                break
+        
+        if not matched:
+            not_found.append(name)
+    
+    return {
+        "found_count": len(found_users),
+        "not_found_count": len(not_found),
+        "users": found_users,
+        "not_found": not_found if not_found else None,
+        "user_ids": [u["id"] for u in found_users]
+    }
+
+
+# ============================================================================
+# Time Tracking Tools
+# ============================================================================
+
+def clickup_get_time_entries(
+    task_id: Optional[str] = None,
+    list_id: Optional[str] = None,
+    space_id: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    project_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Get time tracking entries from ClickUp.
+    
+    Args:
+        task_id: Optional - get time for specific task
+        list_id: Optional - get time for all tasks in list
+        space_id: Optional - get time for all tasks in space
+        start_date: Optional - filter by start date (ISO format: "2026-01-29")
+        end_date: Optional - filter by end date (ISO format: "2026-02-04")
+        project_name: Optional - search for space/list by name (e.g., "Phytto")
+    
+    Returns time entries with breakdown by task.
+    """
+    token = get_api_token()
+    if not token:
+        return {"error": "ClickUp not configured. Set CLICKUP_API_TOKEN."}
+    
+    from datetime import datetime
+    from collections import defaultdict
+    
+    # Parse dates if provided
+    start_ts = None
+    end_ts = None
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date)
+            start_ts = int(start_dt.timestamp() * 1000)
+        except:
+            return {"error": f"Invalid start_date format. Use ISO format: YYYY-MM-DD"}
+    
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date)
+            end_ts = int(end_dt.timestamp() * 1000)
+        except:
+            return {"error": f"Invalid end_date format. Use ISO format: YYYY-MM-DD"}
+    
+    # Find tasks to check
+    tasks_to_check = []
+    
+    if task_id:
+        # Single task
+        task_info = clickup_api_request("GET", f"task/{task_id}")
+        if "error" not in task_info:
+            tasks_to_check.append({
+                "id": task_id,
+                "name": task_info.get("name", "Unknown"),
+                "list": task_info.get("list", {}).get("name", ""),
+                "space": task_info.get("space", {}).get("name", "")
+            })
+    elif list_id:
+        # All tasks in list
+        tasks_resp = clickup_api_request("GET", f"list/{list_id}/task?include_closed=true")
+        if "error" not in tasks_resp:
+            for task in tasks_resp.get("tasks", []):
+                tasks_to_check.append({
+                    "id": task["id"],
+                    "name": task.get("name", "Unknown"),
+                    "list": task.get("list", {}).get("name", ""),
+                    "space": task.get("space", {}).get("name", "")
+                })
+    elif space_id:
+        # All tasks in space
+        lists_resp = clickup_api_request("GET", f"space/{space_id}/list")
+        if "error" not in lists_resp:
+            for lst in lists_resp.get("lists", []):
+                tasks_resp = clickup_api_request("GET", f"list/{lst['id']}/task?include_closed=true")
+                if "error" not in tasks_resp:
+                    for task in tasks_resp.get("tasks", []):
+                        tasks_to_check.append({
+                            "id": task["id"],
+                            "name": task.get("name", "Unknown"),
+                            "list": lst["name"],
+                            "space": space_id
+                        })
+    elif project_name:
+        # Search for project by name
+        teams = clickup_api_request("GET", "team")
+        if "error" in teams:
+            return teams
+        
+        project_name_lower = project_name.lower()
+        
+        for team in teams.get("teams", []):
+            spaces_resp = clickup_api_request("GET", f"team/{team['id']}/space")
+            if "error" not in spaces_resp:
+                for space in spaces_resp.get("spaces", []):
+                    if project_name_lower in space["name"].lower():
+                        # Found matching space
+                        lists_resp = clickup_api_request("GET", f"space/{space['id']}/list")
+                        if "error" not in lists_resp:
+                            for lst in lists_resp.get("lists", []):
+                                tasks_resp = clickup_api_request("GET", f"list/{lst['id']}/task?include_closed=true")
+                                if "error" not in tasks_resp:
+                                    for task in tasks_resp.get("tasks", []):
+                                        tasks_to_check.append({
+                                            "id": task["id"],
+                                            "name": task.get("name", "Unknown"),
+                                            "list": lst["name"],
+                                            "space": space["name"]
+                                        })
+    
+    if not tasks_to_check:
+        return {"error": "No tasks found. Provide task_id, list_id, space_id, or project_name."}
+    
+    # Get time entries for each task
+    time_by_task = defaultdict(lambda: {"total_ms": 0, "entries": []})
+    total_time_ms = 0
+    
+    for task_info in tasks_to_check:
+        task_id = task_info["id"]
+        
+        time_resp = clickup_api_request("GET", f"task/{task_id}/time")
+        if "error" in time_resp:
+            continue
+        
+        for user_data in time_resp.get("data", []):
+            user = user_data.get("user", {})
+            username = user.get("username", "Unknown")
+            
+            for interval in user_data.get("intervals", []):
+                start_ts_interval = interval.get("start")
+                if not start_ts_interval:
+                    continue
+                
+                start_ts_interval_int = int(start_ts_interval)
+                duration_ms = int(interval.get("time", 0))
+                
+                # Filter by date range if provided
+                if start_ts and start_ts_interval_int < start_ts:
+                    continue
+                if end_ts and start_ts_interval_int > end_ts:
+                    continue
+                
+                start_dt = datetime.fromtimestamp(start_ts_interval_int / 1000)
+                duration_hours = duration_ms / 1000 / 3600
+                
+                time_by_task[task_info["name"]]["total_ms"] += duration_ms
+                time_by_task[task_info["name"]]["list"] = task_info.get("list", "")
+                time_by_task[task_info["name"]]["space"] = task_info.get("space", "")
+                time_by_task[task_info["name"]]["entries"].append({
+                    "date": start_dt.strftime("%Y-%m-%d"),
+                    "time": start_dt.strftime("%H:%M"),
+                    "duration_hours": round(duration_hours, 2),
+                    "user": username,
+                })
+                
+                total_time_ms += duration_ms
+    
+    total_hours = total_time_ms / 1000 / 3600
+    
+    return {
+        "total_hours": round(total_hours, 2),
+        "total_entries": sum(len(data["entries"]) for data in time_by_task.values()),
+        "tasks_count": len(time_by_task),
+        "date_range": {
+            "start": start_date,
+            "end": end_date
+        },
+        "breakdown_by_task": {
+            task_name: {
+                "total_hours": round(data["total_ms"] / 1000 / 3600, 2),
+                "entries_count": len(data["entries"]),
+                "list": data.get("list", ""),
+                "space": data.get("space", ""),
+                "entries": data["entries"]
+            }
+            for task_name, data in time_by_task.items()
+        }
+    }
+
+
+# ============================================================================
+# Google Doc Integration Tools
+# ============================================================================
+
+def google_doc_to_clickup_tasks(
+    google_doc_id: str,
+    list_id: str,
+    assignee_ids: Optional[List[int]] = None,
+    assignee_names: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """
+    Extract action items from a Google Doc and create ClickUp tasks.
+    
+    Args:
+        google_doc_id: Google Doc ID from URL (e.g., "1z2E19fRqlmnDEI8LUDoAmljSj13Lndl9A6_hYiCFiRo")
+        list_id: ClickUp list ID to create tasks in (required)
+        assignee_ids: Optional - user IDs to assign tasks to
+        assignee_names: Optional - names for display
+    
+    Returns summary of created tasks.
+    """
+    import sys
+    from pathlib import Path
+    
+    # Try to import Google auth
+    try:
+        SERVICES_ROOT = Path(__file__).parent.parent
+        sys.path.insert(0, str(SERVICES_ROOT))
+        from google_auth import get_google_auth
+        
+        auth = get_google_auth()
+        if not auth.is_authenticated:
+            return {"error": "Not authenticated with Google. Run: python3 -m services.google_auth"}
+        
+        creds = auth.credentials
+        
+        # Use Drive API to export document as plain text
+        from googleapiclient.discovery import build
+        
+        drive_service = build('drive', 'v3', credentials=creds)
+        
+        # Get file metadata
+        file_metadata = drive_service.files().get(fileId=google_doc_id, fields='name,mimeType').execute()
+        doc_name = file_metadata.get('name', 'Untitled')
+        
+        # Export as plain text
+        request = drive_service.files().export_media(fileId=google_doc_id, mimeType='text/plain')
+        doc_text = request.execute().decode('utf-8')
+        
+        # Parse action items (simple format - each non-empty line is an action item)
+        action_items = []
+        lines = doc_text.split('\n')
+        
+        skip_phrases = ['next steps', 'action items', 'action iitems', 'todo list', 'tasks']
+        
+        for line in lines:
+            line_stripped = line.strip()
+            
+            if not line_stripped or len(line_stripped) < 15:
+                continue
+            
+            if any(phrase in line_stripped.lower() for phrase in skip_phrases):
+                continue
+            
+            action_items.append(line_stripped)
+        
+        # Remove duplicates
+        seen = set()
+        unique_items = []
+        for item in action_items:
+            normalized = item.lower().strip()
+            if normalized not in seen:
+                seen.add(normalized)
+                unique_items.append(item)
+        
+        action_items = unique_items
+        
+        if not action_items:
+            return {"error": "No action items found in document", "doc_name": doc_name, "preview": doc_text[:500]}
+        
+        # Create ClickUp tasks
+        created_tasks = []
+        failed_tasks = []
+        
+        for action_item in action_items:
+            task_data = {
+                "name": action_item,
+                "markdown_description": f"**Source:** [Google Doc - {doc_name}](https://docs.google.com/document/d/{google_doc_id}/edit)\n\nAuto-created from action items list.",
+                "priority": 3,
+                "tags": ["google-doc", "action-item"]
+            }
+            
+            if assignee_ids:
+                task_data["assignees"] = assignee_ids
+            
+            result = clickup_api_request("POST", f"list/{list_id}/task", task_data)
+            
+            if "error" not in result and "id" in result:
+                created_tasks.append({
+                    "name": action_item,
+                    "id": result.get("id"),
+                    "url": result.get("url", f"https://app.clickup.com/t/{result.get('id')}")
+                })
+            else:
+                failed_tasks.append({
+                    "name": action_item,
+                    "error": result.get("error", "Unknown error")
+                })
+        
+        return {
+            "success": len(created_tasks) > 0,
+            "doc_name": doc_name,
+            "doc_url": f"https://docs.google.com/document/d/{google_doc_id}/edit",
+            "action_items_found": len(action_items),
+            "created_count": len(created_tasks),
+            "failed_count": len(failed_tasks),
+            "assignees": assignee_names or ([f"User {uid}" for uid in assignee_ids] if assignee_ids else None),
+            "created_tasks": created_tasks,
+            "failed_tasks": failed_tasks if failed_tasks else None
+        }
+        
+    except ImportError:
+        return {"error": "Google API libraries not installed. Run: pip install google-api-python-client google-auth-oauthlib"}
+    except Exception as e:
+        return {"error": f"Error processing Google Doc: {str(e)}"}
+
+
+# Register new tools
+CLICKUP_ENHANCED_TOOLS.extend([
+    {
+        "name": "clickup_assign_tasks",
+        "description": "Assign multiple ClickUp tasks to users. Use clickup_find_assignees_by_name first to get user IDs.",
+        "function": clickup_assign_tasks,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "task_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of task IDs to assign (required)"
+                },
+                "assignee_ids": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "List of user IDs to assign tasks to (required)"
+                },
+                "assignee_names": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional list of names for display"
+                }
+            },
+            "required": ["task_ids", "assignee_ids"]
+        }
+    },
+    {
+        "name": "clickup_find_assignees_by_name",
+        "description": "Find ClickUp user IDs by name. Use this before clickup_assign_tasks to get user IDs.",
+        "function": clickup_find_assignees_by_name,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "names": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of names to search for (e.g., ['Steve', 'Muhammad'])"
+                }
+            },
+            "required": ["names"]
+        }
+    },
+    {
+        "name": "clickup_get_time_entries",
+        "description": "Get time tracking entries from ClickUp. Can filter by task, list, space, project name, or date range.",
+        "function": clickup_get_time_entries,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "Optional - get time for specific task"},
+                "list_id": {"type": "string", "description": "Optional - get time for all tasks in list"},
+                "space_id": {"type": "string", "description": "Optional - get time for all tasks in space"},
+                "start_date": {"type": "string", "description": "Optional - filter by start date (ISO: YYYY-MM-DD)"},
+                "end_date": {"type": "string", "description": "Optional - filter by end date (ISO: YYYY-MM-DD)"},
+                "project_name": {"type": "string", "description": "Optional - search for space/list by name (e.g., 'Phytto')"}
+            }
+        }
+    },
+    {
+        "name": "google_doc_to_clickup_tasks",
+        "description": "Extract action items from a Google Doc and create ClickUp tasks. Requires Google authentication.",
+        "function": google_doc_to_clickup_tasks,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "google_doc_id": {
+                    "type": "string",
+                    "description": "Google Doc ID from URL (e.g., '1z2E19fRqlmnDEI8LUDoAmljSj13Lndl9A6_hYiCFiRo')"
+                },
+                "list_id": {
+                    "type": "string",
+                    "description": "ClickUp list ID to create tasks in (required)"
+                },
+                "assignee_ids": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "Optional - user IDs to assign tasks to"
+                },
+                "assignee_names": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional - names for display"
+                }
+            },
+            "required": ["google_doc_id", "list_id"]
+        },
+        "requires_confirmation": True
+    },
+])

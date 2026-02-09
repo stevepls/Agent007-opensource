@@ -235,79 +235,90 @@ def create_orchestrator_crew(verbose: bool = True) -> Crew:
 
 
 # ============================================================================
-# Event Listener for Progress Tracking
+# Event Listener for Progress Tracking (thread-local, registered once)
 # ============================================================================
 
-class ProgressEventListener:
-    """Listens to CrewAI events and pushes progress to a ProgressTracker."""
+_listeners_registered = False
 
-    def __init__(self, tracker: ProgressTracker):
-        self.tracker = tracker
-        self._setup_listeners()
 
-    def _setup_listeners(self):
-        tracker = self.tracker
+def setup_progress_listeners():
+    """Register CrewAI event-bus listeners once at module level.
 
-        @crewai_event_bus.on(ToolUsageStartedEvent)
-        def on_tool_start(source, event: ToolUsageStartedEvent):
-            if tracker and not tracker.is_cancelled:
-                tracker.emit(
-                    event_type="tool_start",
-                    agent=event.agent_role or "",
-                    tool=event.tool_name or "",
-                    message=f"Using {event.tool_name}...",
-                )
-            if tracker and tracker.is_cancelled:
-                raise InterruptedError("Task cancelled by user")
+    Handlers use thread-local storage to find the ProgressTracker for the
+    current worker thread, enabling safe concurrent crew execution.
+    """
+    global _listeners_registered
+    if _listeners_registered:
+        return
+    _listeners_registered = True
 
-        @crewai_event_bus.on(ToolUsageFinishedEvent)
-        def on_tool_done(source, event: ToolUsageFinishedEvent):
-            if tracker and not tracker.is_cancelled:
-                output_preview = str(event.output)[:200] if event.output else ""
-                # Extract cache source from tool output
-                cache_source = ""
-                try:
-                    if event.output:
-                        output_data = json.loads(str(event.output)) if isinstance(event.output, str) else event.output
-                        if isinstance(output_data, dict) and "_cache_meta" in output_data:
-                            cache_source = output_data["_cache_meta"].get("source", "")
-                except (json.JSONDecodeError, TypeError, AttributeError):
-                    pass
-                tracker.emit(
-                    event_type="tool_done",
-                    agent=event.agent_role or "",
-                    tool=event.tool_name or "",
-                    output=output_preview,
-                    message=f"{event.tool_name} complete",
-                    cache_source=cache_source,
-                )
+    from services.task_queue import get_current_tracker
 
-        @crewai_event_bus.on(AgentReasoningStartedEvent)
-        def on_reasoning(source, event: AgentReasoningStartedEvent):
-            if tracker and not tracker.is_cancelled:
-                tracker.emit(
-                    event_type="thinking",
-                    agent=event.agent_role or "",
-                    message=f"Thinking (attempt {event.attempt})...",
-                )
-            if tracker and tracker.is_cancelled:
-                raise InterruptedError("Task cancelled by user")
+    @crewai_event_bus.on(ToolUsageStartedEvent)
+    def on_tool_start(source, event: ToolUsageStartedEvent):
+        tracker = get_current_tracker()
+        if tracker and not tracker.is_cancelled:
+            tracker.emit(
+                event_type="tool_start",
+                agent=event.agent_role or "",
+                tool=event.tool_name or "",
+                message=f"Using {event.tool_name}...",
+            )
+        if tracker and tracker.is_cancelled:
+            raise InterruptedError("Task cancelled by user")
 
-        @crewai_event_bus.on(TaskStartedEvent)
-        def on_task_start(source, event: TaskStartedEvent):
-            if tracker and not tracker.is_cancelled:
-                tracker.emit(
-                    event_type="task_start",
-                    message=f"Starting task: {event.task_name or 'processing'}",
-                )
+    @crewai_event_bus.on(ToolUsageFinishedEvent)
+    def on_tool_done(source, event: ToolUsageFinishedEvent):
+        tracker = get_current_tracker()
+        if tracker and not tracker.is_cancelled:
+            output_preview = str(event.output)[:200] if event.output else ""
+            # Extract cache source from tool output
+            cache_source = ""
+            try:
+                if event.output:
+                    output_data = json.loads(str(event.output)) if isinstance(event.output, str) else event.output
+                    if isinstance(output_data, dict) and "_cache_meta" in output_data:
+                        cache_source = output_data["_cache_meta"].get("source", "")
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                pass
+            tracker.emit(
+                event_type="tool_done",
+                agent=event.agent_role or "",
+                tool=event.tool_name or "",
+                output=output_preview,
+                message=f"{event.tool_name} complete",
+                cache_source=cache_source,
+            )
 
-        @crewai_event_bus.on(TaskCompletedEvent)
-        def on_task_done(source, event: TaskCompletedEvent):
-            if tracker and not tracker.is_cancelled:
-                tracker.emit(
-                    event_type="task_done",
-                    message=f"Task complete: {event.task_name or 'done'}",
-                )
+    @crewai_event_bus.on(AgentReasoningStartedEvent)
+    def on_reasoning(source, event: AgentReasoningStartedEvent):
+        tracker = get_current_tracker()
+        if tracker and not tracker.is_cancelled:
+            tracker.emit(
+                event_type="thinking",
+                agent=event.agent_role or "",
+                message=f"Thinking (attempt {event.attempt})...",
+            )
+        if tracker and tracker.is_cancelled:
+            raise InterruptedError("Task cancelled by user")
+
+    @crewai_event_bus.on(TaskStartedEvent)
+    def on_task_start(source, event: TaskStartedEvent):
+        tracker = get_current_tracker()
+        if tracker and not tracker.is_cancelled:
+            tracker.emit(
+                event_type="task_start",
+                message=f"Starting task: {event.task_name or 'processing'}",
+            )
+
+    @crewai_event_bus.on(TaskCompletedEvent)
+    def on_task_done(source, event: TaskCompletedEvent):
+        tracker = get_current_tracker()
+        if tracker and not tracker.is_cancelled:
+            tracker.emit(
+                event_type="task_done",
+                message=f"Task complete: {event.task_name or 'done'}",
+            )
 
 
 # ============================================================================
@@ -339,10 +350,10 @@ def run_orchestrator_task(
     logger = get_audit_logger()
     cost_tracker = get_cost_tracker()
 
-    # Set up event listener for progress tracking
-    listener = None
-    if progress_tracker:
-        listener = ProgressEventListener(tracker=progress_tracker)
+    # Ensure event-bus listeners are registered (once), and set thread-local tracker
+    setup_progress_listeners()
+    from services.task_queue import set_current_tracker
+    set_current_tracker(progress_tracker)
 
     # Log task start
     logger.log(AuditEvent(
@@ -425,5 +436,6 @@ def run_orchestrator_task(
             "needs_approval": False,
         }
     finally:
+        set_current_tracker(None)
         if progress_tracker:
             progress_tracker.finish()

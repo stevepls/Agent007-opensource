@@ -35,7 +35,7 @@ def get_llm(model: str = None) -> LLM:
     - claude-sonnet-4-20250514 (fast, great for most tasks)
     - claude-3-5-sonnet-20241022 (previous generation)
     """
-    model = model or os.getenv("DEFAULT_MODEL", "claude-opus-4-20250514")
+    model = model or os.getenv("DEFAULT_MODEL", "claude-sonnet-4-20250514")
     
     # Determine provider from model name
     if "claude" in model.lower():

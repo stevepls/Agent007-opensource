@@ -204,6 +204,35 @@ class ToolCache:
         for target in targets:
             self.invalidate(target)
 
+    def get_all_for_tool(self, tool_name: str) -> List[Dict[str, Any]]:
+        """Return all non-expired cached results for a tool (any arguments)."""
+        results = []
+        prefix = f"{tool_name}:"
+        with self._lock:
+            expired_keys = []
+            for key, entry in self._cache.items():
+                if not key.startswith(prefix):
+                    continue
+                if entry.is_expired:
+                    expired_keys.append(key)
+                    continue
+                result = dict(entry.result)
+                result["_cache_meta"] = entry.freshness_meta()
+                results.append(result)
+            for k in expired_keys:
+                del self._cache[k]
+                self._evictions += 1
+        return results
+
+    def get_cached_tool_names(self) -> List[str]:
+        """Return names of all tools that currently have cached data."""
+        names = set()
+        with self._lock:
+            for key, entry in self._cache.items():
+                if not entry.is_expired:
+                    names.add(key.split(":")[0])
+        return sorted(names)
+
     def get_stats(self) -> Dict[str, Any]:
         total = self._hits + self._misses
         with self._lock:

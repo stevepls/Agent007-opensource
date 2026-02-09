@@ -1,0 +1,18 @@
+# Core dependencies
+pytz>=2024.1
+
+# Slack SDK
+slack-sdk>=3.27.0
+
+# LLM APIs
+anthropic>=0.18.0
+openai>=1.12.0
+
+# HTTP client for Hubstaff
+httpx>=0.27.0
+
+# Optional: For scheduling (if using APScheduler instead of cron)
+# apscheduler>=3.10.4
+
+# Optional: For better date parsing
+# python-dateutil>=2.8.2

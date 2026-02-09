@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>Team Check-in Message Approval</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 10px;
+            color: #333;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .user-info img {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+        }
+        
+        .user-info a {
+            color: #dc3545;
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+        
+        .user-info a:hover {
+            text-decoration: underline;
+        }
+        
+        h1 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            line-height: 1.3;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            min-height: 44px; /* iOS recommended tap target */
+            touch-action: manipulation; /* Prevent double-tap zoom */
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .messages {
+            display: grid;
+            gap: 20px;
+        }
+        
+        .message-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #007bff;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        
+        .message-card.morning {
+            border-left-color: #ffc107;
+        }
+        
+        .message-card.followup {
+            border-left-color: #17a2b8;
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .message-meta {
+            flex: 1;
+            min-width: 0; /* Allow flex item to shrink below content size */
+        }
+        
+        .member-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            word-break: break-word;
+        }
+        
+        .message-type {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .message-type.morning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .message-type.followup {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .message-time {
+            color: #6c757d;
+            font-size: 12px;
+        }
+        
+        .message-text {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            white-space: pre-wrap;
+            line-height: 1.6;
+            font-size: 14px;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+        }
+        
+        .message-context {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+        
+        .message-context strong {
+            color: #495057;
+        }
+        
+        .message-actions {
+            display: flex;
+            gap: 10px;
+            flex-direction: column;
+        }
+        
+        .message-actions button {
+            flex: 1;
+            width: 100%;
+            min-height: 48px; /* Larger tap target for mobile */
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+        
+        .empty-state h2 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-approved {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-rejected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-sent {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        select {
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            min-height: 44px; /* iOS recommended tap target */
+            width: 100%;
+            max-width: 200px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 35px;
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            body {
+                padding: 8px;
+            }
+            
+            header {
+                padding: 12px;
+            }
+            
+            h1 {
+                font-size: 18px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .controls button {
+                width: 100%;
+                min-height: 48px;
+            }
+            
+            select {
+                width: 100%;
+                max-width: 100%;
+            }
+            
+            .message-card {
+                padding: 12px;
+            }
+            
+            .member-name {
+                font-size: 16px;
+            }
+            
+            .message-text {
+                font-size: 14px;
+                padding: 10px;
+            }
+            
+            .message-actions {
+                gap: 8px;
+            }
+            
+            .message-actions button {
+                min-height: 48px;
+                font-size: 15px;
+            }
+            
+            .empty-state {
+                padding: 40px 15px;
+            }
+            
+            .empty-state h2 {
+                font-size: 18px;
+            }
+        }
+        
+        /* Small mobile devices */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 16px;
+            }
+            
+            .message-card {
+                padding: 10px;
+            }
+            
+            .message-text {
+                font-size: 13px;
+            }
+            
+            button {
+                font-size: 14px;
+                padding: 10px 14px;
+            }
+        }
+        
+        /* Landscape mobile */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .controls {
+                flex-direction: row;
+            }
+            
+            .controls button {
+                flex: 1;
+                min-width: 0;
+            }
+        }
+        
+        /* Prevent text selection on buttons (better UX) */
+        button, select {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        
+        /* Improve touch feedback */
+        button:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <h1>📨 Team Check-in Message Approval</h1>
+                <div class="user-info" id="userInfo"></div>
+            </div>
+            <div class="controls">
+                <button class="btn-primary" onclick="refreshMessages()">🔄 Refresh</button>
+                <button class="btn-secondary" onclick="triggerFollowup()">📤 Trigger Follow-up</button>
+                <button class="btn-secondary" onclick="triggerMorning()">🌅 Trigger Morning Check-in</button>
+                <select id="memberFilter" onchange="refreshMessages()">
+                    <option value="">All Members</option>
+                </select>
+            </div>
+        </header>
+        
+        <div id="messages" class="messages">
+            <div class="loading">Loading messages...</div>
+        </div>
+    </div>
+    
+    <script>
+        // Auto-detect API base URL (works for localhost and Railway)
+        function getApiBase() {
+            // If running on Railway or production, use current origin
+            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                return `${window.location.origin}/team-checkin`;
+            }
+            // For localhost, use the default port
+            return 'http://localhost:8502/team-checkin';
+        }
+        
+        const API_BASE = getApiBase();
+        
+        let members = [];
+        
+        async function loadMembers() {
+            try {
+                const response = await fetch(`${API_BASE}/members`);
+                members = await response.json();
+                const filter = document.getElementById('memberFilter');
+                filter.innerHTML = '<option value="">All Members</option>';
+                members.forEach(m => {
+                    const option = document.createElement('option');
+                    option.value = m.name;
+                    option.textContent = m.name;
+                    filter.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading members:', error);
+            }
+        }
+        
+        async function refreshMessages() {
+            const container = document.getElementById('messages');
+            container.innerHTML = '<div class="loading">Loading messages...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/messages/pending`);
+                const messages = await response.json();
+                
+                const filter = document.getElementById('memberFilter').value;
+                const filtered = Array.isArray(messages) ? (filter ? messages.filter(m => m.member_name === filter) : messages) : [];
+                
+                if (filtered.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <h2>✨ No pending messages</h2>
+                            <p>All caught up! Check back later or trigger a follow-up.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = filtered.map(msg => `
+                    <div class="message-card ${msg.message_type}">
+                        <div class="message-header">
+                            <div class="message-meta">
+                                <div class="member-name">${escapeHtml(msg.member_name)}</div>
+                                <div>
+                                    <span class="message-type ${msg.message_type}">${msg.message_type}</span>
+                                    <span class="status-badge status-pending">Pending</span>
+                                </div>
+                                <div class="message-time">Created: ${formatTime(msg.created_at)}</div>
+                            </div>
+                        </div>
+                        <div class="message-text">${escapeHtml(msg.message_text)}</div>
+                        ${msg.context && Object.keys(msg.context).length > 0 ? `
+                            <div class="message-context">
+                                ${Object.entries(msg.context).map(([key, value]) => 
+                                    `<strong>${key}:</strong> ${formatContextValue(value)}<br>`
+                                ).join('')}
+                            </div>
+                        ` : ''}
+                        <div class="message-actions">
+                            <button class="btn-success" onclick="approveMessage('${msg.id}')">✅ Approve & Send</button>
+                            <button class="btn-danger" onclick="rejectMessage('${msg.id}')">❌ Reject</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                container.innerHTML = `<div class="empty-state"><h2>❌ Error</h2><p>${error.message}</p></div>`;
+            }
+        }
+        
+        async function approveMessage(messageId) {
+            try {
+                const response = await fetch(`${API_BASE}/messages/${messageId}/approve`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Message approved and sent!');
+                    refreshMessages();
+                } else {
+                    alert('Error: ' + (result.error || 'Failed to approve message'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function rejectMessage(messageId) {
+            if (!confirm('Are you sure you want to reject this message?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/messages/${messageId}/reject`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Message rejected');
+                    refreshMessages();
+                } else {
+                    alert('Error: ' + (result.error || 'Failed to reject message'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function triggerFollowup() {
+            const memberName = document.getElementById('memberFilter').value || null;
+            
+            if (!confirm(`Trigger follow-up for ${memberName || 'all eligible members'}?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/trigger/followup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ member_name: memberName })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`Queued ${result.messages_queued} follow-up message(s)!`);
+                    refreshMessages();
+                } else {
+                    alert('Error: ' + (result.error || 'Failed to trigger follow-up'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function triggerMorning() {
+            if (!confirm('Trigger morning check-in for all team members?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/trigger/morning`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`Queued ${result.messages_queued} morning message(s)!`);
+                    refreshMessages();
+                } else {
+                    alert('Error: ' + (result.error || 'Failed to trigger morning check-in'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function formatTime(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString();
+        }
+        
+        function formatContextValue(value) {
+            if (Array.isArray(value)) {
+                return value.map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(', ');
+            }
+            if (typeof value === 'object') {
+                return JSON.stringify(value);
+            }
+            return value;
+        }
+        
+        // Load current user info
+        async function loadUserInfo() {
+            try {
+                const response = await fetch('/auth/me', { credentials: 'same-origin' });
+                if (response.ok) {
+                    const user = await response.json();
+                    const el = document.getElementById('userInfo');
+                    let html = '';
+                    if (user.picture) {
+                        html += `<img src="${escapeHtml(user.picture)}" alt="">`;
+                    }
+                    html += `<span>${escapeHtml(user.name || user.email)}</span>`;
+                    html += `<a href="/auth/logout">Sign out</a>`;
+                    el.innerHTML = html;
+                }
+            } catch (e) {
+                // Auth may not be enabled
+            }
+        }
+        
+        // Auto-refresh every 30 seconds
+        setInterval(refreshMessages, 30000);
+        
+        // Initial load
+        loadUserInfo();
+        loadMembers();
+        refreshMessages();
+    </script>
+</body>
+</html>

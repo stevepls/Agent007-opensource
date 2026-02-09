@@ -63,6 +63,7 @@ export default function Dashboard() {
 
   // Real-time activity tracking
   const [currentActivity, setCurrentActivity] = useState<string>("");
+  const [activityLog, setActivityLog] = useState<string[]>([]);
 
   // Track processed updates to prevent duplicates
   const processedUpdatesRef = useRef<Set<string>>(new Set());
@@ -120,12 +121,14 @@ export default function Dashboard() {
     lastDataLengthRef.current = data.length;
 
     for (const item of newEvents) {
-      const event = item as unknown as ProgressEvent;
+      // Data items from 2: protocol arrive as plain objects after SDK spreads them
+      const event: Record<string, any> = (Array.isArray(item) ? item[0] : item) as any;
       if (!event?.type) continue;
 
       switch (event.type) {
         case "tool_start":
           setCurrentActivity(`Using ${event.tool || "tool"}...`);
+          setActivityLog((prev) => [...prev.slice(-9), `🔧 Using ${event.tool || "tool"}...`]);
           if (event.agent) {
             setAgents((prev) =>
               prev.map((a) =>
@@ -138,9 +141,19 @@ export default function Dashboard() {
           break;
         case "tool_done":
           setCurrentActivity("");
+          setActivityLog((prev) => [...prev.slice(-9), `✅ ${event.tool || "tool"} complete`]);
+          // Auto-update status cards from tool results
+          if (event.status_card) {
+            const card = event.status_card as StatusCard;
+            setStatusCards((prev) => {
+              const filtered = prev.filter((c) => c.id !== card.id);
+              return [card, ...filtered];
+            });
+          }
           break;
         case "thinking":
           setCurrentActivity(event.message || "Thinking...");
+          setActivityLog((prev) => [...prev.slice(-9), `💭 ${event.message || "Thinking..."}`]);
           if (event.agent) {
             setAgents((prev) =>
               prev.map((a) =>
@@ -151,8 +164,12 @@ export default function Dashboard() {
             );
           }
           break;
+        case "task_start":
+          setActivityLog((prev) => [...prev.slice(-9), `▶ ${event.message || "Task started"}`]);
+          break;
         case "task_done":
           setCurrentActivity("");
+          setActivityLog((prev) => [...prev.slice(-9), `✅ ${event.message || "Task complete"}`]);
           setAgents((prev) =>
             prev.map((a) =>
               a.status === "busy" || a.status === "active"
@@ -160,6 +177,13 @@ export default function Dashboard() {
                 : a
             )
           );
+          break;
+        case "background_queued":
+          setCurrentActivity(`Queued: ${event.request || "task"}...`);
+          setActivityLog((prev) => [...prev.slice(-9), `📋 Task queued: ${event.request || ""}`]);
+          break;
+        case "background_update":
+          setActivityLog((prev) => [...prev.slice(-9), `📬 Update: ${event.request || ""} — ${event.status}`]);
           break;
       }
     }
@@ -169,6 +193,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isLoading) {
       setCurrentActivity("");
+      setActivityLog([]);
       // Reset all agents to idle when done
       setAgents((prev) =>
         prev.map((a) =>
@@ -495,6 +520,7 @@ export default function Dashboard() {
             isLoading={isLoading}
             error={error}
             currentActivity={currentActivity}
+            activityLog={activityLog}
           />
         </div>
 

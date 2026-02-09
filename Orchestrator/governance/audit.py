@@ -52,6 +52,7 @@ class AuditEvent:
     duration_ms: int = 0
     validation_result: Optional[Dict[str, Any]] = None
     policy_violations: List[str] = field(default_factory=list)
+    error: Optional[str] = None
     requires_approval: bool = False
     approved_by: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -104,6 +105,7 @@ class AuditEvent:
             duration_ms=self.duration_ms,
             validation_result=self.validation_result,
             policy_violations=self.policy_violations,
+            error=self.error,
             requires_approval=self.requires_approval,
             approved_by=self.approved_by,
             metadata=self.metadata,
