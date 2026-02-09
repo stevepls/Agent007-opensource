@@ -92,6 +92,7 @@ class BackgroundTaskQueue:
                     inst._trackers: Dict[str, ProgressTracker] = {}
                     inst._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="crew-bg")
                     inst._lock = threading.Lock()
+                    inst._on_idle_callback = None
                     cls._instance = inst
         return cls._instance
 
@@ -173,11 +174,37 @@ class BackgroundTaskQueue:
                 **counts,
             }
 
+    def set_on_idle(self, callback):
+        """Register a callback invoked when the queue becomes idle.
+
+        The callback is called (in a background thread) whenever a task
+        finishes and no queued/running tasks remain.  Signature::
+
+            callback() -> None
+        """
+        self._on_idle_callback = callback
+
+    def is_idle(self) -> bool:
+        """Return True if no tasks are queued or running."""
+        with self._lock:
+            return all(
+                t.status in ("completed", "failed")
+                for t in self._tasks.values()
+            )
+
     def shutdown(self):
         """Gracefully shut down the thread pool."""
         self._executor.shutdown(wait=False)
 
     # -- internal -----------------------------------------------------------
+
+    def _check_idle(self):
+        """If queue is now idle and a callback is registered, fire it."""
+        if self._on_idle_callback and self.is_idle():
+            try:
+                self._on_idle_callback()
+            except Exception as e:
+                print(f"[WARN] on_idle callback failed: {e}")
 
     def _run_task(self, task: BackgroundTask, tracker: ProgressTracker):
         """Execute a single task in a background thread."""
@@ -221,6 +248,7 @@ class BackgroundTaskQueue:
                 except _q.Empty:
                     break
             set_current_tracker(None)
+            self._check_idle()
 
 
 # ---------------------------------------------------------------------------

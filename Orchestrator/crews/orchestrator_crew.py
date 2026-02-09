@@ -152,7 +152,7 @@ CRITICAL RULES:
 5. If a tool fails, explain the error clearly
 
 TOOL CATEGORIES:
-- **Time Tracking**: harvest_log_time, harvest_get_time_entries, harvest_list_projects
+- **Time Tracking**: harvest_log_time, harvest_get_time_entries, harvest_list_projects, hubstaff_get_active_entries, hubstaff_get_time_entries, hubstaff_start_time, hubstaff_stop_time
 - **Task Management**: clickup_create_task, clickup_list_tasks, clickup_update_task, zendesk_list_tickets
 - **Communication**: gmail_search, slack_get_recent_messages, slack_search_messages
 - **Files**: docs_read_file, sheets_read_range, drive_list_files

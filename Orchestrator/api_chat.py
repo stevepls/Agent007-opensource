@@ -355,7 +355,7 @@ CREW_KEYWORDS = [
 # ── Domains that signal the orchestrator should use tools ─────────────
 TOOL_DOMAINS = [
     "email", "gmail", "unread", "inbox",
-    "harvest", "time entr", "time track", "hours", "timer", "log time", "log hours",
+    "harvest", "hubstaff", "time entr", "time track", "hours", "timer", "log time", "log hours",
     "clickup", "task", "ticket", "to do", "todo",
     "zendesk", "support ticket",
     "calendar", "meeting", "schedule", "event",

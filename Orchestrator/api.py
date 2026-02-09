@@ -75,6 +75,16 @@ async def lifespan(app: FastAPI):
     scheduler = get_prefetch_scheduler()
     scheduler.start()
 
+    # Register time-tracking agent as the queue idle handler
+    try:
+        from agents.time_tracker.agent import get_time_tracking_agent
+        task_queue = get_task_queue()
+        tt_agent = get_time_tracking_agent()
+        task_queue.set_on_idle(tt_agent.on_queue_idle)
+        print("[INFO] Time tracking agent registered as queue idle handler")
+    except Exception as e:
+        print(f"[WARN] Time tracking agent not available: {e}")
+
     # Clean up old messages from queue on startup
     try:
         from services.message_queue import get_message_queue

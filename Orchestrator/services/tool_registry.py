@@ -41,6 +41,7 @@ ORCHESTRATOR_WRITES = frozenset({
     "slack_post_message", "slack_reply_to_thread",
     "clickup_add_comment",
     "harvest_log_time",
+    "hubstaff_start_time", "hubstaff_stop_time",
     "memory_remember",
 })
 
@@ -88,6 +89,8 @@ class ToolRegistry:
         self._register_asana_tools()
         # Business Advisor
         self._register_advisor_tools()
+        # Hubstaff
+        self._register_hubstaff_tools()
     
     def register(
         self,
@@ -2296,6 +2299,146 @@ class ToolRegistry:
             print(f"[INFO] Loaded {len(ADVISOR_TOOLS)} Business Advisor tools")
         except ImportError as e:
             print(f"[WARN] Could not load Business Advisor tools: {e}")
+
+    # =========================================================================
+    # Hubstaff Tools
+    # =========================================================================
+
+    def _register_hubstaff_tools(self):
+        try:
+            from services.hubstaff.client import HubstaffClient
+
+            def _get_hubstaff_client() -> Optional[HubstaffClient]:
+                token = os.getenv("HUBSTAFF_API_TOKEN")
+                if not token:
+                    return None
+                org_id = os.getenv("HUBSTAFF_ORG_ID")
+                return HubstaffClient(api_token=token, org_id=int(org_id) if org_id else None)
+
+            def hubstaff_get_active_entries(user_id: Optional[int] = None) -> Dict[str, Any]:
+                """Get currently running Hubstaff time entries."""
+                client = _get_hubstaff_client()
+                if not client:
+                    return {"error": "Hubstaff not configured. Set HUBSTAFF_API_TOKEN."}
+                uid = user_id or int(os.getenv("HUBSTAFF_USER_ID", "0")) or None
+                entries = client.get_active_time_entries(user_id=uid)
+                return {
+                    "count": len(entries),
+                    "entries": [e.to_dict() for e in entries],
+                }
+
+            def hubstaff_get_time_entries(
+                user_id: Optional[int] = None,
+                start_date: Optional[str] = None,
+                end_date: Optional[str] = None,
+            ) -> Dict[str, Any]:
+                """Get Hubstaff time entries for a user and date range."""
+                client = _get_hubstaff_client()
+                if not client:
+                    return {"error": "Hubstaff not configured. Set HUBSTAFF_API_TOKEN."}
+                from datetime import date as date_cls
+                uid = user_id or int(os.getenv("HUBSTAFF_USER_ID", "0"))
+                if not uid:
+                    return {"error": "No user_id provided and HUBSTAFF_USER_ID not set."}
+                sd = date_cls.fromisoformat(start_date) if start_date else None
+                ed = date_cls.fromisoformat(end_date) if end_date else None
+                entries = client.get_user_time_entries(uid, start_date=sd, end_date=ed)
+                total_seconds = sum(e.tracked for e in entries)
+                return {
+                    "user_id": uid,
+                    "start_date": (sd or date_cls.today()).isoformat(),
+                    "end_date": (ed or date_cls.today()).isoformat(),
+                    "total_hours": round(total_seconds / 3600, 2),
+                    "count": len(entries),
+                    "entries": [e.to_dict() for e in entries],
+                }
+
+            def hubstaff_start_time(
+                project_id: Optional[int] = None,
+                note: Optional[str] = None,
+                user_id: Optional[int] = None,
+            ) -> Dict[str, Any]:
+                """Start a Hubstaff time entry."""
+                client = _get_hubstaff_client()
+                if not client:
+                    return {"error": "Hubstaff not configured. Set HUBSTAFF_API_TOKEN."}
+                uid = user_id or int(os.getenv("HUBSTAFF_USER_ID", "0"))
+                if not uid:
+                    return {"error": "No user_id provided and HUBSTAFF_USER_ID not set."}
+                entry = client.start_time_entry(user_id=uid, project_id=project_id, note=note)
+                if entry:
+                    return {"success": True, "entry": entry.to_dict()}
+                return {"success": False, "error": "Failed to start time entry"}
+
+            def hubstaff_stop_time(user_id: Optional[int] = None) -> Dict[str, Any]:
+                """Stop all active Hubstaff time entries for a user."""
+                client = _get_hubstaff_client()
+                if not client:
+                    return {"error": "Hubstaff not configured. Set HUBSTAFF_API_TOKEN."}
+                uid = user_id or int(os.getenv("HUBSTAFF_USER_ID", "0"))
+                if not uid:
+                    return {"error": "No user_id provided and HUBSTAFF_USER_ID not set."}
+                stopped = client.stop_user_active_entries(uid)
+                return {"success": True, "stopped_count": stopped}
+
+            self.register(
+                "hubstaff_get_active_entries",
+                "Get currently running Hubstaff time entries. Optionally filter by user ID.",
+                hubstaff_get_active_entries,
+                {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "integer", "description": "Hubstaff user ID. Defaults to HUBSTAFF_USER_ID env var."}
+                    }
+                },
+                category="hubstaff"
+            )
+
+            self.register(
+                "hubstaff_get_time_entries",
+                "Get Hubstaff time entries for a user over a date range. Returns total hours and entry details.",
+                hubstaff_get_time_entries,
+                {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "integer", "description": "Hubstaff user ID. Defaults to HUBSTAFF_USER_ID env var."},
+                        "start_date": {"type": "string", "description": "Start date in YYYY-MM-DD format. Defaults to today."},
+                        "end_date": {"type": "string", "description": "End date in YYYY-MM-DD format. Defaults to today."}
+                    }
+                },
+                category="hubstaff"
+            )
+
+            self.register(
+                "hubstaff_start_time",
+                "Start a Hubstaff time tracking entry for a user.",
+                hubstaff_start_time,
+                {
+                    "type": "object",
+                    "properties": {
+                        "project_id": {"type": "integer", "description": "Hubstaff project ID (optional)"},
+                        "note": {"type": "string", "description": "Note for the time entry"},
+                        "user_id": {"type": "integer", "description": "Hubstaff user ID. Defaults to HUBSTAFF_USER_ID env var."}
+                    }
+                },
+                category="hubstaff"
+            )
+
+            self.register(
+                "hubstaff_stop_time",
+                "Stop all active Hubstaff time entries for a user.",
+                hubstaff_stop_time,
+                {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "integer", "description": "Hubstaff user ID. Defaults to HUBSTAFF_USER_ID env var."}
+                    }
+                },
+                category="hubstaff"
+            )
+
+        except ImportError:
+            pass  # Hubstaff tools not available
 
 
 # ============================================================================
