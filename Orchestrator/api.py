@@ -405,8 +405,10 @@ async def cache_invalidate(tool_name: Optional[str] = Query(None, description="T
 async def list_tasks(status: Optional[str] = Query(None, description="Filter by status: queued, running, completed, failed")):
     """List all background tasks."""
     from services.task_queue import get_task_queue
-    tasks = get_task_queue().list_tasks(status=status)
-    return {"tasks": [t.to_dict() for t in tasks], "count": len(tasks)}
+    queue = get_task_queue()
+    tasks = queue.list_tasks(status=status)
+    queue_status = queue.get_status() if hasattr(queue, "get_status") else {}
+    return {"tasks": [t.to_dict() for t in tasks], "count": len(tasks), "status": queue_status}
 
 
 @app.get("/api/tasks/updates", tags=["Tasks"])

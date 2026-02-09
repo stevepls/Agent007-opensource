@@ -338,33 +338,40 @@ async def cancel_task(session_id: str):
     return {"success": False, "message": "No active task found for this session"}
 
 
-# ── Complex tasks that require CrewAI agents ─────────────────────────
+# ── Complex tasks that REQUIRE CrewAI agents (multi-step / batch) ─────
+# Only truly multi-step or batch operations that need agent orchestration.
+# Single-tool ops (create one task, generate timesheet) go to orchestrator.
 CREW_KEYWORDS = [
-    "create task", "create a task", "create new task",
-    "create ticket", "create a ticket", "create subtask",
-    "batch create", "create tasks",
-    "deploy", "build", "run dev", "dev task",
-    "pull request", "commit",
-    "update sheet", "write code", "fix bug", "implement", "refactor",
-    "create doc", "assign task", "bulk", "migrate", "generate report",
+    "batch create", "create tasks",  # plural = batch
+    "bulk", "migrate",
+    "deploy", "run dev", "dev task",
+    "write code", "fix bug", "implement", "refactor",
+    "pull request",
     "tasks from", "doc to clickup", "google doc to",
-    "create checklist", "create space", "create folder",
-    "update task",
+    "create checklist",
 ]
 
 # ── Domains that signal the orchestrator should use tools ─────────────
+# Orchestrator handles single-tool and multi-tool requests directly via
+# Claude API + native tool_use (up to 8 iterations).
 TOOL_DOMAINS = [
     "email", "gmail", "unread", "inbox",
-    "harvest", "hubstaff", "time entr", "time track", "hours", "timer", "log time", "log hours",
+    "harvest", "hubstaff", "time entr", "time track", "hours", "timer",
+    "log time", "log hours", "timesheet", "invoice",
     "clickup", "task", "ticket", "to do", "todo",
+    "create task", "create a task", "create ticket", "update task",
+    "create subtask", "assign task",
     "zendesk", "support ticket",
     "calendar", "meeting", "schedule", "event",
     "slack", "message", "channel",
     "notification", "notion", "airtable",
     "asana", "sync asana", "pull asana",
     "drive", "docs", "sheet", "spreadsheet", "file",
+    "create doc", "create space", "create folder",
+    "update sheet", "generate report",
     "remember", "recall", "memory",
-    "comment", "reply", "send", "draft",
+    "comment", "reply", "send", "draft", "commit",
+    "build",
 ]
 
 
@@ -374,10 +381,12 @@ def _classify_request(message: str, memory_context: str = "") -> str:
     - 'direct': simple chat, no tools needed
     - 'orchestrator': handle with Claude + native tool_use (most requests)
     - 'crew': complex multi-step tasks needing CrewAI agents
+
+    Priority: crew keywords (batch/multi-step) > tool domains (single ops) > direct.
     """
     msg = message.lower().strip()
 
-    # Complex/batch operations -> crew
+    # Complex/batch operations -> crew (checked first, but only for true multi-step)
     if any(kw in msg for kw in CREW_KEYWORDS):
         return "crew"
 

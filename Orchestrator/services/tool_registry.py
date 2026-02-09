@@ -43,6 +43,7 @@ ORCHESTRATOR_WRITES = frozenset({
     "harvest_log_time",
     "hubstaff_start_time", "hubstaff_stop_time",
     "asana_pull_to_clickup",
+    "generate_timesheet", "generate_draft_invoice",
     "memory_remember",
 })
 
@@ -2434,6 +2435,262 @@ class ToolRegistry:
                     "properties": {
                         "user_id": {"type": "integer", "description": "Hubstaff user ID. Defaults to HUBSTAFF_USER_ID env var."}
                     }
+                },
+                category="hubstaff"
+            )
+
+            # ── Timesheet Generator (Hubstaff → Google Sheets) ──
+
+            def generate_timesheet(
+                start_date: str,
+                end_date: str,
+                title: Optional[str] = None,
+            ) -> Dict[str, Any]:
+                """
+                Generate a timesheet Google Sheet from Hubstaff time data.
+                Pulls daily activity totals, groups by date/project, and writes
+                to a new spreadsheet with a summary total row.
+                """
+                from datetime import date as date_cls
+
+                # Parse dates
+                try:
+                    sd = date_cls.fromisoformat(start_date)
+                    ed = date_cls.fromisoformat(end_date)
+                except ValueError as e:
+                    return {"error": f"Invalid date format. Use YYYY-MM-DD. {e}"}
+
+                # Get Hubstaff entries
+                client = _get_hubstaff_client()
+                if not client:
+                    return {"error": "Hubstaff not configured. Set HUBSTAFF_API_TOKEN."}
+
+                uid = int(os.getenv("HUBSTAFF_USER_ID", "0"))
+                if not uid:
+                    return {"error": "HUBSTAFF_USER_ID not set."}
+
+                entries = client.get_user_time_entries(uid, start_date=sd, end_date=ed)
+                if not entries:
+                    return {"error": f"No time entries found for {start_date} to {end_date}."}
+
+                # Build project name lookup from mapping cache
+                project_names: Dict[int, str] = {}
+                try:
+                    cache_path = Path(__file__).parent.parent / "data" / "project_mapper" / "mapping_cache.json"
+                    if cache_path.exists():
+                        with open(cache_path) as f:
+                            cache_data = json.load(f)
+                        for proj in cache_data.get("hubstaff_projects", []):
+                            project_names[proj["id"]] = proj["name"]
+                except Exception:
+                    pass
+
+                # Build rows sorted by date then project
+                rows = []
+                total_hours = 0.0
+                for entry in sorted(entries, key=lambda e: (e.date, e.project_id or 0)):
+                    hours = round(entry.tracked / 3600, 2)
+                    total_hours += hours
+                    project = project_names.get(entry.project_id, f"Project {entry.project_id}")
+                    rows.append([entry.date, project, hours])
+
+                # Authenticate Google Sheets
+                try:
+                    from services.google_auth import get_google_auth
+                    auth = get_google_auth()
+                    if not auth.is_authenticated:
+                        return {"error": "Google not authenticated. Token may be expired."}
+                except Exception as e:
+                    return {"error": f"Google auth error: {e}"}
+
+                try:
+                    from services.sheets import get_sheets_client
+                    sheets_client = get_sheets_client()
+                    if not sheets_client.is_available:
+                        return {"error": "Google Sheets not configured. Install google-api-python-client."}
+                    sheets_client.authenticate(headless=True)
+                except Exception as e:
+                    return {"error": f"Google Sheets auth failed: {e}"}
+
+                # Create spreadsheet
+                sheet_title = title or f"Timesheet {start_date} to {end_date}"
+                spreadsheet = sheets_client.create_spreadsheet(sheet_title, ["Timesheet"])
+
+                # Write header + data + total row
+                header = ["Date", "Project", "Hours"]
+                all_rows = [header] + rows + [["", "TOTAL", round(total_hours, 2)]]
+                sheets_client.update_values(spreadsheet.id, "'Timesheet'!A1", all_rows)
+
+                return {
+                    "success": True,
+                    "spreadsheet_id": spreadsheet.id,
+                    "url": spreadsheet.url,
+                    "title": sheet_title,
+                    "period": f"{start_date} to {end_date}",
+                    "total_hours": round(total_hours, 2),
+                    "entry_count": len(rows),
+                }
+
+            self.register(
+                "generate_timesheet",
+                "Generate a timesheet Google Sheet from Hubstaff time tracking data. "
+                "Creates a new spreadsheet with Date, Project, and Hours columns plus a total row. "
+                "REQUIRES CONFIRMATION — creates a new Google Sheet.",
+                generate_timesheet,
+                {
+                    "type": "object",
+                    "properties": {
+                        "start_date": {"type": "string", "description": "Start date in YYYY-MM-DD format"},
+                        "end_date": {"type": "string", "description": "End date in YYYY-MM-DD format"},
+                        "title": {"type": "string", "description": "Custom spreadsheet title (optional, defaults to 'Timesheet {start} to {end}')"},
+                    },
+                    "required": ["start_date", "end_date"]
+                },
+                category="hubstaff"
+            )
+
+            # ── Draft Invoice Generator (Hubstaff → Google Sheets) ──
+
+            def generate_draft_invoice(
+                start_date: str,
+                end_date: str,
+                client_name: Optional[str] = None,
+                hourly_rate: Optional[float] = None,
+                title: Optional[str] = None,
+            ) -> Dict[str, Any]:
+                """
+                Generate a draft invoice Google Sheet from Hubstaff time data.
+                Groups hours by project, applies hourly rate, and formats as
+                a professional invoice with line items and totals.
+                """
+                from datetime import date as date_cls
+
+                try:
+                    sd = date_cls.fromisoformat(start_date)
+                    ed = date_cls.fromisoformat(end_date)
+                except ValueError as e:
+                    return {"error": f"Invalid date format. Use YYYY-MM-DD. {e}"}
+
+                rate = hourly_rate or float(os.getenv("DEFAULT_HOURLY_RATE", "150"))
+
+                # Get Hubstaff entries
+                client = _get_hubstaff_client()
+                if not client:
+                    return {"error": "Hubstaff not configured. Set HUBSTAFF_API_TOKEN."}
+
+                uid = int(os.getenv("HUBSTAFF_USER_ID", "0"))
+                if not uid:
+                    return {"error": "HUBSTAFF_USER_ID not set."}
+
+                entries = client.get_user_time_entries(uid, start_date=sd, end_date=ed)
+                if not entries:
+                    return {"error": f"No time entries found for {start_date} to {end_date}."}
+
+                # Build project name lookup
+                project_names: Dict[int, str] = {}
+                try:
+                    cache_path = Path(__file__).parent.parent / "data" / "project_mapper" / "mapping_cache.json"
+                    if cache_path.exists():
+                        with open(cache_path) as f:
+                            cache_data = json.load(f)
+                        for proj in cache_data.get("hubstaff_projects", []):
+                            project_names[proj["id"]] = proj["name"]
+                except Exception:
+                    pass
+
+                # Aggregate hours by project
+                project_hours: Dict[str, float] = {}
+                for entry in entries:
+                    pname = project_names.get(entry.project_id, f"Project {entry.project_id}")
+                    project_hours[pname] = project_hours.get(pname, 0) + entry.tracked / 3600
+
+                # Optionally filter to a single client/project
+                if client_name:
+                    cn_lower = client_name.lower()
+                    filtered = {k: v for k, v in project_hours.items() if cn_lower in k.lower()}
+                    if filtered:
+                        project_hours = filtered
+
+                # Authenticate Google Sheets
+                try:
+                    from services.google_auth import get_google_auth
+                    auth = get_google_auth()
+                    if not auth.is_authenticated:
+                        return {"error": "Google not authenticated. Token may be expired."}
+                except Exception as e:
+                    return {"error": f"Google auth error: {e}"}
+
+                try:
+                    from services.sheets import get_sheets_client
+                    sheets_client = get_sheets_client()
+                    if not sheets_client.is_available:
+                        return {"error": "Google Sheets not configured."}
+                    sheets_client.authenticate(headless=True)
+                except Exception as e:
+                    return {"error": f"Google Sheets auth failed: {e}"}
+
+                # Build invoice sheet
+                period_label = f"{sd.strftime('%b %d, %Y')} – {ed.strftime('%b %d, %Y')}"
+                inv_title = title or f"Invoice — {period_label}"
+
+                spreadsheet = sheets_client.create_spreadsheet(inv_title, ["Invoice"])
+
+                # Header rows
+                rows = [
+                    ["INVOICE"],
+                    [""],
+                    ["Period:", period_label],
+                    ["Date:", datetime.now().strftime("%B %d, %Y")],
+                    [""],
+                    ["Project", "Hours", "Rate ($/hr)", "Amount ($)"],
+                ]
+
+                # Line items
+                subtotal = 0.0
+                for project, hours in sorted(project_hours.items()):
+                    h = round(hours, 2)
+                    amount = round(h * rate, 2)
+                    subtotal += amount
+                    rows.append([project, h, rate, amount])
+
+                # Totals
+                rows.append([""])
+                rows.append(["", "", "Subtotal", round(subtotal, 2)])
+                rows.append(["", "", "TOTAL", round(subtotal, 2)])
+
+                sheets_client.update_values(spreadsheet.id, "'Invoice'!A1", rows)
+
+                total_hours = round(sum(project_hours.values()), 2)
+
+                return {
+                    "success": True,
+                    "spreadsheet_id": spreadsheet.id,
+                    "url": spreadsheet.url,
+                    "title": inv_title,
+                    "period": period_label,
+                    "total_hours": total_hours,
+                    "hourly_rate": rate,
+                    "subtotal": round(subtotal, 2),
+                    "line_items": len(project_hours),
+                }
+
+            self.register(
+                "generate_draft_invoice",
+                "Generate a draft invoice Google Sheet from Hubstaff time data. "
+                "Groups hours by project, applies hourly rate, and creates a "
+                "professional invoice with line items and totals. "
+                "REQUIRES CONFIRMATION — creates a new Google Sheet.",
+                generate_draft_invoice,
+                {
+                    "type": "object",
+                    "properties": {
+                        "start_date": {"type": "string", "description": "Start date in YYYY-MM-DD format"},
+                        "end_date": {"type": "string", "description": "End date in YYYY-MM-DD format"},
+                        "client_name": {"type": "string", "description": "Filter to a specific client/project name (optional)"},
+                        "hourly_rate": {"type": "number", "description": "Hourly rate in USD (defaults to DEFAULT_HOURLY_RATE env var or $150)"},
+                        "title": {"type": "string", "description": "Custom invoice title (optional)"},
+                    },
+                    "required": ["start_date", "end_date"]
                 },
                 category="hubstaff"
             )

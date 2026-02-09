@@ -10,6 +10,7 @@ import { AgentList } from "@/components/AgentList";
 import { ChatMessages } from "@/components/ChatMessages";
 import { ChatInput, type Attachment } from "@/components/ChatInput";
 import { DynamicStatusCards } from "@/components/DynamicStatusCards";
+import { TaskQueue } from "@/components/TaskQueue";
 import { DynamicApproveDialog } from "@/components/DynamicApproveDialog";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -550,7 +551,8 @@ export default function Dashboard() {
             Live Status
           </h2>
         </div>
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          <TaskQueue />
           <DynamicStatusCards
             cards={statusCards}
             onAction={handleQuickAction}

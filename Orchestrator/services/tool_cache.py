@@ -91,6 +91,7 @@ WRITE_TOOLS = frozenset({
     "memory_remember",
     "run_dev_task",
     "asana_pull_to_clickup",
+    "generate_timesheet", "generate_draft_invoice",
 })
 
 # After a write succeeds, invalidate these read caches
