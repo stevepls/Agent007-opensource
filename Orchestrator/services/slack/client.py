@@ -75,6 +75,11 @@ SLACK_BOT_TOKEN = _TOKENS['bot_token']
 SLACK_USER_TOKEN = _TOKENS['user_token']
 SLACK_APP_TOKEN = _TOKENS['app_token']
 
+if SLACK_USER_TOKEN and SLACK_USER_TOKEN.startswith('xoxp-'):
+    print(f"[INFO] Slack user token loaded (xoxp-...{SLACK_USER_TOKEN[-6:]})")
+elif SLACK_BOT_TOKEN:
+    print("[WARN] Slack: bot token only — DM history will not be available")
+
 # Minimum delay for Slack messages (seconds)
 SLACK_MIN_DELAY = 120  # 2 minutes
 

@@ -154,7 +154,7 @@ CRITICAL RULES:
 TOOL CATEGORIES:
 - **Time Tracking**: harvest_log_time, harvest_get_time_entries, harvest_list_projects, hubstaff_get_active_entries, hubstaff_get_time_entries, hubstaff_start_time, hubstaff_stop_time, generate_timesheet, generate_draft_invoice
 - **Task Management**: clickup_create_task, clickup_list_tasks, clickup_update_task, zendesk_list_tickets
-- **Communication**: gmail_search, slack_get_recent_messages, slack_search_messages
+- **Communication**: gmail_search, slack_get_recent_messages, slack_search_messages, slack_get_dm_history, slack_list_dms
 - **Files & Reports**: docs_read_file, sheets_read_range, sheets_create, drive_list_files
 - **Asana**: asana_list_my_tasks, asana_pull_to_clickup
 - **Development**: run_dev_task (for code changes)
@@ -176,6 +176,8 @@ When user asks:
 - "Log time" → Use harvest_log_time
 - "Show my tasks" → Use clickup_list_tasks
 - "Check email" → Use gmail_search
+- "Show my DMs with X" / "What did X say?" → Use slack_get_dm_history with user_name
+- "Who have I DM'd?" → Use slack_list_dms
 - "Create a task" → Use clickup_create_task
 - "What did I work on?" → Use harvest_get_time_entries
 - "Show my Asana tasks" → Use asana_list_my_tasks
