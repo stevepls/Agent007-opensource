@@ -143,18 +143,37 @@ class TeamDetector:
         self.user_mapping = self._load_user_mapping()
     
     def _load_user_mapping(self) -> Dict[str, Dict[str, Any]]:
-        """Load user mapping from ClickUp IDs to other services."""
-        if not self.mapping_path.exists():
-            self.logger.info(f"User mapping file not found at {self.mapping_path}. Creating example.")
-            self._create_example_mapping()
-            return {}
+        """Load user mapping from ClickUp IDs to other services.
         
-        try:
-            with open(self.mapping_path, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            self.logger.error(f"Error loading user mapping: {e}")
-            return {}
+        Sources (checked in order):
+        1. USER_MAPPING_JSON env var (JSON string — for Railway / production)
+        2. Local file at self.mapping_path (for local development)
+        3. Empty dict (creates example file for reference)
+        """
+        # 1. Prefer env var (avoids committing PII to git)
+        env_mapping = os.getenv("USER_MAPPING_JSON", "")
+        if env_mapping:
+            try:
+                data = json.loads(env_mapping)
+                self.logger.info(f"📋 Loaded user mapping from USER_MAPPING_JSON env var ({len(data)} entries)")
+                return data
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Invalid USER_MAPPING_JSON env var: {e}")
+
+        # 2. Fall back to local file
+        if self.mapping_path.exists():
+            try:
+                with open(self.mapping_path, 'r') as f:
+                    data = json.load(f)
+                self.logger.info(f"📋 Loaded user mapping from {self.mapping_path} ({len(data)} entries)")
+                return data
+            except Exception as e:
+                self.logger.error(f"Error loading user mapping: {e}")
+
+        # 3. No mapping found — create example for reference
+        self.logger.info(f"User mapping not found. Set USER_MAPPING_JSON env var or create {self.mapping_path}")
+        self._create_example_mapping()
+        return {}
     
     def _create_example_mapping(self):
         """Create example user mapping file."""
