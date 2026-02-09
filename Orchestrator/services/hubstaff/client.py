@@ -53,35 +53,99 @@ class Project:
 
 
 class HubstaffClient:
-    """Client for Hubstaff V2 API."""
+    """Client for Hubstaff V2 API with auto-refresh for PAT tokens."""
     
     BASE_URL = "https://api.hubstaff.com/v2"
+    TOKEN_ENDPOINT = "https://account.hubstaff.com/access_tokens"
     
     def __init__(self, api_token: Optional[str] = None, org_id: Optional[int] = None):
         """
         Initialize Hubstaff client.
         
+        Supports two auth modes:
+        1. Access token (HUBSTAFF_ACCESS_TOKEN) — used directly, auto-refreshed on 401
+        2. Refresh token (HUBSTAFF_API_TOKEN) — exchanged for access token on first use
+        
         Args:
-            api_token: Hubstaff API token (or from HUBSTAFF_API_TOKEN env var)
+            api_token: Hubstaff refresh token (or from HUBSTAFF_API_TOKEN env var)
             org_id: Organization ID (or from HUBSTAFF_ORG_ID env var)
         """
-        self.api_token = api_token or os.getenv('HUBSTAFF_API_TOKEN')
-        if not self.api_token:
+        self._refresh_token = api_token or os.getenv('HUBSTAFF_API_TOKEN')
+        if not self._refresh_token:
             raise ValueError("HUBSTAFF_API_TOKEN must be set")
         
+        self._access_token = os.getenv('HUBSTAFF_ACCESS_TOKEN', '')
         self.org_id = org_id or os.getenv('HUBSTAFF_ORG_ID')
-        self.headers = {
-            "Authorization": f"Bearer {self.api_token}",
+        
+        # If no access token, exchange the refresh token
+        if not self._access_token:
+            self._refresh_access_token()
+    
+    @property
+    def headers(self) -> Dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self._access_token}",
             "Content-Type": "application/json"
         }
     
+    def _refresh_access_token(self) -> bool:
+        """Exchange refresh token for a new access token."""
+        try:
+            with httpx.Client(timeout=15.0) as client:
+                r = client.post(
+                    self.TOKEN_ENDPOINT,
+                    data={"grant_type": "refresh_token", "refresh_token": self._refresh_token},
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+                if r.status_code == 200:
+                    data = r.json()
+                    self._access_token = data["access_token"]
+                    new_refresh = data.get("refresh_token", "")
+                    if new_refresh:
+                        self._refresh_token = new_refresh
+                        # Update .env with new tokens
+                        self._save_tokens(self._access_token, new_refresh)
+                    return True
+                else:
+                    print(f"Hubstaff token refresh failed: {r.status_code} {r.text[:200]}")
+                    return False
+        except Exception as e:
+            print(f"Hubstaff token refresh error: {e}")
+            return False
+    
+    def _save_tokens(self, access_token: str, refresh_token: str):
+        """Save refreshed tokens to .env for persistence."""
+        try:
+            from pathlib import Path
+            env_path = Path(__file__).parent.parent.parent / ".env"
+            if not env_path.exists():
+                return
+            content = env_path.read_text()
+            # Update access token
+            if 'HUBSTAFF_ACCESS_TOKEN=' in content:
+                import re
+                content = re.sub(r'HUBSTAFF_ACCESS_TOKEN=.*', f'HUBSTAFF_ACCESS_TOKEN={access_token}', content)
+            # Update refresh token
+            if 'HUBSTAFF_API_TOKEN=' in content:
+                import re
+                content = re.sub(r'HUBSTAFF_API_TOKEN=.*', f'HUBSTAFF_API_TOKEN={refresh_token}', content)
+            env_path.write_text(content)
+        except Exception:
+            pass  # Non-critical, tokens still work in memory
+    
     def _request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
-        """Make API request with error handling."""
+        """Make API request with auto-refresh on 401 and redirect following."""
         url = f"{self.BASE_URL}/{endpoint.lstrip('/')}"
         
         try:
-            with httpx.Client(timeout=30.0) as client:
+            with httpx.Client(timeout=30.0, follow_redirects=True) as client:
                 response = client.request(method, url, headers=self.headers, **kwargs)
+                
+                # Auto-refresh on 401
+                if response.status_code == 401:
+                    if self._refresh_access_token():
+                        response = client.request(method, url, headers=self.headers, **kwargs)
+                
                 response.raise_for_status()
                 return response.json()
         except httpx.HTTPStatusError as e:

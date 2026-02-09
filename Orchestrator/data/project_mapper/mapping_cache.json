@@ -1,0 +1,545 @@
+{
+  "mapping": {
+    "operations": {
+      "clickup_space_id": "26271262",
+      "clickup_space_name": "Operations",
+      "clickup_lists": [
+        {
+          "id": "901103358080",
+          "name": "Onboarding"
+        },
+        {
+          "id": "901000039547",
+          "name": "Invoice Reminder"
+        },
+        {
+          "id": "901100699051",
+          "name": "Internal tasks"
+        },
+        {
+          "id": "901000062374",
+          "name": "This month"
+        },
+        {
+          "id": "901103384892",
+          "name": "Administrative task"
+        },
+        {
+          "id": "901103384937",
+          "name": "Welcome customer Task"
+        },
+        {
+          "id": "901103384941",
+          "name": "Planning / Strategy"
+        }
+      ],
+      "hubstaff_project_id": null,
+      "hubstaff_project_name": null,
+      "match_score": 0.5
+    },
+    "nemesis_industries": {
+      "clickup_space_id": "26271289",
+      "clickup_space_name": "Nemesis Industries",
+      "clickup_lists": [
+        {
+          "id": "901113076978",
+          "name": "Shopify Migration"
+        }
+      ],
+      "hubstaff_project_id": 3860698,
+      "hubstaff_project_name": "Nemesis Industries / Sprint Folder (#2)",
+      "match_score": 1.0
+    },
+    "theforgelab/collegewise.com": {
+      "clickup_space_id": "48460400",
+      "clickup_space_name": "theForgelab/Collegewise.com",
+      "clickup_lists": [
+        {
+          "id": "192558687",
+          "name": "ForgeLab/Collegewise.com"
+        },
+        {
+          "id": "901112909389",
+          "name": "Shared with me"
+        }
+      ],
+      "hubstaff_project_id": 3826554,
+      "hubstaff_project_name": "theForgelab/Collegewise.com / PCOS Project",
+      "match_score": 0.78
+    },
+    "customer_support": {
+      "clickup_space_id": "49674081",
+      "clickup_space_name": "Customer Support",
+      "clickup_lists": [
+        {
+          "id": "387136998",
+          "name": "Zendesk Requests"
+        }
+      ],
+      "hubstaff_project_id": null,
+      "hubstaff_project_name": null,
+      "match_score": 0.36
+    },
+    "the_cabinet_saver": {
+      "clickup_space_id": "26300621",
+      "clickup_space_name": "The Cabinet Saver",
+      "clickup_lists": [
+        {
+          "id": "381226170",
+          "name": "The Cabinet Saver (New Tasks)"
+        }
+      ],
+      "hubstaff_project_id": null,
+      "hubstaff_project_name": null,
+      "match_score": 0.47
+    },
+    "company_website": {
+      "clickup_space_id": "90110027741",
+      "clickup_space_name": "Company Website",
+      "clickup_lists": [
+        {
+          "id": "901100344691",
+          "name": "List"
+        },
+        {
+          "id": "901103213300",
+          "name": "Website maintenance"
+        },
+        {
+          "id": "901103602159",
+          "name": "SEO Optimization Project"
+        },
+        {
+          "id": "901103609607",
+          "name": "SEO Optimization -  Work Breakdown Structure (WBS)"
+        }
+      ],
+      "hubstaff_project_id": null,
+      "hubstaff_project_name": null,
+      "match_score": 0.39
+    },
+    "lake_county_pipe_(plumberscrib)": {
+      "clickup_space_id": "48528603",
+      "clickup_space_name": "Lake County Pipe (Plumberscrib)",
+      "clickup_lists": [
+        {
+          "id": "901106405993",
+          "name": "Shopify Migration"
+        }
+      ],
+      "hubstaff_project_id": 3861792,
+      "hubstaff_project_name": "Lake County Pipe",
+      "match_score": 0.68
+    },
+    "waynes_aircraft": {
+      "clickup_space_id": "90110040647",
+      "clickup_space_name": "Waynes Aircraft",
+      "clickup_lists": [
+        {
+          "id": "901100527218",
+          "name": "List"
+        }
+      ],
+      "hubstaff_project_id": 3295433,
+      "hubstaff_project_name": "Waynes Aircraft / List",
+      "match_score": 1.0
+    },
+    "reports": {
+      "clickup_space_id": "90110700663",
+      "clickup_space_name": "Reports",
+      "clickup_lists": [
+        {
+          "id": "901103155997",
+          "name": "List"
+        }
+      ],
+      "hubstaff_project_id": 3851845,
+      "hubstaff_project_name": "PCOS / List",
+      "match_score": 0.55
+    },
+    "maine_lobster": {
+      "clickup_space_id": "63121663",
+      "clickup_space_name": "Maine Lobster",
+      "clickup_lists": [
+        {
+          "id": "901103001907",
+          "name": "MLN Shopify Store"
+        }
+      ],
+      "hubstaff_project_id": 3295428,
+      "hubstaff_project_name": "Maine Lobster / Shopify Store",
+      "match_score": 1.0
+    },
+    "sales_and_marketing": {
+      "clickup_space_id": "90110432119",
+      "clickup_space_name": "Sales and Marketing",
+      "clickup_lists": [
+        {
+          "id": "901102002609",
+          "name": "List"
+        }
+      ],
+      "hubstaff_project_id": null,
+      "hubstaff_project_name": null,
+      "match_score": 0.41
+    },
+    "office_design_group": {
+      "clickup_space_id": "90113547910",
+      "clickup_space_name": "Office Design Group",
+      "clickup_lists": [
+        {
+          "id": "901112746420",
+          "name": "Accounting Migration"
+        }
+      ],
+      "hubstaff_project_id": 3806190,
+      "hubstaff_project_name": "Office Design Group / Accounting Migration",
+      "match_score": 1.0
+    },
+    "pcos": {
+      "clickup_space_id": "90114063985",
+      "clickup_space_name": "PCOS",
+      "clickup_lists": [
+        {
+          "id": "901113064839",
+          "name": "List"
+        }
+      ],
+      "hubstaff_project_id": 3851845,
+      "hubstaff_project_name": "PCOS / List",
+      "match_score": 1.0
+    },
+    "ap_driving": {
+      "clickup_space_id": "90113645942",
+      "clickup_space_name": "Ap-Driving",
+      "clickup_lists": [
+        {
+          "id": "901109833325",
+          "name": "Wordpress Revamp"
+        }
+      ],
+      "hubstaff_project_id": 3422043,
+      "hubstaff_project_name": "Ap-Driving / List",
+      "match_score": 1.0
+    },
+    "phyto_pdxaromatics": {
+      "clickup_space_id": "90114070224",
+      "clickup_space_name": "Phyto-PDXAromatics",
+      "clickup_lists": [
+        {
+          "id": "901109466310",
+          "name": "Ongoing Magento 2 Support"
+        }
+      ],
+      "hubstaff_project_id": 3860901,
+      "hubstaff_project_name": "Phyto-PDXAromatics / List",
+      "match_score": 1.0
+    }
+  },
+  "hubstaff_projects": [
+    {
+      "id": 3295428,
+      "name": "Maine Lobster / Shopify Store",
+      "status": "active"
+    },
+    {
+      "id": 3295429,
+      "name": "theForgelab/Collegewise.com / ForgeLab/Collegewise.com",
+      "status": "active"
+    },
+    {
+      "id": 3295433,
+      "name": "Waynes Aircraft / List",
+      "status": "active"
+    },
+    {
+      "id": 3422043,
+      "name": "Ap-Driving / List",
+      "status": "active"
+    },
+    {
+      "id": 3806190,
+      "name": "Office Design Group / Accounting Migration",
+      "status": "active"
+    },
+    {
+      "id": 3826554,
+      "name": "theForgelab/Collegewise.com / PCOS Project",
+      "status": "active"
+    },
+    {
+      "id": 3851845,
+      "name": "PCOS / List",
+      "status": "active"
+    },
+    {
+      "id": 3860698,
+      "name": "Nemesis Industries / Sprint Folder (#2)",
+      "status": "active"
+    },
+    {
+      "id": 3860901,
+      "name": "Phyto-PDXAromatics / List",
+      "status": "active"
+    },
+    {
+      "id": 3861727,
+      "name": "Zendesk",
+      "status": "active"
+    },
+    {
+      "id": 3861782,
+      "name": "AP Driving School",
+      "status": "active"
+    },
+    {
+      "id": 3861783,
+      "name": "CREPipeline LLC",
+      "status": "active"
+    },
+    {
+      "id": 3861784,
+      "name": "Jason Park",
+      "status": "active"
+    },
+    {
+      "id": 3861785,
+      "name": "JPDM",
+      "status": "active"
+    },
+    {
+      "id": 3861786,
+      "name": "Maine Lobster Now",
+      "status": "active"
+    },
+    {
+      "id": 3861787,
+      "name": "Nemesis Industries",
+      "status": "active"
+    },
+    {
+      "id": 3861788,
+      "name": "Office Design Group",
+      "status": "active"
+    },
+    {
+      "id": 3861789,
+      "name": "PolyPerformance",
+      "status": "active"
+    },
+    {
+      "id": 3861790,
+      "name": "Wayne Cappe wayne.cappe@waynesaircraft.com",
+      "status": "active"
+    },
+    {
+      "id": 3861791,
+      "name": "The Forge Lab",
+      "status": "active"
+    },
+    {
+      "id": 3861792,
+      "name": "Lake County Pipe",
+      "status": "active"
+    },
+    {
+      "id": 3861793,
+      "name": "PeopleLikeSoftware",
+      "status": "active"
+    }
+  ],
+  "clickup_spaces": [
+    {
+      "id": "26271262",
+      "name": "Operations",
+      "lists": [
+        {
+          "id": "901103358080",
+          "name": "Onboarding"
+        },
+        {
+          "id": "901000039547",
+          "name": "Invoice Reminder"
+        },
+        {
+          "id": "901100699051",
+          "name": "Internal tasks"
+        },
+        {
+          "id": "901000062374",
+          "name": "This month"
+        },
+        {
+          "id": "901103384892",
+          "name": "Administrative task"
+        },
+        {
+          "id": "901103384937",
+          "name": "Welcome customer Task"
+        },
+        {
+          "id": "901103384941",
+          "name": "Planning / Strategy"
+        }
+      ]
+    },
+    {
+      "id": "26271289",
+      "name": "Nemesis Industries",
+      "lists": [
+        {
+          "id": "901113076978",
+          "name": "Shopify Migration"
+        }
+      ]
+    },
+    {
+      "id": "48460400",
+      "name": "theForgelab/Collegewise.com",
+      "lists": [
+        {
+          "id": "192558687",
+          "name": "ForgeLab/Collegewise.com"
+        },
+        {
+          "id": "901112909389",
+          "name": "Shared with me"
+        }
+      ]
+    },
+    {
+      "id": "49674081",
+      "name": "Customer Support",
+      "lists": [
+        {
+          "id": "387136998",
+          "name": "Zendesk Requests"
+        }
+      ]
+    },
+    {
+      "id": "26300621",
+      "name": "The Cabinet Saver",
+      "lists": [
+        {
+          "id": "381226170",
+          "name": "The Cabinet Saver (New Tasks)"
+        }
+      ]
+    },
+    {
+      "id": "90110027741",
+      "name": "Company Website",
+      "lists": [
+        {
+          "id": "901100344691",
+          "name": "List"
+        },
+        {
+          "id": "901103213300",
+          "name": "Website maintenance"
+        },
+        {
+          "id": "901103602159",
+          "name": "SEO Optimization Project"
+        },
+        {
+          "id": "901103609607",
+          "name": "SEO Optimization -  Work Breakdown Structure (WBS)"
+        }
+      ]
+    },
+    {
+      "id": "48528603",
+      "name": "Lake County Pipe (Plumberscrib)",
+      "lists": [
+        {
+          "id": "901106405993",
+          "name": "Shopify Migration"
+        }
+      ]
+    },
+    {
+      "id": "90110040647",
+      "name": "Waynes Aircraft",
+      "lists": [
+        {
+          "id": "901100527218",
+          "name": "List"
+        }
+      ]
+    },
+    {
+      "id": "90110700663",
+      "name": "Reports",
+      "lists": [
+        {
+          "id": "901103155997",
+          "name": "List"
+        }
+      ]
+    },
+    {
+      "id": "63121663",
+      "name": "Maine Lobster",
+      "lists": [
+        {
+          "id": "901103001907",
+          "name": "MLN Shopify Store"
+        }
+      ]
+    },
+    {
+      "id": "90110432119",
+      "name": "Sales and Marketing",
+      "lists": [
+        {
+          "id": "901102002609",
+          "name": "List"
+        }
+      ]
+    },
+    {
+      "id": "90113547910",
+      "name": "Office Design Group",
+      "lists": [
+        {
+          "id": "901112746420",
+          "name": "Accounting Migration"
+        }
+      ]
+    },
+    {
+      "id": "90114063985",
+      "name": "PCOS",
+      "lists": [
+        {
+          "id": "901113064839",
+          "name": "List"
+        }
+      ]
+    },
+    {
+      "id": "90113645942",
+      "name": "Ap-Driving",
+      "lists": [
+        {
+          "id": "901109833325",
+          "name": "Wordpress Revamp"
+        }
+      ]
+    },
+    {
+      "id": "90114070224",
+      "name": "Phyto-PDXAromatics",
+      "lists": [
+        {
+          "id": "901109466310",
+          "name": "Ongoing Magento 2 Support"
+        }
+      ]
+    }
+  ],
+  "updated_at": 1770636752.9676278,
+  "updated_at_human": "2026-02-09T06:32:32.967632"
+}

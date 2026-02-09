@@ -18,8 +18,8 @@ PROJECT_CONFIGS = {
         "status_pending": "pending ai scaffolding",
         "status_done": "to do",
         # Hubstaff time tracking
-        "hubstaff_project_id": None,  # Set to Hubstaff project ID if available
-        "hubstaff_user_id": None,     # Set to Hubstaff user ID for the agent
+        "hubstaff_project_id": 3860901,  # Phyto-PDXAromatics / List
+        "hubstaff_user_id": 2727066,     # Steve Bien-Aime
     },
 }
 

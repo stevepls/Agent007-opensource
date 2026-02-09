@@ -526,7 +526,7 @@ async def _stream_direct_response(
 
     try:
         with client.messages.stream(
-            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-20250514"),
+            model=os.getenv("DEFAULT_MODEL", "claude-opus-4-20250514"),
             max_tokens=1024,
             system=system,
             messages=api_messages,
@@ -588,7 +588,7 @@ async def _stream_orchestrator_response(
         api_messages = api_messages[1:]
 
     client = anthropic.Anthropic(api_key=api_key)
-    model = os.getenv("DEFAULT_MODEL", "claude-sonnet-4-20250514")
+    model = os.getenv("DEFAULT_MODEL", "claude-opus-4-20250514")
     full_response = ""
     tool_freshness = {}
     MAX_ITERATIONS = 8

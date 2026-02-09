@@ -323,15 +323,15 @@ class AgentMetrics:
 
     def finalize_run(self):
         """
-        Finalize the run: save local log, sync to Hubstaff, report to queue.
+        Finalize the run: save local log, sync time tracking, report to queue.
         """
         self.run.end_time = time.time()
 
-        # 1. Save to local log
+        # 1. Save to local log (always, even if APIs fail)
         self._save_local_log()
 
-        # 2. Sync to Hubstaff if available
-        self._sync_hubstaff()
+        # 2. Log time to ClickUp task time tracking
+        self._sync_time_tracking()
 
         # 3. Report to orchestrator queue
         self._report_to_queue()
@@ -404,55 +404,53 @@ class AgentMetrics:
     # Hubstaff Sync
     # =========================================================================
 
-    def _sync_hubstaff(self):
-        """Sync time entries to Hubstaff if available."""
+    def _sync_time_tracking(self):
+        """
+        Log time to ClickUp task time tracking + local metrics.
+        
+        Hubstaff V2 API is read-only, so we use ClickUp's built-in time tracking
+        which syncs with Hubstaff automatically if integration is enabled.
+        """
         try:
-            hubstaff_token = os.getenv("HUBSTAFF_API_TOKEN")
-            if not hubstaff_token:
-                return  # Hubstaff not configured, skip silently
-
-            user_id = os.getenv("HUBSTAFF_USER_ID")
-            if not user_id:
+            import httpx
+            token = os.getenv("CLICKUP_API_TOKEN")
+            if not token:
                 return
-
-            from services.hubstaff.client import HubstaffClient
-            client = HubstaffClient()
 
             for task in self.run.tasks:
                 if task.wall_seconds < 60:
                     continue  # Skip tasks under 1 minute
 
-                note = (
-                    f"[{self.agent_name}] [{task.task_id}] {task.task_name[:60]} "
-                    f"| {task.total_tokens:,} tokens ${task.cost_usd:.4f}"
+                duration_ms = int(task.wall_seconds * 1000)
+                description = (
+                    f"[Agent: {self.agent_name}] "
+                    f"{task.total_tokens:,} tokens, "
+                    f"${task.cost_usd:.4f} cost, "
+                    f"${task.billable_usd:.4f} billable"
                 )
 
                 try:
-                    # Check for existing entry with same note (dedup)
-                    existing = client.get_active_time_entries(user_id=int(user_id))
-                    already_logged = any(
-                        task.task_id in (e.note or "") for e in existing
+                    r = httpx.post(
+                        f"https://api.clickup.com/api/v2/task/{task.task_id}/time",
+                        headers={"Authorization": token, "Content-Type": "application/json"},
+                        json={
+                            "description": description,
+                            "duration": duration_ms,
+                            "billable": True,
+                        },
+                        timeout=15,
                     )
-                    if already_logged:
-                        continue
-
-                    entry = client.start_time_entry(
-                        user_id=int(user_id),
-                        note=note,
-                    )
-                    if entry:
-                        # Immediately stop it (log as completed work)
-                        import time as _time
-                        _time.sleep(1)
-                        client.stop_user_active_entries(int(user_id))
-
+                    if r.status_code == 200:
+                        print(f"[AgentMetrics] ✅ ClickUp time logged: {task.task_id} ({task.wall_seconds:.0f}s)")
+                    else:
+                        print(f"[AgentMetrics] ClickUp time log failed for {task.task_id}: {r.status_code}")
                 except Exception as e:
-                    print(f"[AgentMetrics] Hubstaff sync failed for {task.task_id}: {e}")
+                    print(f"[AgentMetrics] ClickUp time sync failed for {task.task_id}: {e}")
 
         except ImportError:
-            pass  # Hubstaff client not available
+            pass
         except Exception as e:
-            print(f"[AgentMetrics] Hubstaff sync error: {e}")
+            print(f"[AgentMetrics] Time tracking sync error: {e}")
 
     # =========================================================================
     # Orchestrator Queue

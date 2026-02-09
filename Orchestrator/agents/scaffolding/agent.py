@@ -22,7 +22,7 @@ import sys
 import fcntl
 import time
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 
@@ -48,6 +48,34 @@ except ImportError:
     HubstaffClient = None
 
 logger = logging.getLogger("scaffolding_agent")
+
+
+def _utcnow() -> datetime:
+    """Return current UTC time as a naive datetime (no tzinfo).
+
+    All ClickUp timestamps are Unix epoch-based (UTC).  Using UTC
+    everywhere avoids bugs when the server runs in a non-UTC timezone.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _to_naive_utc(dt: datetime) -> datetime:
+    """Normalise *dt* to a naive-UTC datetime.
+
+    - Aware datetime  → converted to UTC, tzinfo stripped.
+    - Naive datetime  → assumed local (from ``datetime.fromtimestamp()``);
+      converted to UTC via the platform's UTC offset.
+    """
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    # Naive local → attach local tz, then convert to UTC
+    local_aware = dt.astimezone()          # Python ≥3.6: assumes local tz
+    return local_aware.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def _parse_iso_utc(s: str) -> datetime:
+    """Parse ISO datetime string, always returning a naive-UTC datetime."""
+    return _to_naive_utc(datetime.fromisoformat(s))
 
 
 @dataclass
@@ -175,7 +203,7 @@ class RunMetrics:
             "tasks_processed": len(self.tasks),
             "tasks_skipped": self.skipped_tasks,
             "tasks": [t.to_dict() for t in self.tasks],
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": _utcnow().isoformat(),
         }
 
 
@@ -862,7 +890,7 @@ Respond in JSON:
     def _save_state(self, state: Dict[str, Any]):
         """Save the agent's state to disk."""
         try:
-            state["last_run"] = datetime.now().isoformat()
+            state["last_run"] = _utcnow().isoformat()
             self.state_file.write_text(json.dumps(state, indent=2))
         except Exception as e:
             self.logger.warning(f"Failed to save state: {e}")
@@ -882,7 +910,7 @@ Respond in JSON:
             return True
         
         try:
-            last_check_dt = datetime.fromisoformat(last_check)
+            last_check_dt = _parse_iso_utc(last_check)
             
             # Get recent tasks from the list
             all_tasks = self.clickup.list_tasks(
@@ -891,11 +919,11 @@ Respond in JSON:
             )
             
             # Sort by date_updated, most recent first
-            tasks = sorted(all_tasks, key=lambda t: t.date_updated, reverse=True)
+            tasks = sorted(all_tasks, key=lambda t: _to_naive_utc(t.date_updated), reverse=True)
             
             # If any task was updated after our last check, process
             for task in tasks[:10]:  # Check up to 10 most recent
-                if task.date_updated > last_check_dt:
+                if _to_naive_utc(task.date_updated) > last_check_dt:
                     self.logger.info(f"  List has updates (task {task.id} updated {task.date_updated})")
                     return True
             
@@ -925,9 +953,9 @@ Respond in JSON:
             our_comments = [c for c in comments if "ScaffoldingAgent" in c.text or "Scaffolding" in c.text]
             
             if our_comments:
-                latest_our_comment = max(our_comments, key=lambda c: c.date)
+                latest_our_comment = max(our_comments, key=lambda c: _to_naive_utc(c.date))
                 # If task wasn't updated since our last comment, skip it
-                if task.date_updated <= latest_our_comment.date:
+                if _to_naive_utc(task.date_updated) <= _to_naive_utc(latest_our_comment.date):
                     self.logger.info(f"  Task {task.id} not updated since our last comment ({latest_our_comment.date}), skipping")
                     return False
         except Exception as e:
@@ -937,8 +965,8 @@ Respond in JSON:
         cached_ts = state.get("task_timestamps", {}).get(task.id)
         if cached_ts:
             try:
-                cached_dt = datetime.fromisoformat(cached_ts)
-                if task.date_updated <= cached_dt:
+                cached_dt = _parse_iso_utc(cached_ts)
+                if _to_naive_utc(task.date_updated) <= cached_dt:
                     self.logger.info(f"  Task {task.id} not updated since {cached_dt}, skipping")
                     return False
             except Exception:
@@ -952,7 +980,7 @@ Respond in JSON:
         state = self._load_state()
         if "task_timestamps" not in state:
             state["task_timestamps"] = {}
-        state["task_timestamps"][task_id] = datetime.now().isoformat()
+        state["task_timestamps"][task_id] = _utcnow().isoformat()
         self._save_state(state)
 
     # =========================================================================
@@ -970,11 +998,9 @@ Respond in JSON:
         If the most recent comment is "Scaffolding complete", we proceed
         (user may have fixed the blocker and moved it back to pending).
         """
-        from datetime import datetime, timedelta
-        
         try:
             comments = self.clickup.get_comments(task_id)
-            recent_cutoff = datetime.now() - timedelta(hours=48)
+            recent_cutoff = _utcnow() - timedelta(hours=48)
             
             # Find the most recent agent comment
             agent_comments = [
@@ -985,13 +1011,13 @@ Respond in JSON:
             if not agent_comments:
                 return False
             
-            most_recent = max(agent_comments, key=lambda c: c.date)
+            most_recent = max(agent_comments, key=lambda c: _to_naive_utc(c.date))
             
             # Only block if:
             # 1. Most recent comment is a blocking one
             # 2. AND it's within 48 hours
             is_blocking_comment = "Scaffolding Blocked" in most_recent.text
-            is_recent = most_recent.date > recent_cutoff
+            is_recent = _to_naive_utc(most_recent.date) > recent_cutoff
             
             return is_blocking_comment and is_recent
             
@@ -1004,15 +1030,13 @@ Respond in JSON:
         Check if we should add a blocking comment.
         Returns False if a similar blocking comment was added in the last 48 hours.
         """
-        from datetime import datetime, timedelta
-        
         try:
             comments = self.clickup.get_comments(task_id)
-            recent_cutoff = datetime.now() - timedelta(hours=48)
+            recent_cutoff = _utcnow() - timedelta(hours=48)
             
             for comment in comments:
                 # Skip old comments
-                if comment.date < recent_cutoff:
+                if _to_naive_utc(comment.date) < recent_cutoff:
                     continue
                 
                 # Check if this is a blocking comment with similar reason
@@ -1670,7 +1694,7 @@ Rules:
                 self.logger.info("No changes in list since last check, nothing to do.")
                 # Update timestamp so we don't re-check the same window next run
                 state = self._load_state()
-                state["last_list_check"] = datetime.now().isoformat()
+                state["last_list_check"] = _utcnow().isoformat()
                 self._save_state(state)
                 return []
 
@@ -1685,7 +1709,7 @@ Rules:
                 self.logger.info("No fresh tasks to process.")
                 # Update state to record this check
                 state = self._load_state()
-                state["last_list_check"] = datetime.now().isoformat()
+                state["last_list_check"] = _utcnow().isoformat()
                 self._save_state(state)
                 return []
 
@@ -1715,7 +1739,7 @@ Rules:
             
             # Update state after successful run
             state = self._load_state()
-            state["last_list_check"] = datetime.now().isoformat()
+            state["last_list_check"] = _utcnow().isoformat()
             self._save_state(state)
 
             # Finalize run metrics
