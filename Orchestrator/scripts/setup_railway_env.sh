@@ -146,6 +146,11 @@ set_all_variables() {
         ["SLACK_BOT_TOKEN"]="Slack bot token"
         ["HARVEST_ACCESS_TOKEN"]="Harvest access token"
         ["HARVEST_ACCOUNT_ID"]="Harvest account ID"
+        ["ZENDESK_EMAIL"]="Zendesk agent email"
+        ["ZENDESK_API_TOKEN"]="Zendesk API token"
+        ["ZENDESK_SUBDOMAIN"]="Zendesk subdomain (e.g. yourcompany)"
+        ["GOOGLE_CREDENTIALS_JSON"]="Google OAuth credentials.json (raw JSON or base64)"
+        ["GOOGLE_TOKEN_JSON"]="Google OAuth unified_token.json (raw JSON or base64)"
         ["DEFAULT_MODEL"]="Default LLM model (default: claude-opus-4-20250514)"
         ["REQUIRE_APPROVAL"]="Require approval for file writes (default: true)"
     )

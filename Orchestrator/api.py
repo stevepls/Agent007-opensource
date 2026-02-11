@@ -17,6 +17,9 @@ from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 from datetime import datetime
 
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent / ".env")
+
 from fastapi import FastAPI, HTTPException, Query, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
@@ -94,6 +97,39 @@ async def lifespan(app: FastAPI):
             print(f"🧹 Cleaned up {removed} old messages from queue")
     except Exception as e:
         print(f"⚠️ Queue cleanup skipped: {e}")
+
+    # Seed Google credentials from env vars (for Railway / ephemeral filesystems)
+    try:
+        import base64
+        config_dir = Path(os.getenv(
+            "GOOGLE_CONFIG_DIR",
+            os.path.expanduser("~/.config/agent007/google"),
+        ))
+        seeded = []
+        for env_var, filename in [
+            ("GOOGLE_CREDENTIALS_JSON", "credentials.json"),
+            ("GOOGLE_TOKEN_JSON", "unified_token.json"),
+        ]:
+            raw = os.getenv(env_var, "")
+            if raw:
+                config_dir.mkdir(parents=True, exist_ok=True)
+                target = config_dir / filename
+                # Support both raw JSON and base64-encoded JSON
+                try:
+                    data = base64.b64decode(raw)
+                except Exception:
+                    data = raw.encode()
+                target.write_bytes(data)
+                seeded.append(filename)
+        if seeded:
+            # Also create the token.json symlink if it doesn't exist
+            symlink = config_dir / "token.json"
+            unified = config_dir / "unified_token.json"
+            if unified.exists() and not symlink.exists():
+                symlink.symlink_to(unified)
+            print(f"[INFO] Google credentials seeded from env: {', '.join(seeded)}")
+    except Exception as e:
+        print(f"[WARN] Google credential seeding skipped: {e}")
 
     # Seed self-context into memory database
     try:

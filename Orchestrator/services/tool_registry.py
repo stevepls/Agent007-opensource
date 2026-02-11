@@ -222,35 +222,25 @@ class ToolRegistry:
     # =========================================================================
     
     def _register_gmail_tools(self):
+        def _get_gmail_service():
+            """Get authenticated Gmail service via unified auth (handles token refresh)."""
+            from services.google_auth import get_google_auth
+            auth = get_google_auth()
+            if not auth.is_authenticated:
+                auth.authenticate(interactive=False)
+            return auth.get_gmail_service()
+
         def gmail_search(query: str, max_results: int = 10) -> Dict[str, Any]:
             """Search Gmail for emails matching the query."""
             try:
-                from google.oauth2.credentials import Credentials
-                from googleapiclient.discovery import build
-                
-                token_path = os.path.expanduser("~/.config/agent007/google/token.json")
-                if not os.path.exists(token_path):
-                    return {"error": "Gmail not connected. Run Google OAuth setup."}
-                
-                with open(token_path) as f:
-                    token_data = json.load(f)
-                
-                creds = Credentials(
-                    token=token_data['token'],
-                    refresh_token=token_data.get('refresh_token'),
-                    token_uri=token_data.get('token_uri'),
-                    client_id=token_data.get('client_id'),
-                    client_secret=token_data.get('client_secret')
-                )
-                
-                service = build('gmail', 'v1', credentials=creds)
+                service = _get_gmail_service()
                 results = service.users().messages().list(
                     userId='me', q=query, maxResults=max_results
                 ).execute()
-                
+
                 messages = results.get('messages', [])
                 emails = []
-                
+
                 for msg in messages:
                     msg_data = service.users().messages().get(
                         userId='me', id=msg['id'], format='metadata',
@@ -263,42 +253,24 @@ class ToolRegistry:
                         "from": headers.get('From', ''),
                         "date": headers.get('Date', ''),
                     })
-                
+
                 return {"count": len(emails), "emails": emails}
-            
+
             except Exception as e:
-                return {"error": str(e)}
-        
+                return {"error": f"Gmail search failed: {str(e)}"}
+
         def gmail_get_unread_count() -> Dict[str, Any]:
             """Get count of unread emails."""
             try:
-                from google.oauth2.credentials import Credentials
-                from googleapiclient.discovery import build
-                
-                token_path = os.path.expanduser("~/.config/agent007/google/token.json")
-                if not os.path.exists(token_path):
-                    return {"error": "Gmail not connected"}
-                
-                with open(token_path) as f:
-                    token_data = json.load(f)
-                
-                creds = Credentials(
-                    token=token_data['token'],
-                    refresh_token=token_data.get('refresh_token'),
-                    token_uri=token_data.get('token_uri'),
-                    client_id=token_data.get('client_id'),
-                    client_secret=token_data.get('client_secret')
-                )
-                
-                service = build('gmail', 'v1', credentials=creds)
+                service = _get_gmail_service()
                 results = service.users().messages().list(
                     userId='me', q='is:unread', maxResults=1
                 ).execute()
-                
+
                 return {"unread_count": results.get('resultSizeEstimate', 0)}
-            
+
             except Exception as e:
-                return {"error": str(e)}
+                return {"error": f"Gmail unread count failed: {str(e)}"}
         
         self.register(
             "gmail_search",
@@ -333,19 +305,12 @@ class ToolRegistry:
             Create a draft email in Gmail (does NOT send).
             The user can review and send from Gmail.
             """
-            from services.google_auth import get_google_auth
-            from googleapiclient.discovery import build
             from email.mime.text import MIMEText
             from email.mime.multipart import MIMEMultipart
             import base64
-            
-            auth = get_google_auth()
-            if not auth.is_authenticated:
-                return {"error": "Gmail not authenticated. Run: python -m services.google_auth"}
-            
+
             try:
-                creds = auth.credentials
-                service = build('gmail', 'v1', credentials=creds)
+                service = _get_gmail_service()
                 
                 message = MIMEMultipart()
                 message['to'] = to
@@ -518,45 +483,54 @@ class ToolRegistry:
                 get_status as harvest_get_status_impl,
                 get_projects as harvest_get_projects_impl,
             )
-            
-            def harvest_get_time_entries(date: Optional[str] = None) -> Dict[str, Any]:
-                """Get time entries for a specific date."""
+            import requests as _requests
+
+            def _get_harvest_headers():
+                """Get authenticated Harvest headers via HarvestClient."""
                 client = get_harvest_client()
                 if not client:
-                    return {"error": "Harvest not configured. Set HARVEST_ACCESS_TOKEN and HARVEST_ACCOUNT_ID."}
-                
-                import requests
-                if date is None:
-                    date = datetime.now().strftime("%Y-%m-%d")
-                
-                headers = {
-                    "Authorization": f"Bearer {client.config.access_token}",
-                    "Harvest-Account-Id": str(client.config.account_id),
-                    "User-Agent": "Agent007 Orchestrator"
-                }
-                
-                response = requests.get(
-                    f"https://api.harvestapp.com/v2/time_entries?from={date}&to={date}",
-                    headers=headers
-                )
-                response.raise_for_status()
-                data = response.json()
-                
-                entries = []
-                total_hours = 0
-                for entry in data.get("time_entries", []):
-                    entries.append({
-                        "id": entry["id"],
-                        "project": entry.get("project", {}).get("name", "Unknown"),
-                        "task": entry.get("task", {}).get("name", "Unknown"),
-                        "hours": entry["hours"],
-                        "notes": entry.get("notes", ""),
-                        "is_running": entry.get("is_running", False),
-                    })
-                    total_hours += entry["hours"]
-                
-                return {"date": date, "total_hours": total_hours, "entries": entries}
-            
+                    return None, {"error": "Harvest not configured. Set HARVEST_ACCESS_TOKEN and HARVEST_ACCOUNT_ID."}
+                return client.headers, None
+
+            def harvest_get_time_entries(date: Optional[str] = None) -> Dict[str, Any]:
+                """Get time entries for a specific date."""
+                headers, err = _get_harvest_headers()
+                if err:
+                    return err
+
+                try:
+                    if date is None:
+                        date = datetime.utcnow().strftime("%Y-%m-%d")
+
+                    response = _requests.get(
+                        f"https://api.harvestapp.com/v2/time_entries",
+                        headers=headers,
+                        params={"from": date, "to": date},
+                        timeout=30,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+
+                    entries = []
+                    total_hours = 0
+                    for entry in data.get("time_entries", []):
+                        entries.append({
+                            "id": entry["id"],
+                            "project": entry.get("project", {}).get("name", "Unknown"),
+                            "task": entry.get("task", {}).get("name", "Unknown"),
+                            "hours": entry["hours"],
+                            "notes": entry.get("notes", ""),
+                            "is_running": entry.get("is_running", False),
+                        })
+                        total_hours += entry["hours"]
+
+                    return {"date": date, "total_hours": total_hours, "entries": entries}
+
+                except _requests.exceptions.RequestException as e:
+                    return {"error": f"Harvest API request failed: {str(e)}"}
+                except Exception as e:
+                    return {"error": f"Harvest error: {str(e)}"}
+
             def harvest_log_time(
                 project_name: str,
                 hours: float,
@@ -565,104 +539,95 @@ class ToolRegistry:
                 date: Optional[str] = None,
             ) -> Dict[str, Any]:
                 """Log time to Harvest with verification."""
-                client = get_harvest_client()
-                if not client:
-                    return {"error": "Harvest not configured"}
-                
-                import requests
-                headers = {
-                    "Authorization": f"Bearer {client.config.access_token}",
-                    "Harvest-Account-Id": str(client.config.account_id),
-                    "User-Agent": "Agent007 Orchestrator",
-                    "Content-Type": "application/json"
-                }
-                
+                headers, err = _get_harvest_headers()
+                if err:
+                    return err
+
                 try:
                     # Get user's project assignments
-                    response = requests.get(
+                    response = _requests.get(
                         "https://api.harvestapp.com/v2/users/me/project_assignments",
                         headers=headers,
-                        timeout=30
+                        timeout=30,
                     )
                     response.raise_for_status()
                     assignments = response.json().get("project_assignments", [])
-                    
+
                     # Find matching project
                     project_assignment = None
                     for a in assignments:
                         if project_name.lower() in a["project"]["name"].lower():
                             project_assignment = a
                             break
-                    
+
                     if not project_assignment:
                         available = [a["project"]["name"] for a in assignments[:10]]
                         return {"error": f"Project '{project_name}' not found. Available: {available}"}
-                    
+
                     project = project_assignment["project"]
                     task_assignments = project_assignment.get("task_assignments", [])
-                    
+
                     if not task_assignments:
                         return {"error": f"No tasks found for project {project['name']}"}
-                    
+
                     task = task_assignments[0]["task"]
                     if task_name:
                         for t in task_assignments:
                             if task_name.lower() in t["task"]["name"].lower():
                                 task = t["task"]
                                 break
-                    
-                    spent_date = date or datetime.now().strftime("%Y-%m-%d")
+
+                    spent_date = date or datetime.utcnow().strftime("%Y-%m-%d")
                     entry_data = {
                         "project_id": project["id"],
                         "task_id": task["id"],
                         "spent_date": spent_date,
                         "hours": hours,
-                        "notes": notes or "Logged via Agent007"
+                        "notes": notes or "Logged via Agent007",
                     }
-                    
+
                     # Create the time entry
-                    create_response = requests.post(
+                    create_response = _requests.post(
                         "https://api.harvestapp.com/v2/time_entries",
                         headers=headers,
                         json=entry_data,
-                        timeout=30
+                        timeout=30,
                     )
                     create_response.raise_for_status()
                     created_entry = create_response.json()
                     entry_id = created_entry.get("id")
-                    
+
                     if not entry_id:
                         return {
                             "error": "Failed to create time entry - no ID returned",
-                            "api_response": str(created_entry)[:200]
+                            "api_response": str(created_entry)[:200],
                         }
-                    
+
                     # VERIFICATION: Fetch the entry back to confirm it exists
-                    verify_response = requests.get(
+                    verify_response = _requests.get(
                         f"https://api.harvestapp.com/v2/time_entries/{entry_id}",
                         headers=headers,
-                        timeout=30
+                        timeout=30,
                     )
-                    
-                    verification = {
-                        "verified": False,
-                        "entry_id": entry_id,
-                        "issues": []
-                    }
-                    
+
+                    verification = {"verified": False, "entry_id": entry_id, "issues": []}
+
                     if verify_response.status_code == 200:
                         verified_entry = verify_response.json()
                         verification["verified"] = True
                         verification["actual_hours"] = verified_entry.get("hours")
                         verification["actual_date"] = verified_entry.get("spent_date")
-                        
-                        # Check if values match
+
                         if abs(verified_entry.get("hours", 0) - hours) > 0.01:
-                            verification["issues"].append(f"Hours mismatch: requested {hours}, got {verified_entry.get('hours')}")
+                            verification["issues"].append(
+                                f"Hours mismatch: requested {hours}, got {verified_entry.get('hours')}"
+                            )
                             verification["verified"] = False
                     else:
-                        verification["issues"].append(f"Could not verify entry - HTTP {verify_response.status_code}")
-                    
+                        verification["issues"].append(
+                            f"Could not verify entry - HTTP {verify_response.status_code}"
+                        )
+
                     return {
                         "success": verification["verified"],
                         "entry_id": entry_id,
@@ -672,47 +637,45 @@ class ToolRegistry:
                         "date": spent_date,
                         "notes": notes or "Logged via Agent007",
                         "verification": verification,
-                        "message": f"Logged {hours}h to {project['name']}" if verification["verified"] else "Entry created but verification failed"
+                        "message": (
+                            f"Logged {hours}h to {project['name']}"
+                            if verification["verified"]
+                            else "Entry created but verification failed"
+                        ),
                     }
-                    
-                except requests.exceptions.RequestException as e:
-                    return {
-                        "error": f"API request failed: {str(e)}",
-                        "success": False
-                    }
+
+                except _requests.exceptions.RequestException as e:
+                    return {"error": f"Harvest API request failed: {str(e)}", "success": False}
                 except Exception as e:
-                    return {
-                        "error": f"Unexpected error: {str(e)}",
-                        "success": False
-                    }
-            
+                    return {"error": f"Harvest error: {str(e)}", "success": False}
+
             def harvest_list_projects() -> Dict[str, Any]:
                 """List available Harvest projects."""
-                client = get_harvest_client()
-                if not client:
-                    return {"error": "Harvest not configured"}
-                
-                import requests
-                headers = {
-                    "Authorization": f"Bearer {client.config.access_token}",
-                    "Harvest-Account-Id": str(client.config.account_id),
-                    "User-Agent": "Agent007 Orchestrator"
-                }
-                
-                response = requests.get(
-                    "https://api.harvestapp.com/v2/users/me/project_assignments",
-                    headers=headers
-                )
-                response.raise_for_status()
-                assignments = response.json().get("project_assignments", [])
-                
-                return {
-                    "count": len(assignments),
-                    "projects": [
-                        {"id": a["project"]["id"], "name": a["project"]["name"]}
-                        for a in assignments if a.get("is_active", True)
-                    ]
-                }
+                headers, err = _get_harvest_headers()
+                if err:
+                    return err
+
+                try:
+                    response = _requests.get(
+                        "https://api.harvestapp.com/v2/users/me/project_assignments",
+                        headers=headers,
+                        timeout=30,
+                    )
+                    response.raise_for_status()
+                    assignments = response.json().get("project_assignments", [])
+
+                    return {
+                        "count": len(assignments),
+                        "projects": [
+                            {"id": a["project"]["id"], "name": a["project"]["name"]}
+                            for a in assignments if a.get("is_active", True)
+                        ],
+                    }
+
+                except _requests.exceptions.RequestException as e:
+                    return {"error": f"Harvest API request failed: {str(e)}"}
+                except Exception as e:
+                    return {"error": f"Harvest error: {str(e)}"}
             
             self.register(
                 "harvest_get_time_entries",
@@ -1258,60 +1221,86 @@ class ToolRegistry:
     def _register_zendesk_tools(self):
         try:
             from services.tickets.zendesk_client import get_zendesk_client
-            
+
+            def _get_zendesk():
+                """Get Zendesk client with proper error handling."""
+                required = {
+                    "ZENDESK_EMAIL": os.getenv("ZENDESK_EMAIL"),
+                    "ZENDESK_API_TOKEN": os.getenv("ZENDESK_API_TOKEN"),
+                    "ZENDESK_SUBDOMAIN": os.getenv("ZENDESK_SUBDOMAIN"),
+                }
+                missing = [k for k, v in required.items() if not v]
+                if missing:
+                    return None, {"error": f"Zendesk not configured. Missing: {', '.join(missing)}"}
+                try:
+                    return get_zendesk_client(), None
+                except ValueError as e:
+                    return None, {"error": f"Zendesk configuration error: {str(e)}"}
+
             def zendesk_list_tickets(status: str = None, limit: int = 20) -> Dict[str, Any]:
                 """List Zendesk tickets."""
-                api_token = os.getenv("ZENDESK_API_TOKEN")
-                if not api_token:
-                    return {"error": "Zendesk not configured. Set ZENDESK_API_TOKEN."}
-                
-                client = get_zendesk_client()
-                tickets = client.list_tickets(status=status, limit=limit)
-                
-                return {
-                    "count": len(tickets),
-                    "tickets": [
-                        {
-                            "id": t.id,
-                            "subject": t.subject,
-                            "status": t.status,
-                            "priority": t.priority,
-                            "requester": t.requester_email,
-                        }
-                        for t in tickets
-                    ]
-                }
-            
+                client, err = _get_zendesk()
+                if err:
+                    return err
+
+                try:
+                    tickets = client.list_tickets(status=status, limit=limit)
+                    return {
+                        "count": len(tickets),
+                        "tickets": [
+                            {
+                                "id": t.id,
+                                "subject": t.subject,
+                                "status": t.status,
+                                "priority": t.priority,
+                                "requester": t.requester_email,
+                            }
+                            for t in tickets
+                        ],
+                    }
+                except Exception as e:
+                    return {"error": f"Zendesk list failed: {str(e)}"}
+
             def zendesk_get_ticket(ticket_id: int) -> Dict[str, Any]:
                 """Get details of a Zendesk ticket."""
-                client = get_zendesk_client()
-                ticket = client.get_ticket(ticket_id)
-                
-                if ticket:
-                    return {
-                        "ticket": {
-                            "id": ticket.id,
-                            "subject": ticket.subject,
-                            "status": ticket.status,
-                            "priority": ticket.priority,
-                            "description": ticket.description[:500],
-                            "url": ticket.url,
+                client, err = _get_zendesk()
+                if err:
+                    return err
+
+                try:
+                    ticket = client.get_ticket(ticket_id)
+                    if ticket:
+                        return {
+                            "ticket": {
+                                "id": ticket.id,
+                                "subject": ticket.subject,
+                                "status": ticket.status,
+                                "priority": ticket.priority,
+                                "description": ticket.description[:500],
+                                "url": ticket.url,
+                            }
                         }
-                    }
-                return {"error": "Ticket not found"}
-            
+                    return {"error": f"Ticket {ticket_id} not found"}
+                except Exception as e:
+                    return {"error": f"Zendesk get ticket failed: {str(e)}"}
+
             def zendesk_create_ticket(
                 subject: str,
                 description: str,
                 priority: str = "normal",
             ) -> Dict[str, Any]:
                 """Create a new Zendesk ticket."""
-                client = get_zendesk_client()
-                ticket = client.create_ticket(subject, description, priority)
-                
-                if ticket:
-                    return {"success": True, "ticket_id": ticket.id}
-                return {"error": "Failed to create ticket"}
+                client, err = _get_zendesk()
+                if err:
+                    return err
+
+                try:
+                    ticket = client.create_ticket(subject, description, priority)
+                    if ticket:
+                        return {"success": True, "ticket_id": ticket.id}
+                    return {"error": "Failed to create ticket"}
+                except Exception as e:
+                    return {"error": f"Zendesk create ticket failed: {str(e)}"}
             
             self.register(
                 "zendesk_list_tickets",

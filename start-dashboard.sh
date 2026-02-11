@@ -24,10 +24,10 @@ fuser -k 8502/tcp 2>/dev/null || true
 fuser -k 3000/tcp 2>/dev/null || true
 sleep 1
 
-# Start FastAPI backend
+# Start FastAPI backend (api.py loads .env itself)
 echo -e "${GREEN}Starting FastAPI backend on port 8502...${NC}"
 cd "$SCRIPT_DIR/Orchestrator"
-python3 start_api.py &
+python3 -m uvicorn api:app --host 0.0.0.0 --port 8502 &
 BACKEND_PID=$!
 echo "  Backend PID: $BACKEND_PID"
 
