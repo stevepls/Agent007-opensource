@@ -246,6 +246,21 @@ class ToolCache:
                 "hit_rate": f"{(self._hits / total * 100):.1f}%" if total > 0 else "N/A",
             }
 
+    def get_fresh_summary(self) -> str:
+        """Return a markdown summary of all fresh cached data for system prompt injection."""
+        lines = []
+        with self._lock:
+            for key, entry in self._cache.items():
+                if entry.is_expired:
+                    continue
+                age = int(entry.age_seconds)
+                ttl = entry.ttl_seconds
+                tool = entry.tool_name
+                args = entry.arguments
+                args_str = ", ".join(f"{k}={v}" for k, v in args.items()) if args else "no args"
+                lines.append(f"- **{tool}**({args_str}): {entry._human_age(age)}, TTL {ttl}s")
+        return "\n".join(lines) if lines else ""
+
 
 def get_tool_cache() -> ToolCache:
     return ToolCache()

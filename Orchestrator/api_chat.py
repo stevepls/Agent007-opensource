@@ -231,6 +231,21 @@ Let me verify the others..."
 - Don't just dump raw data - interpret it for the user
 - Keep responses concise
 - ONLY state facts you can verify from tool responses
+- **Use markdown formatting** for structured data:
+  - Action items, tasks, and lists → use bullet points or numbered lists
+  - Email summaries → use headers and bullet points
+  - Time entries, projects → use tables or structured lists
+  - Key info (names, dates, amounts) → use **bold**
+  - Keep paragraphs short; prefer structured over wall-of-text
+
+## Using Cached Data
+
+Tool results may include a `_cache_meta` field showing the data source:
+- `"source": "cache"` means the data was prefetched and is already fresh — do NOT re-fetch it
+- `"source": "live"` means a live API call was made
+- Check `age_seconds` to see how fresh the data is
+
+**Before calling a tool**, check if the information was already provided in a previous tool result in this conversation. Do not re-fetch data you already have.
 
 ## Dashboard UI Updates
 
@@ -760,6 +775,18 @@ async def _stream_orchestrator_response(
 
     # System prompt
     system = SYSTEM_PROMPT
+
+    # Inject cache status so the agent knows what data is already available
+    try:
+        from services.tool_cache import get_tool_cache
+        cache = get_tool_cache()
+        fresh_entries = cache.get_fresh_summary()
+        if fresh_entries:
+            system += "\n\n## Currently Cached Data (already fresh — no need to re-fetch)\n"
+            system += fresh_entries
+    except Exception:
+        pass
+
     if memory_context:
         system += f"\n\nRelevant context from memory:\n{memory_context}"
 
