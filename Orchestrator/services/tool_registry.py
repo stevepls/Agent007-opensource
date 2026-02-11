@@ -309,6 +309,56 @@ class ToolRegistry:
             {"type": "object", "properties": {}},
             category="gmail"
         )
+
+        def gmail_get_message(message_id: str) -> Dict[str, Any]:
+            """Get full content of a specific email by its ID."""
+            import base64 as _b64
+            try:
+                service = _get_gmail_service()
+                msg_data = service.users().messages().get(
+                    userId='me', id=message_id, format='full'
+                ).execute()
+                headers = {h['name']: h['value'] for h in msg_data.get('payload', {}).get('headers', [])}
+
+                # Extract plain-text body
+                body = ""
+                payload = msg_data.get('payload', {})
+                if 'parts' in payload:
+                    for part in payload['parts']:
+                        if part.get('mimeType') == 'text/plain' and part.get('body', {}).get('data'):
+                            body = _b64.urlsafe_b64decode(part['body']['data']).decode('utf-8', errors='replace')
+                            break
+                elif payload.get('body', {}).get('data'):
+                    body = _b64.urlsafe_b64decode(payload['body']['data']).decode('utf-8', errors='replace')
+
+                return {
+                    "id": msg_data['id'],
+                    "thread_id": msg_data.get('threadId', ''),
+                    "subject": headers.get('Subject', 'No subject'),
+                    "from": headers.get('From', ''),
+                    "to": headers.get('To', ''),
+                    "date": headers.get('Date', ''),
+                    "labels": msg_data.get('labelIds', []),
+                    "snippet": msg_data.get('snippet', ''),
+                    "body": body[:4000],
+                }
+            except Exception as e:
+                return {"error": f"Gmail get message failed: {str(e)}"}
+
+        self.register(
+            "gmail_get_message",
+            "Get the full content of a specific email by its message ID. Use after gmail_search to read full email body.",
+            gmail_get_message,
+            {
+                "type": "object",
+                "properties": {
+                    "message_id": {"type": "string", "description": "Gmail message ID (from gmail_search results)"}
+                },
+                "required": ["message_id"]
+            },
+            category="gmail"
+        )
+
         def gmail_create_draft(
             to: str,
             subject: str,
