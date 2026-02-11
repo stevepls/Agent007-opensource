@@ -192,6 +192,12 @@ You have tools to interact with these services - USE THEM when the user asks:
 - "Find notifications about payment" → `notification_search`
 - "Show my Airtable tickets" → `airtable_get_tickets`
 - "Find the payment plan ticket" → `airtable_search_ticket`
+- "Tell me about yourself" / "What can you do?" / "What integrations?" → `memory_recall` (self-context is stored in memory)
+- "What Harvest projects?" / "Project IDs?" → `memory_recall` (project mappings stored in memory)
+
+## Self-Awareness
+
+You have detailed knowledge about your own architecture, integrations, projects, governance rules, and known issues stored in your memory system. When asked about yourself or your capabilities, use `memory_recall` to retrieve this context rather than guessing.
 
 ## CRITICAL: Anti-Hallucination Rules
 
@@ -1397,7 +1403,25 @@ async def build_context() -> str:
         pass
     
     context_parts.append(f"Current time: {datetime.now().isoformat()}")
-    
+
+    # Always inject system self-context from memory (full values, not truncated)
+    try:
+        from services.memory import get_memory_service, ContextEntry
+        memory = get_memory_service()
+        with memory._get_session() as db:
+            entries = (
+                db.query(ContextEntry)
+                .filter_by(source="system")
+                .order_by(ContextEntry.category, ContextEntry.key)
+                .all()
+            )
+            if entries:
+                context_parts.append("\n## Agent Self-Context")
+                for e in entries:
+                    context_parts.append(f"**{e.category}/{e.key}**: {e.value}")
+    except Exception:
+        pass
+
     return "\n".join(context_parts)
 
 

@@ -95,6 +95,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"⚠️ Queue cleanup skipped: {e}")
 
+    # Seed self-context into memory database
+    try:
+        from services.self_context import seed_self_context
+        seed_self_context()
+        print("✅ Self-context seeded into memory")
+    except Exception as e:
+        print(f"⚠️ Self-context seeding skipped: {e}")
+
     yield
     scheduler.stop()
     get_task_queue().shutdown()

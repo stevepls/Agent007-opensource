@@ -704,9 +704,10 @@ class MemoryService:
             entries = (
                 db.query(ContextEntry)
                 .filter(ContextEntry.id.in_(entry_ids))
+                .filter(ContextEntry.source != "system")  # system context injected via build_context()
                 .all()
             )
-            
+
             # Filter expired and build results
             memory_results = []
             for entry in entries:
