@@ -61,6 +61,8 @@ class ToolRegistry:
     
     def _load_tools(self):
         """Load all tool implementations."""
+        # Utility (date/time)
+        self._register_utility_tools()
         # Gmail
         self._register_gmail_tools()
         # Calendar
@@ -391,9 +393,41 @@ class ToolRegistry:
 
     
     # =========================================================================
+    # Utility Tools (Date/Time)
+    # =========================================================================
+
+    def _register_utility_tools(self):
+        import time as _time
+        from datetime import timezone
+
+        def get_current_datetime() -> Dict[str, Any]:
+            """Get the current date and time. Use this before any time-sensitive operation."""
+            now_utc = datetime.now(timezone.utc)
+            now_local = datetime.now()
+            return {
+                "utc": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "local": now_local.strftime("%Y-%m-%d %H:%M:%S"),
+                "timezone": _time.tzname[0],
+                "date": now_local.strftime("%Y-%m-%d"),
+                "day_of_week": now_local.strftime("%A"),
+                "iso_week": now_local.isocalendar()[1],
+            }
+
+        self.register(
+            "get_current_datetime",
+            "Get the current date, time, day of week, and timezone. ALWAYS call this before time-sensitive operations like logging hours, generating timesheets/invoices, or scheduling.",
+            get_current_datetime,
+            {
+                "type": "object",
+                "properties": {},
+            },
+            category="utility"
+        )
+
+    # =========================================================================
     # Calendar Tools
     # =========================================================================
-    
+
     def _register_calendar_tools(self):
         def calendar_get_events(
             days_back: int = 7,

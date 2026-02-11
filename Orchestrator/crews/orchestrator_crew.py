@@ -11,7 +11,7 @@ import sys
 import json
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from crewai import Crew, Task, Process, Agent
 from crewai.tools import BaseTool
@@ -159,6 +159,12 @@ TOOL CATEGORIES:
 - **Asana**: asana_list_my_tasks, asana_pull_to_clickup
 - **GitHub**: github_list_prs, github_get_pr, github_list_branches, github_get_branch_commits, github_search_code
 - **Development**: run_dev_task (for code changes)
+- **Utility**: get_current_datetime (ALWAYS use before time-sensitive work)
+
+TIME AWARENESS:
+- ALWAYS call get_current_datetime before time-sensitive operations (logging time, generating timesheets/invoices, scheduling, checking what day it is)
+- The date/time at the top of the task may be stale if the conversation has been running — use the tool to verify
+- When a user says "today", "this week", "yesterday", etc., confirm the actual date with the tool first
 
 RESPONSE STYLE:
 - Be conversational and helpful
@@ -381,10 +387,10 @@ def run_orchestrator_task(
         crew = create_orchestrator_crew(verbose=True)
 
         # Build task description with current date/time so the LLM knows the real date
-        now = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
-        task_description = f"CURRENT DATE/TIME: {now}\n\n{user_request}"
+        now = datetime.now(timezone.utc).strftime("%A, %B %d, %Y at %H:%M UTC")
+        task_description = f"CURRENT DATE/TIME: {now} (use get_current_datetime tool to verify before time-sensitive operations)\n\n{user_request}"
         if context:
-            task_description = f"CURRENT DATE/TIME: {now}\n\n{user_request}\n\nContext:\n{context}"
+            task_description = f"CURRENT DATE/TIME: {now} (use get_current_datetime tool to verify before time-sensitive operations)\n\n{user_request}\n\nContext:\n{context}"
 
         # Create task
         task = Task(

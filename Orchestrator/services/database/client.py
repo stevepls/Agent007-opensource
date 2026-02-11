@@ -629,32 +629,44 @@ class DatabaseManager:
             return [list(row.values())[0] for row in result.data]
         return []
     
+    @staticmethod
+    def _validate_identifier(name: str) -> str:
+        """Validate and return a safe SQL identifier (table/column name)."""
+        if not re.match(r'^[A-Za-z_][A-Za-z0-9_.]*$', name):
+            raise ValueError(f"Invalid SQL identifier: {name!r}")
+        return name
+
     def get_table_schema(self, conn_id: str, table_name: str) -> List[Dict[str, Any]]:
         """Get schema of a table."""
         conn = self.connections.get(conn_id)
         if not conn:
             return []
-        
+
+        safe_name = self._validate_identifier(table_name)
+
         if conn.type == "postgresql":
-            query = f"""
+            query = """
                 SELECT column_name, data_type, is_nullable, column_default
                 FROM information_schema.columns
-                WHERE table_name = '{table_name}'
+                WHERE table_name = :table_name
                 ORDER BY ordinal_position
             """
+            result = self.execute_query(conn_id, query, params={"table_name": safe_name})
         elif conn.type == "mysql":
-            query = f"DESCRIBE {table_name}"
+            query = f"DESCRIBE {safe_name}"
+            result = self.execute_query(conn_id, query)
         elif conn.type == "sqlite":
-            query = f"PRAGMA table_info({table_name})"
+            query = f"PRAGMA table_info({safe_name})"
+            result = self.execute_query(conn_id, query)
         else:
             return []
-        
-        result = self.execute_query(conn_id, query)
+
         return result.data if result.success else []
-    
+
     def get_row_count(self, conn_id: str, table_name: str) -> int:
         """Get approximate row count for a table."""
-        result = self.execute_query(conn_id, f"SELECT COUNT(*) as count FROM {table_name}")
+        safe_name = self._validate_identifier(table_name)
+        result = self.execute_query(conn_id, f"SELECT COUNT(*) as count FROM {safe_name}")
         if result.success and result.data:
             return result.data[0].get("count", 0)
         return 0

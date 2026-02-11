@@ -164,6 +164,9 @@ You have tools to interact with these services - USE THEM when the user asks:
 - **ClickUp**: `clickup_create_task`, `clickup_list_tasks`, `clickup_update_task`, `clickup_get_task`, `clickup_add_comment`, `clickup_list_spaces` - Manage tasks and tickets
 - **Zendesk**: `zendesk_list_tickets`, `zendesk_get_ticket`, `zendesk_create_ticket` - Support tickets
 
+### Utility
+- **DateTime**: `get_current_datetime` - Get the current date, time, day of week, and timezone. ALWAYS call before time-sensitive operations.
+
 ### Memory & Context
 - **Memory**: `memory_remember`, `memory_recall` - Store and retrieve context
 
@@ -183,6 +186,7 @@ You have tools to interact with these services - USE THEM when the user asks:
 - "What meetings?" → `calendar_get_events`
 - "Remember that..." → `memory_remember`
 - "Build a feature" / "Write code" / "Fix bug" → `run_dev_task` (delegates to AI crew)
+- "What time is it?" / "What's today's date?" → `get_current_datetime`
 - "What's happening in Notion?" → `notion_get_updates`
 - "Show all notifications" → `notification_fetch_all`
 - "Find notifications about payment" → `notification_search`
