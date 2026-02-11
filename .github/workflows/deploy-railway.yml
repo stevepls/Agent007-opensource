@@ -1,22 +1,25 @@
-name: Deploy Agent007 to Railway
+name: Deploy Agent007 to Railway (DEPRECATED)
+
+# Deploys are now handled by Railway's native GitHub integration.
+# Services with auto-deploy enabled: Orchestrator, Dashboard, Webhook Server.
+# This workflow is fully disabled — remove once confirmed unnecessary.
 
 on:
-  # Auto-deploy disabled — using `railway up` locally instead.
-  # Re-enable push trigger after updating RAILWAY_TOKEN secret.
   # push:
   #   branches:
   #     - main
   #     - staging
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Target environment'
-        required: true
-        default: 'staging'
-        type: choice
-        options:
-          - staging
-          - production
+  # workflow_dispatch:
+  #   inputs:
+  #     environment:
+  #       description: 'Target environment'
+  #       required: true
+  #       default: 'staging'
+  #       type: choice
+  #       options:
+  #         - staging
+  #         - production
+  workflow_dispatch: {}
 
 concurrency:
   group: deploy-${{ github.ref_name }}
