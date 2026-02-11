@@ -39,3 +39,13 @@
 |---|---|
 | theForgelab/Collegewise.com (3295429) | Product & Technology |
 | PCOS (3851845) | CYS-001 |
+
+## Known Issues
+
+See [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) for the full list. Key items:
+
+- **Secrets rotation needed** — all local `.env` files contain plaintext production keys that should be rotated
+- **Webhook server not deployed** — Zendesk ↔ ClickUp real-time sync is offline (manual sync via Orchestrator still works)
+- **SyncAudit disabled** — auto-deploys off, service has startup and validation bugs
+- **Debug endpoints exposed** — `/debug/*` routes in Orchestrator should be removed for production
+- **Session cookie not signed** — dashboard middleware doesn't cryptographically verify session cookies
