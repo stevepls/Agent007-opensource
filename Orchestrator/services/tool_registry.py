@@ -232,6 +232,7 @@ class ToolRegistry:
 
         def gmail_search(query: str, max_results: int = 10) -> Dict[str, Any]:
             """Search Gmail for emails matching the query."""
+            import base64 as _b64
             try:
                 service = _get_gmail_service()
                 results = service.users().messages().list(
@@ -243,15 +244,29 @@ class ToolRegistry:
 
                 for msg in messages:
                     msg_data = service.users().messages().get(
-                        userId='me', id=msg['id'], format='metadata',
-                        metadataHeaders=['Subject', 'From', 'Date']
+                        userId='me', id=msg['id'], format='full'
                     ).execute()
-                    headers = {h['name']: h['value'] for h in msg_data['payload']['headers']}
+                    headers = {h['name']: h['value'] for h in msg_data['payload'].get('headers', [])}
+
+                    # Extract plain-text body
+                    body = ""
+                    payload = msg_data.get('payload', {})
+                    if 'parts' in payload:
+                        for part in payload['parts']:
+                            if part.get('mimeType') == 'text/plain' and part.get('body', {}).get('data'):
+                                body = _b64.urlsafe_b64decode(part['body']['data']).decode('utf-8', errors='replace')
+                                break
+                    elif payload.get('body', {}).get('data'):
+                        body = _b64.urlsafe_b64decode(payload['body']['data']).decode('utf-8', errors='replace')
+
                     emails.append({
                         "id": msg['id'],
                         "subject": headers.get('Subject', 'No subject'),
                         "from": headers.get('From', ''),
+                        "to": headers.get('To', ''),
                         "date": headers.get('Date', ''),
+                        "snippet": msg_data.get('snippet', ''),
+                        "body": body[:2000],
                     })
 
                 return {"count": len(emails), "emails": emails}
