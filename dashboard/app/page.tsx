@@ -19,6 +19,7 @@ import {
   type ApprovalRequest,
   type OrchestratorResponse,
   type ProgressEvent,
+  type StructuredData,
 } from "@/lib/utils";
 import { Menu, X, Zap, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,7 @@ export default function Dashboard() {
   // Real-time activity tracking
   const [currentActivity, setCurrentActivity] = useState<string>("");
   const [activityLog, setActivityLog] = useState<string[]>([]);
+  const [structuredBlocks, setStructuredBlocks] = useState<StructuredData[]>([]);
 
   // Track processed updates to prevent duplicates
   const processedUpdatesRef = useRef<Set<string>>(new Set());
@@ -91,6 +93,8 @@ export default function Dashboard() {
       // Track which AI provider is being used
       const provider = response.headers.get("X-AI-Provider") || "unknown";
       setCurrentProvider(provider);
+      // Clear structured blocks from previous response
+      setStructuredBlocks([]);
     },
     onFinish: (message) => {
       // Only parse UI updates ONCE when streaming is complete
@@ -185,6 +189,9 @@ export default function Dashboard() {
           break;
         case "background_update":
           setActivityLog((prev) => [...prev.slice(-9), `📬 Update: ${event.request || ""} — ${event.status}`]);
+          break;
+        case "structured_data":
+          setStructuredBlocks((prev) => [...prev, event as unknown as StructuredData]);
           break;
       }
     }
@@ -522,6 +529,7 @@ export default function Dashboard() {
             error={error}
             currentActivity={currentActivity}
             activityLog={activityLog}
+            structuredBlocks={structuredBlocks}
           />
         </div>
 

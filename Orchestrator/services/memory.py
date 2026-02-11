@@ -64,27 +64,48 @@ from sqlalchemy.orm import (
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", Path(__file__).parent.parent / "data" / "memory"))
 MEMORY_DIR.mkdir(parents=True, exist_ok=True)
 
-DATABASE_URL = os.getenv("MEMORY_DATABASE_URL", f"sqlite:///{MEMORY_DIR}/memory.db")
-
-# Create engine with optimized SQLite settings
-engine = create_engine(
-    DATABASE_URL,
-    echo=os.getenv("SQL_DEBUG", "false").lower() == "true",
-    connect_args={
-        "check_same_thread": False,
-        "timeout": 30,  # Wait up to 30s for locks
-    } if "sqlite" in DATABASE_URL else {},
+# Priority: MEMORY_DATABASE_URL > DATABASE_URL > SQLite fallback
+DATABASE_URL = os.getenv(
+    "MEMORY_DATABASE_URL",
+    os.getenv("DATABASE_URL", f"sqlite:///{MEMORY_DIR}/memory.db")
 )
 
+# Handle Railway/Heroku postgres:// -> postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+_is_sqlite = "sqlite" in DATABASE_URL
+
+# Build engine kwargs based on backend
+_engine_kwargs: Dict[str, Any] = {
+    "echo": os.getenv("SQL_DEBUG", "false").lower() == "true",
+}
+
+if _is_sqlite:
+    _engine_kwargs["connect_args"] = {
+        "check_same_thread": False,
+        "timeout": 30,
+    }
+else:
+    # PostgreSQL connection pooling
+    _engine_kwargs.update({
+        "pool_size": 5,
+        "max_overflow": 10,
+        "pool_recycle": 1800,
+        "pool_pre_ping": True,
+    })
+
+engine = create_engine(DATABASE_URL, **_engine_kwargs)
+
 # Enable WAL mode for better concurrent access (SQLite only)
-if "sqlite" in DATABASE_URL:
+if _is_sqlite:
     from sqlalchemy import event
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.execute("PRAGMA synchronous=NORMAL")  # Faster, still safe
-        cursor.execute("PRAGMA cache_size=-64000")  # 64MB cache
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA cache_size=-64000")
         cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -947,7 +968,7 @@ class MemoryService:
                 "messages": message_count,
                 "context_entries": context_count,
                 "categories": {cat: count for cat, count in categories},
-                "database_path": str(MEMORY_DIR / "memory.db"),
+                "database": DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else DATABASE_URL,
             }
     
     def cleanup_expired(self) -> int:

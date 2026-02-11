@@ -3,10 +3,11 @@
 import { useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Message } from "@ai-sdk/react";
-import { cn, type OrchestratorResponse } from "@/lib/utils";
+import { cn, type OrchestratorResponse, type StructuredData } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { StructuredDataBlock } from "@/components/StructuredDataBlock";
 import { User, Bot, AlertCircle, Sparkles, Loader2 } from "lucide-react";
 
 interface ChatMessagesProps {
@@ -16,6 +17,7 @@ interface ChatMessagesProps {
   error?: Error | null;
   currentActivity?: string;
   activityLog?: string[];
+  structuredBlocks?: StructuredData[];
 }
 
 interface ParsedContent {
@@ -140,6 +142,7 @@ export function ChatMessages({
   error,
   currentActivity,
   activityLog = [],
+  structuredBlocks = [],
 }: ChatMessagesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -232,6 +235,15 @@ export function ChatMessages({
           );
         })}
       </AnimatePresence>
+
+      {/* Structured data blocks (tables from tool results) */}
+      {structuredBlocks.length > 0 && (
+        <div className="px-11">
+          {structuredBlocks.map((block, i) => (
+            <StructuredDataBlock key={`structured-${i}`} data={block} />
+          ))}
+        </div>
+      )}
 
       {/* Loading indicator with activity log */}
       {isLoading && (
