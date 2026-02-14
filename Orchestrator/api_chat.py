@@ -12,7 +12,7 @@ import json
 import queue
 import asyncio
 from typing import Optional, List, Dict, Any, AsyncGenerator
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -720,6 +720,10 @@ async def _stream_direct_response(
         "- Development tasks\n"
         "- General questions and conversation"
     )
+    # Inject current date/time
+    now_local = datetime.now()
+    system += f"\n\nCurrent date: {now_local.strftime('%A, %B %d, %Y at %H:%M')}"
+
     if memory_context:
         system += f"\n\nRelevant context from memory:\n{memory_context}"
 
@@ -776,6 +780,11 @@ async def _stream_orchestrator_response(
 
     # System prompt
     system = SYSTEM_PROMPT
+
+    # Inject current date/time so the agent always knows the date
+    now_local = datetime.now()
+    now_utc = datetime.now(timezone.utc)
+    system += f"\n\n## Current Date & Time\n{now_local.strftime('%A, %B %d, %Y at %H:%M')} (local) | {now_utc.strftime('%Y-%m-%dT%H:%M:%SZ')} (UTC)"
 
     # Inject cache status so the agent knows what data is already available
     try:
