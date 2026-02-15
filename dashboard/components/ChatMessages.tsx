@@ -3,6 +3,8 @@
 import { useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Message } from "@ai-sdk/react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { cn, type OrchestratorResponse, type StructuredData } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -65,9 +67,19 @@ function MessageContent({ content }: { content: string }) {
 
   return (
     <div className="space-y-3">
-      {/* Main text */}
+      {/* Main text — rendered as markdown */}
       {parsed.text && (
-        <p className="whitespace-pre-wrap leading-relaxed">{parsed.text}</p>
+        <div className="prose prose-invert prose-sm max-w-none leading-relaxed
+          prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2
+          prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5
+          prose-table:text-sm prose-th:px-3 prose-th:py-1.5 prose-td:px-3 prose-td:py-1.5
+          prose-th:border prose-th:border-border prose-td:border prose-td:border-border
+          prose-th:bg-muted/50 prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+          prose-strong:text-foreground prose-code:text-primary prose-code:bg-muted/50
+          prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs
+          prose-pre:bg-muted/50 prose-pre:rounded-lg">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{parsed.text}</ReactMarkdown>
+        </div>
       )}
 
       {/* Inline JSON preview (if it contains priority UI) */}
