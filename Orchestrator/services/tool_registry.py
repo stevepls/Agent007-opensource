@@ -2566,15 +2566,16 @@ class ToolRegistry:
                 category="hubstaff"
             )
 
-            # ── Timesheet Generator (Hubstaff → Google Sheets) ──
+            # ── Timesheet Generator (Harvest/Hubstaff → Google Sheets) ──
 
             def generate_timesheet(
                 start_date: str,
                 end_date: str,
+                source: str = "harvest",
                 title: Optional[str] = None,
             ) -> Dict[str, Any]:
                 """
-                Generate a timesheet Google Sheet from Hubstaff time data.
+                Generate a timesheet Google Sheet from Harvest or Hubstaff time data.
                 Pulls daily activity totals, groups by date/project, and writes
                 to a new spreadsheet with a summary total row.
                 """
@@ -2587,39 +2588,63 @@ class ToolRegistry:
                 except ValueError as e:
                     return {"error": f"Invalid date format. Use YYYY-MM-DD. {e}"}
 
-                # Get Hubstaff entries
-                client = _get_hubstaff_client()
-                if not client:
-                    return {"error": "Hubstaff not configured. Set HUBSTAFF_API_TOKEN."}
-
-                uid = int(os.getenv("HUBSTAFF_USER_ID", "0"))
-                if not uid:
-                    return {"error": "HUBSTAFF_USER_ID not set."}
-
-                entries = client.get_user_time_entries(uid, start_date=sd, end_date=ed)
-                if not entries:
-                    return {"error": f"No time entries found for {start_date} to {end_date}."}
-
-                # Build project name lookup from mapping cache
-                project_names: Dict[int, str] = {}
-                try:
-                    cache_path = Path(__file__).parent.parent / "data" / "project_mapper" / "mapping_cache.json"
-                    if cache_path.exists():
-                        with open(cache_path) as f:
-                            cache_data = json.load(f)
-                        for proj in cache_data.get("hubstaff_projects", []):
-                            project_names[proj["id"]] = proj["name"]
-                except Exception:
-                    pass
-
-                # Build rows sorted by date then project
                 rows = []
                 total_hours = 0.0
-                for entry in sorted(entries, key=lambda e: (e.date, e.project_id or 0)):
-                    hours = round(entry.tracked / 3600, 2)
-                    total_hours += hours
-                    project = project_names.get(entry.project_id, f"Project {entry.project_id}")
-                    rows.append([entry.date, project, hours])
+
+                if source == "harvest":
+                    # Fetch from Harvest (paginated, includes project/task names)
+                    try:
+                        from services.harvest_reports import HarvestReportClient
+                        harvest = HarvestReportClient()
+                    except Exception as e:
+                        return {"error": f"Harvest not configured: {e}"}
+
+                    entries = harvest.get_time_entries(start_date, end_date)
+                    if not entries:
+                        return {"error": f"No Harvest time entries for {start_date} to {end_date}."}
+
+                    header = ["Date", "Project", "Task", "Hours", "Notes"]
+                    for entry in sorted(entries, key=lambda e: (e.date, e.project_name)):
+                        total_hours += entry.hours
+                        rows.append([entry.date, entry.project_name, entry.task_name, entry.hours, entry.notes[:80] if entry.notes else ""])
+                    total_row = ["", "", "TOTAL", round(total_hours, 2), ""]
+
+                elif source == "hubstaff":
+                    # Fetch from Hubstaff (original logic)
+                    client = _get_hubstaff_client()
+                    if not client:
+                        return {"error": "Hubstaff not configured. Set HUBSTAFF_API_TOKEN."}
+
+                    uid = int(os.getenv("HUBSTAFF_USER_ID", "0"))
+                    if not uid:
+                        return {"error": "HUBSTAFF_USER_ID not set."}
+
+                    entries = client.get_user_time_entries(uid, start_date=sd, end_date=ed)
+                    if not entries:
+                        return {"error": f"No Hubstaff time entries for {start_date} to {end_date}."}
+
+                    # Build project name lookup from mapping cache
+                    project_names: Dict[int, str] = {}
+                    try:
+                        cache_path = Path(__file__).parent.parent / "data" / "project_mapper" / "mapping_cache.json"
+                        if cache_path.exists():
+                            with open(cache_path) as f:
+                                cache_data = json.load(f)
+                            for proj in cache_data.get("hubstaff_projects", []):
+                                project_names[proj["id"]] = proj["name"]
+                    except Exception:
+                        pass
+
+                    header = ["Date", "Project", "Hours"]
+                    for entry in sorted(entries, key=lambda e: (e.date, e.project_id or 0)):
+                        hours = round(entry.tracked / 3600, 2)
+                        total_hours += hours
+                        project = project_names.get(entry.project_id, f"Project {entry.project_id}")
+                        rows.append([entry.date, project, hours])
+                    total_row = ["", "TOTAL", round(total_hours, 2)]
+
+                else:
+                    return {"error": f"Unknown source '{source}'. Use 'harvest' or 'hubstaff'."}
 
                 # Authenticate Google Sheets
                 try:
@@ -2644,8 +2669,7 @@ class ToolRegistry:
                 spreadsheet = sheets_client.create_spreadsheet(sheet_title, ["Timesheet"])
 
                 # Write header + data + total row
-                header = ["Date", "Project", "Hours"]
-                all_rows = [header] + rows + [["", "TOTAL", round(total_hours, 2)]]
+                all_rows = [header] + rows + [total_row]
                 sheets_client.update_values(spreadsheet.id, "'Timesheet'!A1", all_rows)
 
                 return {
@@ -2654,14 +2678,16 @@ class ToolRegistry:
                     "url": spreadsheet.url,
                     "title": sheet_title,
                     "period": f"{start_date} to {end_date}",
+                    "source": source,
                     "total_hours": round(total_hours, 2),
                     "entry_count": len(rows),
                 }
 
             self.register(
                 "generate_timesheet",
-                "Generate a timesheet Google Sheet from Hubstaff time tracking data. "
-                "Creates a new spreadsheet with Date, Project, and Hours columns plus a total row. "
+                "Generate a timesheet Google Sheet from time tracking data. "
+                "Defaults to Harvest. Use source='hubstaff' for Hubstaff data. "
+                "Creates a new spreadsheet with Date, Project, Hours columns plus a total row. "
                 "REQUIRES CONFIRMATION — creates a new Google Sheet.",
                 generate_timesheet,
                 {
@@ -2669,6 +2695,7 @@ class ToolRegistry:
                     "properties": {
                         "start_date": {"type": "string", "description": "Start date in YYYY-MM-DD format"},
                         "end_date": {"type": "string", "description": "End date in YYYY-MM-DD format"},
+                        "source": {"type": "string", "enum": ["harvest", "hubstaff"], "description": "Time tracking source (default: harvest)"},
                         "title": {"type": "string", "description": "Custom spreadsheet title (optional, defaults to 'Timesheet {start} to {end}')"},
                     },
                     "required": ["start_date", "end_date"]
