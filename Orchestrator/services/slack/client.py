@@ -388,14 +388,25 @@ class SlackClient:
         """Post a message to a channel."""
         self._ensure_connected()
         client = self._get_bot_client()
-        
+
         kwargs = {"channel": channel, "text": text}
         if thread_ts:
             kwargs["thread_ts"] = thread_ts
         if blocks:
             kwargs["blocks"] = blocks
-        
+
         result = client.chat_postMessage(**kwargs)
+
+        # Verify the message was posted to the intended channel
+        actual_channel = result.get('channel', '')
+        if actual_channel != channel:
+            return {
+                "ts": result.get('ts'),
+                "channel": actual_channel,
+                "status": "warning",
+                "warning": f"Message delivered to {actual_channel} instead of requested {channel}. The channel ID may be wrong.",
+            }
+
         return {"ts": result['ts'], "channel": result['channel'], "status": "sent"}
     
     def update_message(self, channel: str, ts: str, text: str) -> Dict[str, Any]:

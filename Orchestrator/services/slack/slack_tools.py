@@ -377,39 +377,58 @@ def slack_send_dm(user_name: str = None, user_id: str = None, text: str = "") ->
         return {"error": "Either user_name or user_id is required"}
 
     try:
-        # Resolve user to DM channel
+        # Step 1: Resolve user_name → user_id if needed
         resolved_name = user_name or user_id
-        channel_id = None
+        resolved_user_id = user_id
 
         if user_name and not user_id:
             search = user_name.lower()
             dms = client.list_dms()
+            matches = []
             for dm in dms:
                 dm_user = client.get_user(dm.name)
                 if dm_user:
                     full_name = (dm_user.real_name or dm_user.name or "").lower()
                     username = (dm_user.name or "").lower()
                     if search in full_name or search in username:
-                        channel_id = dm.id
-                        user_id = dm.name
-                        resolved_name = dm_user.real_name or dm_user.name
-                        break
-            if not channel_id:
+                        matches.append((dm.name, dm_user.real_name or dm_user.name))
+            if not matches:
                 return {"error": f"Could not find DM conversation with '{user_name}'"}
-        elif user_id:
-            channel_id = client.open_dm(user_id)
-            user_info = client.get_user(user_id)
+            if len(matches) > 1:
+                names = [f"{name} ({uid})" for uid, name in matches]
+                return {"error": f"Multiple matches for '{user_name}': {', '.join(names)}. Use user_id to specify."}
+            resolved_user_id, resolved_name = matches[0]
+
+        if not resolved_user_id:
+            return {"error": "Could not determine user ID"}
+
+        # Step 2: Open DM channel (authoritative — Slack creates/returns the real channel)
+        channel_id = client.open_dm(resolved_user_id)
+        if not channel_id:
+            return {"error": f"Could not open DM channel with {resolved_name}"}
+
+        # Resolve display name if we only had user_id
+        if user_id and not user_name:
+            user_info = client.get_user(resolved_user_id)
             if user_info:
                 resolved_name = user_info.real_name or user_info.name
 
-        if not channel_id:
-            return {"error": "Could not determine DM channel"}
-
+        # Step 3: Send the message
         result = client.post_message(channel=channel_id, text=text)
+
+        # Step 4: Verify delivery
+        if result.get("status") == "warning":
+            return {
+                "success": False,
+                "error": result.get("warning", "Message may not have been delivered correctly"),
+                "channel_id": result.get("channel"),
+            }
+
         return {
             "success": True,
             "channel_id": channel_id,
             "recipient": resolved_name,
+            "user_id": resolved_user_id,
             "text": text[:200],
             "ts": result.get("ts"),
             "preview": f"DM to {resolved_name}: {text[:100]}...",
