@@ -454,6 +454,80 @@ class ToolRegistry:
             category="utility"
         )
 
+        # ── Session Time Tracking ──
+
+        from services.session_timer import get_session_timer
+
+        def get_session_time(session_id: Optional[str] = None) -> Dict[str, Any]:
+            """Get elapsed time and inferred topic for the current chat session."""
+            timer = get_session_timer()
+            if session_id:
+                return timer.get_session_summary(session_id)
+            # Return all active sessions if no ID given
+            sessions = timer.get_all_sessions()
+            if not sessions:
+                return {"message": "No active sessions being tracked."}
+            return {"sessions": sessions, "count": len(sessions)}
+
+        self.register(
+            "get_session_time",
+            "Get time spent on a chat session — elapsed minutes, topics discussed, and inferred Harvest project/task. "
+            "Call this before logging time to get accurate hours and context. "
+            "Pass session_id for a specific session, or omit for all active sessions.",
+            get_session_time,
+            {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "description": "Session ID (optional — omit for all sessions)"},
+                },
+            },
+            category="utility"
+        )
+
+        def list_pending_time() -> Dict[str, Any]:
+            """List all conversation time entries that haven't been logged to Harvest yet."""
+            from services.memory import get_memory_service, ContextEntry
+            memory = get_memory_service()
+            with memory._get_session() as db:
+                entries = (
+                    db.query(ContextEntry)
+                    .filter_by(category="pending_time")
+                    .order_by(ContextEntry.created_at.desc())
+                    .limit(50)
+                    .all()
+                )
+                if not entries:
+                    return {"message": "No pending time entries.", "entries": []}
+                return {
+                    "count": len(entries),
+                    "entries": [
+                        {
+                            "key": e.key,
+                            "summary": e.value,
+                            "date": (e.extra_data or {}).get("date"),
+                            "hours": (e.extra_data or {}).get("hours"),
+                            "minutes": (e.extra_data or {}).get("minutes"),
+                            "topics": (e.extra_data or {}).get("topics", []),
+                            "inferred_project": (e.extra_data or {}).get("inferred_project"),
+                            "inferred_task": (e.extra_data or {}).get("inferred_task"),
+                            "session_id": (e.extra_data or {}).get("session_id"),
+                        }
+                        for e in entries
+                    ],
+                }
+
+        self.register(
+            "list_pending_time",
+            "List conversation time entries that haven't been logged to Harvest yet. "
+            "Use this to review and batch-log accumulated time.",
+            list_pending_time,
+            {
+                "type": "object",
+                "properties": {},
+            },
+            category="utility"
+        )
+
     # =========================================================================
     # Calendar Tools
     # =========================================================================

@@ -160,7 +160,7 @@ Agent: "I'd be happy to help! Which project? Here are 8 options... How many hour
 
 **Example — CORRECT:**
 User: "Log the time we spent on this"
-Agent: *[calls get_current_datetime, then harvest_log_time with the project inferred from conversation context]*
+Agent: *[calls get_session_time to get actual elapsed time and inferred project, then harvest_log_time]*
 "Logged 1.5h to Product & Technology / Programming — ShipStation research."
 
 ## Available Tools
@@ -185,6 +185,7 @@ Agent: *[calls get_current_datetime, then harvest_log_time with the project infe
 
 ### Utility
 - **DateTime**: `get_current_datetime` — call before any time-sensitive operation
+- **Session Time**: `get_session_time` — elapsed time, topics, and inferred project for the current session. `list_pending_time` — all unlogged session time entries.
 - **Memory**: `memory_remember`, `memory_recall` — persistent context storage
 
 ### AI Agent Crews
@@ -256,13 +257,18 @@ async def chat(request: ChatRequest):
     session_id = request.session_id
     if not session_id:
         session_id = memory.create_session()
-    
+
+    # Track session time
+    from services.session_timer import get_session_timer
+    timer = get_session_timer()
+    timer.start_turn(session_id, last_message.content)
+
     # Get relevant context from memory (before response, for injection)
     memory_context = memory.get_relevant_context(last_message.content, limit=5)
-    
+
     # Note: Messages are persisted at the END of the response via persist_turn_context
     # This is more efficient than persisting before we have the full response
-    
+
     # Provider selection: auto, claude, or openai
     provider = request.llm_provider or "auto"
     claude_key = os.getenv("ANTHROPIC_API_KEY")
@@ -281,22 +287,31 @@ async def chat(request: ChatRequest):
         elif openai_key and OPENAI_AVAILABLE:
             use_provider = "openai"
     
+    async def _wrap_stream(inner_gen):
+        """Wrap a streaming generator to call end_turn when done."""
+        try:
+            async for chunk in inner_gen:
+                yield chunk
+        finally:
+            timer.end_turn(session_id)
+            timer.flush_to_memory(session_id)
+
     if use_provider == "claude":
         return StreamingResponse(
-            stream_claude_response(request.messages, claude_key, session_id, memory_context),
+            _wrap_stream(stream_claude_response(request.messages, claude_key, session_id, memory_context)),
             media_type="text/plain; charset=utf-8",
             headers={"X-Session-ID": session_id, "X-LLM-Provider": "claude"},
         )
     elif use_provider == "openai":
         return StreamingResponse(
-            stream_openai_response(request.messages, openai_key, session_id, memory_context),
+            _wrap_stream(stream_openai_response(request.messages, openai_key, session_id, memory_context)),
             media_type="text/plain; charset=utf-8",
             headers={"X-Session-ID": session_id, "X-LLM-Provider": "openai"},
         )
     else:
         # Fallback to mock response
         return StreamingResponse(
-            stream_mock_response(last_message.content, session_id, memory_context),
+            _wrap_stream(stream_mock_response(last_message.content, session_id, memory_context)),
             media_type="text/plain; charset=utf-8",
             headers={"X-Session-ID": session_id, "X-LLM-Provider": "mock"},
         )
