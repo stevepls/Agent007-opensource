@@ -1016,6 +1016,48 @@ async def _stream_orchestrator_response(
                 prio_label = {0: "CRITICAL", 1: "HIGH", 2: "MEDIUM"}.get(bi.priority.value, "INFO")
                 system += f"\n- [{prio_label}] {bi.title}: {bi.description[:120]}"
 
+        # Check for velocity-unblocking emails
+        try:
+            from services.tool_registry import get_registry as _get_tr
+            _tr = _get_tr()
+            gmail_result = _tr.execute("gmail_search", {
+                "query": "is:unread newer_than:1d",
+                "max_results": 10
+            }, skip_confirmation=True)
+            emails = []
+            if isinstance(gmail_result, dict):
+                emails = gmail_result.get("emails", gmail_result.get("messages", []))
+            elif isinstance(gmail_result, list):
+                emails = gmail_result
+
+            unblocking = []
+            unblock_keywords = [
+                "access", "credential", "password", "login", "invite", "permission",
+                "shared", "sharing", "file", "document", "attachment", "uploaded",
+                "details", "clarification", "answered", "response", "approved",
+                "unblock", "go ahead", "green light", "confirmed", "ready",
+                "api key", "token", "ssh", "deploy", "staging", "production",
+                "ftp", "cpanel", "admin", "repo", "repository",
+            ]
+            for em in emails[:10]:
+                subj = (em.get("subject", "") or "").lower()
+                snippet = (em.get("snippet", "") or em.get("body", "") or "").lower()
+                sender = em.get("from", "") or em.get("sender", "") or ""
+                blob = f"{subj} {snippet}"
+                if any(kw in blob for kw in unblock_keywords):
+                    unblocking.append(em)
+
+            if unblocking:
+                system += "\n\n## Unread Client Emails That May Unblock Work"
+                system += "\nThese recent emails may provide access, files, or details that unblock tasks. Brief Steve on these FIRST — they accelerate delivery."
+                for em in unblocking[:5]:
+                    subj = em.get("subject", "No subject")
+                    sender = em.get("from", "") or em.get("sender", "Unknown")
+                    snippet = (em.get("snippet", "") or em.get("body", "") or "")[:150]
+                    system += f"\n- **{subj}** from {sender}: {snippet}"
+        except Exception:
+            pass
+
         system += """\n\n## Briefing Protocol
 
 When the user asks you to brief them, starts a new conversation, or says "what's next":
