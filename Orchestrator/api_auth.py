@@ -239,6 +239,7 @@ PUBLIC_PREFIXES = [
     "/auth/",
     "/api/queue",
     "/api/briefing",
+    "/api/tasks",
 ]
 
 
