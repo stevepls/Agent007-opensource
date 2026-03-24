@@ -11,6 +11,7 @@ import { ChatMessages } from "@/components/ChatMessages";
 import { ChatInput, type Attachment } from "@/components/ChatInput";
 import { TaskQueue } from "@/components/TaskQueue";
 import { QueueView } from "@/components/QueueView";
+import { AgentStrip } from "@/components/AgentStrip";
 import { DynamicApproveDialog } from "@/components/DynamicApproveDialog";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -480,6 +481,20 @@ export default function Dashboard() {
     setTimeout(() => handleSubmit(fakeEvent), 100);
   }, [setInput, handleSubmit]);
 
+  // Handle agent focus — bring agent's work into the chat
+  const handleAgentFocus = useCallback((agentName: string) => {
+    const labels: Record<string, string> = {
+      scaffolding: "scaffolding agent",
+      ticket_scan: "ticket manager agent",
+      daily_briefing: "daily briefing agent",
+      pr_scanner: "PR scanner agent",
+    };
+    const label = labels[agentName] || agentName.replace(/_/g, " ") + " agent";
+    setInput(`What has the ${label} been doing? Show me its latest results and any items that need my attention.`);
+    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+    setTimeout(() => handleSubmit(fakeEvent), 150);
+  }, [setInput, handleSubmit]);
+
   // Simulate real-time updates (demo)
   useEffect(() => {
     const interval = setInterval(() => {
@@ -686,6 +701,7 @@ export default function Dashboard() {
           </h2>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
+          <AgentStrip onAgentFocus={handleAgentFocus} />
           <QueueView
             activeItemId={activeQueueItemId}
             onItemSelect={handleQueueItemSelect}
