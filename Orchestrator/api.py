@@ -78,6 +78,15 @@ async def lifespan(app: FastAPI):
     scheduler = get_prefetch_scheduler()
     scheduler.start()
 
+    # Start proactive agent scheduler (scaffolding, ticket scanning)
+    proactive = None
+    try:
+        from services.proactive_scheduler import get_proactive_scheduler
+        proactive = get_proactive_scheduler()
+        proactive.start()
+    except Exception as e:
+        print(f"[WARN] Proactive scheduler not available: {e}")
+
     # Register time-tracking agent as the queue idle handler
     try:
         from agents.time_tracker.agent import get_time_tracking_agent
@@ -141,6 +150,8 @@ async def lifespan(app: FastAPI):
 
     yield
     scheduler.stop()
+    if proactive:
+        proactive.stop()
     get_task_queue().shutdown()
 
 
@@ -402,6 +413,14 @@ async def health_check():
     scheduler = get_prefetch_scheduler()
     task_queue = get_task_queue()
 
+    # Proactive scheduler status
+    proactive_status = {"running": False, "jobs": []}
+    try:
+        from services.proactive_scheduler import get_proactive_scheduler
+        proactive_status = get_proactive_scheduler().get_status()
+    except Exception:
+        pass
+
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
@@ -413,6 +432,7 @@ async def health_check():
         },
         "cache": cache.get_stats(),
         "prefetch": scheduler.get_status(),
+        "proactive": proactive_status,
         "task_queue": task_queue.get_status(),
     }
 

@@ -385,7 +385,8 @@ TOOL_DOMAINS = [
     "advisor", "business health", "health report", "health score",
     "advisories", "swot", "kpi", "trends", "how's the business",
     "how is the business", "business intelligence", "utilization",
-    "revenue", "profitability",
+    "revenue", "profitability", "issues i should",
+    "worked on", "work on this week", "work on today",
 ]
 
 # ── Map keywords to tool registry categories for domain-based filtering ──
@@ -421,6 +422,8 @@ KEYWORD_TO_CATEGORY = {
     "kpi": "advisor", "trends": "advisor", "how's the business": "advisor",
     "how is the business": "advisor", "business intelligence": "advisor",
     "utilization": "advisor", "revenue": "advisor", "profitability": "advisor",
+    "issues i should": "advisor",
+    "worked on": "harvest", "work on this week": "harvest", "work on today": "harvest",
 }
 
 
@@ -837,11 +840,12 @@ async def _stream_direct_response(
     user_request = messages[-1].content if messages else ""
 
     system = (
-        "You are Agent007, a friendly AI assistant that helps Steve manage "
-        "software development and business operations. Answer conversationally. "
-        "Keep answers concise.\n\n"
+        "You are Agent007, the virtual COO/CFO for People Like Software. You report to Steve. "
+        "You think in terms of revenue, profitability, client health, team utilization, and operational risk. "
+        "Answer conversationally but with executive perspective. Keep answers concise.\n\n"
         "You can help with:\n"
-        "- Time tracking (Harvest)\n"
+        "- Business intelligence (health reports, advisories, trends, KPIs)\n"
+        "- Time tracking & billing (Harvest)\n"
         "- Task management (ClickUp, Zendesk)\n"
         "- Communication (Gmail, Slack)\n"
         "- File management (Google Drive, Docs, Sheets)\n"

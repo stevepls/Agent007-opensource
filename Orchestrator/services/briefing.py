@@ -401,9 +401,70 @@ class BriefingEngine:
             pass
         except Exception as e:
             print(f"[WARN] Business advisor briefing failed: {e}")
-        
+
         return items
-    
+
+    def _get_proactive_agent_results(self) -> List[BriefingItem]:
+        """Get results from proactive background agents (scaffolding, ticket manager)."""
+        items = []
+
+        try:
+            from services.proactive_scheduler import get_proactive_scheduler
+            scheduler = get_proactive_scheduler()
+            results = scheduler.get_latest_results()
+
+            for agent_name, result in results.items():
+                if not result or result.get("error"):
+                    if result and result.get("error"):
+                        items.append(BriefingItem(
+                            id=f"proactive-error-{agent_name}",
+                            type=ItemType.ALERT,
+                            priority=Priority.HIGH,
+                            title=f"{agent_name.replace('_', ' ').title()} Agent Error",
+                            description=result["error"],
+                            source=f"proactive/{agent_name}",
+                        ))
+                    continue
+
+                found = result.get("items_found", 0)
+                if found == 0:
+                    continue
+
+                # Scaffolding completions
+                if agent_name == "scaffolding":
+                    for detail in result.get("details", []):
+                        if detail.get("status") == "success":
+                            items.append(BriefingItem(
+                                id=f"scaffolding-done-{detail.get('task_id', 'x')}",
+                                type=ItemType.UPDATE,
+                                priority=Priority.MEDIUM,
+                                title=f"Scaffolded: {detail.get('task_name', 'Unknown')}",
+                                description=f"Branch `{detail.get('branch', '?')}` ready for {detail.get('project', '?')}",
+                                source="proactive/scaffolding",
+                                metadata=detail,
+                            ))
+
+                # Ticket duplicates
+                if agent_name == "ticket_scan":
+                    items.append(BriefingItem(
+                        id=f"ticket-dupes-{result.get('timestamp', 'x')[:10]}",
+                        type=ItemType.ALERT,
+                        priority=Priority.HIGH if found >= 3 else Priority.MEDIUM,
+                        title=f"{found} Potential Duplicate Ticket(s)",
+                        description="\n".join(
+                            f"• {d['ticket_a']['subject']} ↔ {d['ticket_b']['subject']}"
+                            for d in result.get("details", [])[:5]
+                        ),
+                        source="proactive/ticket_manager",
+                    ))
+
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"[WARN] Proactive agent briefing failed: {e}")
+
+        return items
+
     def get_briefing(self, max_items: int = 10, refresh: bool = False) -> List[BriefingItem]:
         """
         Get a prioritized briefing of items needing attention.
@@ -430,6 +491,7 @@ class BriefingEngine:
         items.extend(self._get_errors())
         items.extend(self._generate_suggestions())
         items.extend(self._get_business_advisories())
+        items.extend(self._get_proactive_agent_results())
         
         # Filter dismissed
         items = [i for i in items if i.id not in self._dismissed_items]
