@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
   Loader2,
@@ -13,15 +14,19 @@ import {
   RefreshCw,
   AlertTriangle,
   Clock,
-  CheckCircle2,
   MessageSquare,
   AlertCircle,
-  Info,
-  Zap,
-  ShieldAlert,
-  Bell,
+  Lightbulb,
+  Shield,
+  Database,
+  Mail,
+  CheckSquare,
+  Headphones,
+  ChevronDown,
+  Keyboard,
   ListPlus,
   GitBranch,
+  Sparkles,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -93,29 +98,42 @@ interface QueueViewProps {
 }
 
 /* ------------------------------------------------------------------ */
-/*  SLA status config                                                  */
+/*  SLA / urgency visual config                                        */
 /* ------------------------------------------------------------------ */
 
-const SLA_CONFIG: Record<string, { dot: string; label: string }> = {
+const SLA_CONFIG: Record<
+  string,
+  { border: string; bg: string; label: string; labelColor: string }
+> = {
   within_sla: {
-    dot: "bg-emerald-400",
+    border: "border-l-emerald-500",
+    bg: "bg-emerald-950/10",
     label: "Within SLA",
+    labelColor: "text-emerald-400",
   },
   approaching: {
-    dot: "bg-yellow-400",
+    border: "border-l-yellow-400",
+    bg: "bg-yellow-950/10",
     label: "Approaching",
+    labelColor: "text-yellow-400",
   },
   breaching: {
-    dot: "bg-orange-400",
+    border: "border-l-orange-400",
+    bg: "bg-orange-950/15",
     label: "Breaching",
+    labelColor: "text-orange-400",
   },
   breached: {
-    dot: "bg-red-500",
+    border: "border-l-red-500",
+    bg: "bg-red-950/20",
     label: "Breached",
+    labelColor: "text-red-400",
   },
   no_sla: {
-    dot: "bg-zinc-500",
+    border: "border-l-zinc-600",
+    bg: "bg-zinc-900/40",
     label: "No SLA",
+    labelColor: "text-zinc-500",
   },
 };
 
@@ -235,19 +253,25 @@ function smartSelect(items: FeedItem[], max: number): FeedItem[] {
   return result;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Briefing-specific helpers                                          */
+/* ------------------------------------------------------------------ */
+
 /** Icon for briefing item types. */
 function briefingTypeIcon(type: string) {
   switch (type) {
     case "error":
-      return <AlertCircle className="w-3 h-3" />;
+      return <AlertTriangle className="w-4 h-4 text-red-400" />;
     case "pending_approval":
-      return <CheckCircle2 className="w-3 h-3" />;
+      return <Shield className="w-4 h-4 text-amber-400" />;
     case "schema_change":
-      return <Zap className="w-3 h-3" />;
+      return <Database className="w-4 h-4 text-sky-400" />;
     case "insight":
-      return <Info className="w-3 h-3" />;
+      return <Lightbulb className="w-4 h-4 text-yellow-400" />;
+    case "message":
+      return <Mail className="w-4 h-4 text-violet-400" />;
     default:
-      return <Bell className="w-3 h-3" />;
+      return <Sparkles className="w-4 h-4 text-zinc-400" />;
   }
 }
 
@@ -268,22 +292,73 @@ function briefingBorderColor(priority: number): string {
   }
 }
 
+/** Background tint for briefing items based on priority. */
+function briefingBgTint(priority: number): string {
+  switch (priority) {
+    case 0:
+      return "bg-red-950/20";
+    case 1:
+      return "bg-orange-950/15";
+    case 2:
+      return "bg-yellow-950/10";
+    default:
+      return "bg-zinc-900/40";
+  }
+}
+
 /** Priority label for briefing items. */
 function briefingPriorityLabel(priority: number): string {
   switch (priority) {
     case 0:
-      return "Critical";
+      return "CRITICAL";
     case 1:
-      return "High";
+      return "HIGH";
     case 2:
-      return "Medium";
+      return "MEDIUM";
     case 3:
-      return "Low";
+      return "LOW";
     case 4:
     default:
-      return "Info";
+      return "INFO";
   }
 }
+
+/** Priority label styling for briefing items. */
+function briefingPriorityStyle(priority: number): string {
+  switch (priority) {
+    case 0:
+      return "text-red-400 bg-red-500/15 border-red-500/30";
+    case 1:
+      return "text-orange-400 bg-orange-500/15 border-orange-500/30";
+    case 2:
+      return "text-yellow-400 bg-yellow-500/15 border-yellow-500/30";
+    default:
+      return "text-zinc-400 bg-zinc-500/15 border-zinc-500/30";
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Animation variants                                                 */
+/* ------------------------------------------------------------------ */
+
+const cardEnter = {
+  initial: { opacity: 0, x: 20, scale: 0.98 },
+  animate: {
+    opacity: 1,
+    x: 0,
+    scale: 1,
+    transition: { type: "spring", stiffness: 400, damping: 30 },
+  },
+  exit: {
+    opacity: 0,
+    x: -100,
+    height: 0,
+    marginBottom: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    transition: { duration: 0.3, ease: "easeInOut" },
+  },
+};
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
@@ -291,13 +366,22 @@ function briefingPriorityLabel(priority: number): string {
 
 const MAX_VISIBLE = 10;
 
-function QueueView({ activeItemId, onItemSelect, onCreateTask, onBreakdown, dismissedIds }: QueueViewProps) {
+function QueueView({
+  activeItemId,
+  onItemSelect,
+  onCreateTask,
+  onBreakdown,
+  dismissedIds,
+}: QueueViewProps) {
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [briefingItems, setBriefingItems] = useState<BriefingItemData[]>([]);
   const [summary, setSummary] = useState<QueueSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterProject, setFilterProject] = useState<string>("");
   const [showFilter, setShowFilter] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -359,18 +443,111 @@ function QueueView({ activeItemId, onItemSelect, onCreateTask, onBreakdown, dism
   }, [queueItems, briefingItems, dismissedIds]);
 
   // Derive project list for filter dropdown
-  const projectNames = summary
-    ? Object.keys(summary.by_project).sort()
-    : [];
+  const projectNames = summary ? Object.keys(summary.by_project).sort() : [];
+
+  // Triage progress
+  const dismissed = dismissedIds ?? new Set<string>();
+  const allCount = useMemo(() => {
+    const allFeed: FeedItem[] = [
+      ...queueItems.map((q): FeedItem => ({ kind: "queue", data: q })),
+      ...briefingItems.map((b): FeedItem => ({ kind: "briefing", data: b })),
+    ];
+    return allFeed.length;
+  }, [queueItems, briefingItems]);
+  const reviewedCount = dismissed.size;
+  const triagePercent = allCount > 0 ? Math.round((reviewedCount / allCount) * 100) : 0;
+
+  // Keyboard navigation
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      // Don't capture keys if user is typing in an input/textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      switch (e.key) {
+        case "j":
+        case "ArrowDown":
+          e.preventDefault();
+          setFocusedIndex((prev) => {
+            const next = prev + 1;
+            return next >= visibleItems.length ? visibleItems.length - 1 : next;
+          });
+          break;
+        case "k":
+        case "ArrowUp":
+          e.preventDefault();
+          setFocusedIndex((prev) => {
+            const next = prev - 1;
+            return next < 0 ? 0 : next;
+          });
+          break;
+        case "Enter":
+          if (focusedIndex >= 0 && focusedIndex < visibleItems.length) {
+            e.preventDefault();
+            const item = visibleItems[focusedIndex];
+            onItemSelect?.(item.data);
+          }
+          break;
+        case "s":
+          // Skip / dismiss focused item (move focus to next)
+          if (focusedIndex >= 0 && focusedIndex < visibleItems.length) {
+            e.preventDefault();
+            // Dispatch a custom event or just move focus forward
+            // The parent manages dismissedIds, so we select and let parent handle skip
+            const item = visibleItems[focusedIndex];
+            onItemSelect?.(item.data);
+          }
+          break;
+        case "t":
+          if (focusedIndex >= 0 && focusedIndex < visibleItems.length) {
+            e.preventDefault();
+            const item = visibleItems[focusedIndex];
+            onCreateTask?.(item.data);
+          }
+          break;
+        case "b":
+          if (focusedIndex >= 0 && focusedIndex < visibleItems.length) {
+            e.preventDefault();
+            const item = visibleItems[focusedIndex];
+            onBreakdown?.(item.data);
+          }
+          break;
+        case "?":
+          e.preventDefault();
+          setShowShortcuts((v) => !v);
+          break;
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [focusedIndex, visibleItems, onItemSelect, onCreateTask, onBreakdown]);
+
+  // Reset focus when items change
+  useEffect(() => {
+    setFocusedIndex((prev) =>
+      prev >= visibleItems.length ? Math.max(0, visibleItems.length - 1) : prev
+    );
+  }, [visibleItems.length]);
+
+  // Scroll focused item into view
+  useEffect(() => {
+    if (focusedIndex < 0 || !containerRef.current) return;
+    const cards = containerRef.current.querySelectorAll("[data-queue-card]");
+    const card = cards[focusedIndex];
+    if (card) {
+      card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [focusedIndex]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" ref={containerRef}>
       {/* ---- Header ---- */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Work Queue
+          <Sparkles className="w-4 h-4 text-violet-400" />
+          <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+            Priority Feed
           </span>
         </div>
 
@@ -379,44 +556,117 @@ function QueueView({ activeItemId, onItemSelect, onCreateTask, onBreakdown, dism
           {summary && summary.total > 0 && (
             <Badge
               variant="outline"
-              className="text-[10px] py-0 px-1.5 bg-violet-500/10 border-violet-500/30 text-violet-400"
+              className="text-[11px] py-0 px-1.5 bg-violet-500/10 border-violet-500/30 text-violet-400"
             >
-              {summary.total} items
+              {summary.total}
             </Badge>
           )}
           {summary && summary.breaching > 0 && (
             <Badge
               variant="outline"
-              className="text-[10px] py-0 px-1.5 bg-red-500/10 border-red-500/30 text-red-400"
+              className="text-[11px] py-0 px-1.5 bg-red-500/10 border-red-500/30 text-red-400"
             >
               {summary.breaching} breaching
             </Badge>
           )}
 
+          {/* Keyboard shortcuts toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-6 w-6 text-muted-foreground hover:text-zinc-300",
+              showShortcuts && "text-violet-400"
+            )}
+            onClick={() => setShowShortcuts((v) => !v)}
+            title="Keyboard shortcuts (?)"
+          >
+            <Keyboard className="w-3.5 h-3.5" />
+          </Button>
+
           {/* Filter toggle */}
           <Button
             variant="ghost"
             size="icon"
-            className={cn("h-5 w-5", showFilter && "text-violet-400")}
+            className={cn(
+              "h-6 w-6 text-muted-foreground hover:text-zinc-300",
+              showFilter && "text-violet-400"
+            )}
             onClick={() => setShowFilter((v) => !v)}
           >
-            <Filter className="w-3 h-3" />
+            <Filter className="w-3.5 h-3.5" />
           </Button>
 
           {/* Refresh */}
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5"
+            className="h-6 w-6 text-muted-foreground hover:text-zinc-300"
             onClick={() => {
               setLoading(true);
               fetchData();
             }}
           >
-            <RefreshCw className={cn("w-3 h-3", loading && "animate-spin")} />
+            <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
           </Button>
         </div>
       </div>
+
+      {/* ---- Triage Progress Bar ---- */}
+      {allCount > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-muted-foreground">
+              {reviewedCount} of {allCount} reviewed
+            </span>
+            <span className="text-[11px] text-muted-foreground font-mono">
+              {triagePercent}%
+            </span>
+          </div>
+          <Progress
+            value={triagePercent}
+            className="h-1 bg-zinc-800"
+            indicatorClassName="bg-violet-500/70"
+          />
+        </div>
+      )}
+
+      {/* ---- Keyboard shortcuts panel ---- */}
+      <AnimatePresence>
+        {showShortcuts && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-3">
+              <p className="text-[11px] font-medium text-zinc-400 mb-2 uppercase tracking-wide">
+                Keyboard shortcuts
+              </p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                {[
+                  ["j / \u2193", "Next item"],
+                  ["k / \u2191", "Previous item"],
+                  ["Enter", "Discuss"],
+                  ["s", "Skip / dismiss"],
+                  ["t", "Create task"],
+                  ["b", "Break down"],
+                  ["?", "Toggle shortcuts"],
+                ].map(([key, label]) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <kbd className="text-[11px] font-mono bg-zinc-800 border border-zinc-700 rounded px-1.5 py-0.5 text-zinc-300 min-w-[2rem] text-center">
+                      {key}
+                    </kbd>
+                    <span className="text-[11px] text-muted-foreground">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ---- Project filter dropdown ---- */}
       <AnimatePresence>
@@ -425,13 +675,14 @@ function QueueView({ activeItemId, onItemSelect, onCreateTask, onBreakdown, dism
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="flex flex-wrap gap-1 pb-1">
+            <div className="flex flex-wrap gap-1.5 pb-1">
               <button
                 onClick={() => setFilterProject("")}
                 className={cn(
-                  "text-[10px] px-2 py-0.5 rounded-full border transition-colors",
+                  "text-[11px] px-2.5 py-1 rounded-full border transition-colors",
                   filterProject === ""
                     ? "bg-violet-500/20 border-violet-500/40 text-violet-300"
                     : "border-zinc-700 text-muted-foreground hover:border-zinc-500"
@@ -446,7 +697,7 @@ function QueueView({ activeItemId, onItemSelect, onCreateTask, onBreakdown, dism
                     setFilterProject(filterProject === name ? "" : name)
                   }
                   className={cn(
-                    "text-[10px] px-2 py-0.5 rounded-full border transition-colors",
+                    "text-[11px] px-2.5 py-1 rounded-full border transition-colors",
                     filterProject === name
                       ? "bg-violet-500/20 border-violet-500/40 text-violet-300"
                       : "border-zinc-700 text-muted-foreground hover:border-zinc-500"
@@ -462,12 +713,12 @@ function QueueView({ activeItemId, onItemSelect, onCreateTask, onBreakdown, dism
 
       {/* ---- By-project summary ---- */}
       {summary && !filterProject && Object.keys(summary.by_project).length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5">
           {Object.entries(summary.by_project).map(([name, count]) => (
             <Badge
               key={name}
               variant="outline"
-              className={cn("text-[10px] py-0 px-1.5", projectColor(name))}
+              className={cn("text-[11px] py-0 px-1.5", projectColor(name))}
             >
               {name}: {count}
             </Badge>
@@ -477,176 +728,198 @@ function QueueView({ activeItemId, onItemSelect, onCreateTask, onBreakdown, dism
 
       {/* ---- Item list ---- */}
       {loading ? (
-        <div className="flex items-center justify-center py-4">
-          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center py-8 gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-violet-400" />
+          <span className="text-[11px] text-muted-foreground">Loading feed...</span>
         </div>
       ) : visibleItems.length === 0 ? (
-        <p className="text-xs text-muted-foreground/50 text-center py-3">
-          No work items in queue
-        </p>
+        <div className="flex flex-col items-center justify-center py-8 gap-2">
+          <CheckSquare className="w-5 h-5 text-emerald-400/50" />
+          <p className="text-xs text-muted-foreground/60 text-center">
+            All clear. No items need attention.
+          </p>
+        </div>
       ) : (
-        <AnimatePresence mode="popLayout">
-          {visibleItems.map((feedItem) => {
-            const id = feedItemId(feedItem);
-            const isActive = activeItemId === id;
+        <div className="space-y-2">
+          <AnimatePresence mode="popLayout">
+            {visibleItems.map((feedItem, index) => {
+              const id = feedItemId(feedItem);
+              const isActive = activeItemId === id;
+              const isFocused = focusedIndex === index;
 
-            if (feedItem.kind === "queue") {
+              if (feedItem.kind === "queue") {
+                return (
+                  <QueueCard
+                    key={id}
+                    item={feedItem.data}
+                    isActive={isActive}
+                    isFocused={isFocused}
+                    index={index}
+                    onItemSelect={onItemSelect}
+                    onCreateTask={onCreateTask}
+                    onBreakdown={onBreakdown}
+                    onFocus={() => setFocusedIndex(index)}
+                  />
+                );
+              }
+
               return (
-                <QueueCard
+                <BriefingCard
                   key={id}
                   item={feedItem.data}
                   isActive={isActive}
+                  isFocused={isFocused}
+                  index={index}
                   onItemSelect={onItemSelect}
                   onCreateTask={onCreateTask}
                   onBreakdown={onBreakdown}
+                  onFocus={() => setFocusedIndex(index)}
                 />
               );
-            }
-
-            return (
-              <BriefingCard
-                key={id}
-                item={feedItem.data}
-                isActive={isActive}
-                onItemSelect={onItemSelect}
-                onCreateTask={onCreateTask}
-                onBreakdown={onBreakdown}
-              />
-            );
-          })}
+            })}
+          </AnimatePresence>
 
           {/* Remaining count */}
           {totalCount > MAX_VISIBLE && (
-            <motion.p
-              key="__remaining"
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-[11px] text-muted-foreground/60 text-center py-2"
+              className="flex items-center justify-center gap-1.5 py-2"
             >
-              and {totalCount - MAX_VISIBLE} more\u2026
-            </motion.p>
+              <ChevronDown className="w-3 h-3 text-muted-foreground/50" />
+              <span className="text-[11px] text-muted-foreground/60">
+                {totalCount - MAX_VISIBLE} more items below
+              </span>
+            </motion.div>
           )}
-        </AnimatePresence>
+        </div>
       )}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/*  Queue item card                                                    */
+/*  Queue item card (ClickUp / Zendesk tasks)                          */
 /* ------------------------------------------------------------------ */
 
 function QueueCard({
   item,
   isActive,
+  isFocused,
+  index,
   onItemSelect,
   onCreateTask,
   onBreakdown,
+  onFocus,
 }: {
   item: QueueItem;
   isActive: boolean;
+  isFocused: boolean;
+  index: number;
   onItemSelect?: (item: QueueItem | BriefingItemData) => void;
   onCreateTask?: (item: QueueItem | BriefingItemData) => void;
   onBreakdown?: (item: QueueItem | BriefingItemData) => void;
+  onFocus: () => void;
 }) {
   const sla = SLA_CONFIG[item.priority_score?.sla_status] ?? SLA_CONFIG.no_sla;
+  const SourceIcon = item.source === "clickup" ? CheckSquare : Headphones;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
+      data-queue-card
+      variants={cardEnter}
+      initial="initial"
+      animate="animate"
+      exit="exit"
       layout
+      onMouseEnter={onFocus}
     >
       <Card
         className={cn(
-          "border border-zinc-800 bg-zinc-900/50 transition-colors cursor-pointer group",
-          isActive
-            ? "border-l-2 border-l-violet-500 opacity-40"
-            : "hover:border-zinc-700"
+          "border border-zinc-800/80 transition-all duration-200 cursor-pointer",
+          "border-l-[3px]",
+          // Default state
+          sla.bg,
+          sla.border,
+          // Hover
+          "hover:border-zinc-700",
+          // Active (being discussed)
+          isActive && "!border-l-violet-500 !bg-violet-500/10 opacity-60",
+          // Keyboard focused
+          isFocused &&
+            !isActive &&
+            "ring-1 ring-violet-500/50 bg-zinc-800/60"
         )}
         onClick={() => onItemSelect?.(item)}
       >
-        <CardContent className="p-2.5">
-          {/* Active label */}
+        <CardContent className="p-3">
+          {/* Active discussing badge */}
           {isActive && (
-            <div className="flex items-center gap-1 mb-1.5">
-              <MessageSquare className="w-2.5 h-2.5 text-violet-400" />
-              <span className="text-[9px] text-violet-400 font-medium">
-                Being discussed\u2026
+            <div className="flex items-center gap-1.5 mb-2">
+              <MessageSquare className="w-3 h-3 text-violet-400" />
+              <span className="text-[11px] text-violet-400 font-medium">
+                Discussing...
               </span>
             </div>
           )}
 
+          {/* Title row */}
           <div className="flex items-start gap-2">
-            {/* SLA dot */}
-            <div className="mt-1.5 flex-shrink-0">
-              <span
-                className={cn("block w-2 h-2 rounded-full", sla.dot)}
-                title={sla.label}
-              />
-            </div>
+            <SourceIcon
+              className={cn(
+                "w-4 h-4 flex-shrink-0 mt-0.5",
+                item.source === "clickup"
+                  ? "text-blue-400"
+                  : "text-emerald-400"
+              )}
+            />
 
-            {/* Main content */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                {/* Priority score badge */}
-                <span className="text-[10px] font-mono font-semibold text-violet-400 bg-violet-500/10 rounded px-1 py-0 leading-tight">
-                  {item.priority_score?.score ?? "\u2013"}
-                </span>
-
-                {/* Title */}
-                <p className="text-xs font-medium truncate flex-1">
-                  {truncate(item.title, 60)}
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium truncate flex-1 text-zinc-100">
+                  {item.title}
                 </p>
-
-                {/* Discuss hint on hover */}
-                <span className="text-[9px] text-violet-400/0 group-hover:text-violet-400/70 transition-colors flex-shrink-0">
-                  discuss
-                </span>
-
-                {/* Source link */}
                 {item.source_url && (
                   <a
                     href={item.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-shrink-0 text-muted-foreground hover:text-violet-400 transition-colors"
+                    className="flex-shrink-0 text-muted-foreground/50 hover:text-violet-400 transition-colors"
                     onClick={(e) => e.stopPropagation()}
+                    title="Open in source"
                   >
-                    <ExternalLink className="w-3 h-3" />
+                    <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 )}
               </div>
 
               {/* Metadata row */}
-              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 {/* Project badge */}
                 <Badge
                   variant="outline"
                   className={cn(
-                    "text-[9px] py-0 px-1",
+                    "text-[11px] py-0 px-1.5 font-normal",
                     projectColor(item.project_name)
                   )}
                 >
                   {item.project_name}
                 </Badge>
 
-                {/* Source badge */}
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-[9px] py-0 px-1 font-mono",
-                    item.source === "clickup"
-                      ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
-                      : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                  )}
-                >
-                  {item.source === "clickup" ? "CU" : "ZD"}
-                </Badge>
+                <span className="text-[11px] text-muted-foreground/40">&middot;</span>
+
+                {/* Source label */}
+                <span className={cn(
+                  "text-xs",
+                  item.source === "clickup" ? "text-blue-400/70" : "text-emerald-400/70"
+                )}>
+                  {item.source === "clickup" ? "ClickUp" : "Zendesk"}
+                </span>
+
+                <span className="text-[11px] text-muted-foreground/40">&middot;</span>
 
                 {/* SLA status */}
-                <span className="text-[9px] text-muted-foreground">
+                <span className={cn("text-xs", sla.labelColor)}>
                   {sla.label}
                 </span>
 
@@ -654,37 +927,57 @@ function QueueCard({
                 {item.priority_score?.time_remaining &&
                   (item.priority_score.sla_status === "approaching" ||
                     item.priority_score.sla_status === "breaching") && (
-                    <span className="text-[9px] text-orange-400 flex items-center gap-0.5">
-                      <Clock className="w-2.5 h-2.5" />
+                    <span className="text-[11px] text-orange-400 flex items-center gap-0.5">
+                      <Clock className="w-3 h-3" />
                       {item.priority_score.time_remaining}
                     </span>
                   )}
 
-                {/* Created time */}
-                <span className="text-[9px] text-muted-foreground ml-auto">
-                  {timeAgo(item.created_at)}
+                {/* Time ago */}
+                <span className="text-[11px] text-muted-foreground/50 ml-auto">
+                  {timeAgo(item.updated_at || item.created_at)}
                 </span>
               </div>
 
-              {/* Action buttons */}
+              {/* Action buttons — always visible, subtle */}
               {!isActive && (
-                <div className="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    className="flex items-center gap-0.5 text-[9px] text-emerald-400 hover:text-emerald-300 transition-colors px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20"
-                    onClick={(e) => { e.stopPropagation(); onCreateTask?.(item); }}
-                    title="Create ClickUp task from this item"
+                <div className="flex items-center gap-1.5 mt-2.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2.5 text-[11px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 gap-1.5"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onItemSelect?.(item);
+                    }}
                   >
-                    <ListPlus className="w-2.5 h-2.5" />
-                    Task
-                  </button>
-                  <button
-                    className="flex items-center gap-0.5 text-[9px] text-sky-400 hover:text-sky-300 transition-colors px-1.5 py-0.5 rounded bg-sky-500/10 hover:bg-sky-500/20"
-                    onClick={(e) => { e.stopPropagation(); onBreakdown?.(item); }}
-                    title="Break this into subtasks"
+                    <MessageSquare className="w-3 h-3" />
+                    Discuss
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2.5 text-[11px] text-zinc-400 hover:text-emerald-300 hover:bg-emerald-500/10 gap-1.5"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCreateTask?.(item);
+                    }}
                   >
-                    <GitBranch className="w-2.5 h-2.5" />
+                    <ListPlus className="w-3 h-3" />
+                    Update
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2.5 text-[11px] text-zinc-400 hover:text-sky-300 hover:bg-sky-500/10 gap-1.5"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onBreakdown?.(item);
+                    }}
+                  >
+                    <GitBranch className="w-3 h-3" />
                     Subtasks
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -696,142 +989,152 @@ function QueueCard({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Briefing item card                                                 */
+/*  Briefing item card (insights, errors, approvals, etc.)             */
 /* ------------------------------------------------------------------ */
 
 function BriefingCard({
   item,
   isActive,
+  isFocused,
+  index,
   onItemSelect,
   onCreateTask,
   onBreakdown,
+  onFocus,
 }: {
   item: BriefingItemData;
   isActive: boolean;
+  isFocused: boolean;
+  index: number;
   onItemSelect?: (item: QueueItem | BriefingItemData) => void;
   onCreateTask?: (item: QueueItem | BriefingItemData) => void;
   onBreakdown?: (item: QueueItem | BriefingItemData) => void;
+  onFocus: () => void;
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
+      data-queue-card
+      variants={cardEnter}
+      initial="initial"
+      animate="animate"
+      exit="exit"
       layout
+      onMouseEnter={onFocus}
     >
       <Card
         className={cn(
-          "border border-zinc-800 bg-zinc-900/30 transition-colors cursor-pointer group border-l-2",
-          isActive
-            ? "border-l-violet-500 opacity-40"
-            : cn(briefingBorderColor(item.priority), "hover:border-zinc-700")
+          "border border-zinc-800/80 transition-all duration-200 cursor-pointer",
+          "border-l-[3px]",
+          // Default state
+          briefingBgTint(item.priority),
+          briefingBorderColor(item.priority),
+          // Hover
+          "hover:border-zinc-700",
+          // Active (being discussed)
+          isActive && "!border-l-violet-500 !bg-violet-500/10 opacity-60",
+          // Keyboard focused
+          isFocused &&
+            !isActive &&
+            "ring-1 ring-violet-500/50 bg-zinc-800/60"
         )}
         onClick={() => onItemSelect?.(item)}
       >
-        <CardContent className="p-2.5">
-          {/* Active label */}
+        <CardContent className="p-3">
+          {/* Active discussing badge */}
           {isActive && (
-            <div className="flex items-center gap-1 mb-1.5">
-              <MessageSquare className="w-2.5 h-2.5 text-violet-400" />
-              <span className="text-[9px] text-violet-400 font-medium">
-                Being discussed\u2026
+            <div className="flex items-center gap-1.5 mb-2">
+              <MessageSquare className="w-3 h-3 text-violet-400" />
+              <span className="text-[11px] text-violet-400 font-medium">
+                Discussing...
               </span>
             </div>
           )}
 
+          {/* Title row */}
           <div className="flex items-start gap-2">
-            {/* Type icon */}
-            <div className="mt-1 flex-shrink-0 text-muted-foreground">
+            <div className="flex-shrink-0 mt-0.5">
               {briefingTypeIcon(item.type)}
             </div>
 
-            {/* Main content */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                {/* Priority label */}
-                <span
+              <p className="text-sm font-medium text-zinc-100 leading-snug">
+                {item.title}
+              </p>
+
+              {/* Metadata row */}
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                {/* Priority label badge */}
+                <Badge
+                  variant="outline"
                   className={cn(
-                    "text-[10px] font-mono font-semibold rounded px-1 py-0 leading-tight",
-                    item.priority === 0
-                      ? "text-red-400 bg-red-500/10"
-                      : item.priority === 1
-                        ? "text-orange-400 bg-orange-500/10"
-                        : item.priority === 2
-                          ? "text-yellow-400 bg-yellow-500/10"
-                          : "text-zinc-400 bg-zinc-500/10"
+                    "text-[11px] py-0 px-1.5 font-semibold uppercase tracking-wide",
+                    briefingPriorityStyle(item.priority)
                   )}
                 >
                   {briefingPriorityLabel(item.priority)}
+                </Badge>
+
+                <span className="text-[11px] text-muted-foreground/40">&middot;</span>
+
+                {/* Source */}
+                <span className="text-xs text-muted-foreground">
+                  {item.source}
                 </span>
 
-                {/* Title */}
-                <p className="text-xs font-medium truncate flex-1">
-                  {truncate(item.title, 60)}
-                </p>
+                <span className="text-[11px] text-muted-foreground/40">&middot;</span>
 
-                {/* Discuss hint on hover */}
-                <span className="text-[9px] text-violet-400/0 group-hover:text-violet-400/70 transition-colors flex-shrink-0">
-                  discuss
+                {/* Time ago */}
+                <span className="text-[11px] text-muted-foreground/50">
+                  {timeAgo(item.created_at)}
                 </span>
               </div>
 
               {/* Description preview */}
               {item.description && (
-                <p className="text-[10px] text-muted-foreground/70 mt-0.5 truncate">
-                  {truncate(item.description, 80)}
+                <p className="text-xs text-muted-foreground/60 mt-1.5 line-clamp-1">
+                  {truncate(item.description, 100)}
                 </p>
               )}
 
-              {/* Metadata row */}
-              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                {/* Source badge */}
-                <Badge
-                  variant="outline"
-                  className="text-[9px] py-0 px-1 bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
-                >
-                  {item.source}
-                </Badge>
-
-                {/* Type badge */}
-                <Badge
-                  variant="outline"
-                  className="text-[9px] py-0 px-1 border-zinc-700 text-muted-foreground"
-                >
-                  {item.type.replace(/_/g, " ")}
-                </Badge>
-
-                {/* Action label if present */}
-                {item.action_label && (
-                  <span className="text-[9px] text-violet-400">
-                    {item.action_label}
-                  </span>
-                )}
-
-                {/* Created time */}
-                <span className="text-[9px] text-muted-foreground ml-auto">
-                  {timeAgo(item.created_at)}
-                </span>
-              </div>
-
-              {/* Action buttons */}
+              {/* Action buttons — always visible, subtle */}
               {!isActive && (
-                <div className="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    className="flex items-center gap-0.5 text-[9px] text-emerald-400 hover:text-emerald-300 transition-colors px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20"
-                    onClick={(e) => { e.stopPropagation(); onCreateTask?.(item); }}
-                    title="Convert to ClickUp task"
+                <div className="flex items-center gap-1.5 mt-2.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2.5 text-[11px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 gap-1.5"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onItemSelect?.(item);
+                    }}
                   >
-                    <ListPlus className="w-2.5 h-2.5" />
+                    <MessageSquare className="w-3 h-3" />
+                    Discuss
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2.5 text-[11px] text-zinc-400 hover:text-emerald-300 hover:bg-emerald-500/10 gap-1.5"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCreateTask?.(item);
+                    }}
+                  >
+                    <ListPlus className="w-3 h-3" />
                     Task
-                  </button>
-                  <button
-                    className="flex items-center gap-0.5 text-[9px] text-sky-400 hover:text-sky-300 transition-colors px-1.5 py-0.5 rounded bg-sky-500/10 hover:bg-sky-500/20"
-                    onClick={(e) => { e.stopPropagation(); onBreakdown?.(item); }}
-                    title="Break into subtasks"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2.5 text-[11px] text-zinc-400 hover:text-sky-300 hover:bg-sky-500/10 gap-1.5"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onBreakdown?.(item);
+                    }}
                   >
-                    <GitBranch className="w-2.5 h-2.5" />
-                    Subtasks
-                  </button>
+                    <GitBranch className="w-3 h-3" />
+                    Break down
+                  </Button>
                 </div>
               )}
             </div>
