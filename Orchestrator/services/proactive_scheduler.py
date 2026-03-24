@@ -104,8 +104,32 @@ def _run_ticket_scan() -> AgentResult:
 
     try:
         tm = get_ticket_manager()
-        # Fetch recent tickets from both ClickUp and Zendesk
-        recent = tm.fetch_recent_tickets(days_back=7)
+
+        # Fetch recent tickets — ClickUp needs a list ID, so pull from
+        # all configured project lists + Zendesk
+        recent = []
+
+        # Get ClickUp tickets from configured scaffolding projects
+        try:
+            from agents.scaffolding.config import PROJECT_CONFIGS
+            for cfg in PROJECT_CONFIGS.values():
+                list_id = cfg.get("clickup_list_id")
+                if list_id:
+                    recent.extend(tm.fetch_recent_tickets(
+                        days_back=7,
+                        clickup_list_id=list_id,
+                        include_zendesk=False,
+                    ))
+        except ImportError:
+            pass
+
+        # Add Zendesk tickets
+        recent.extend(tm.fetch_recent_tickets(
+            days_back=7,
+            include_clickup=False,
+            include_zendesk=True,
+        ))
+
         result.items_processed = len(recent)
 
         if not recent:

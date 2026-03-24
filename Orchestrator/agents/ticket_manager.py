@@ -117,7 +117,10 @@ class TicketManagerAgent:
     @property
     def zendesk(self):
         if self._zendesk is None:
-            self._zendesk = get_zendesk_client()
+            try:
+                self._zendesk = get_zendesk_client()
+            except (ValueError, Exception):
+                return None
         return self._zendesk
     
     @property
@@ -382,7 +385,7 @@ NOT duplicates:
                 print(f"Error fetching ClickUp tasks: {e}")
         
         # Fetch from Zendesk
-        if include_zendesk and self.zendesk and self.zendesk.is_configured:
+        if include_zendesk and self.zendesk:
             try:
                 zd_tickets = self.zendesk.search_tickets(
                     query=f"created>{(datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')}",
