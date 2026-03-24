@@ -314,89 +314,145 @@ APPROVE / NEEDS_CHANGES / REJECT
         )
         tasks.append(review_task)
     
-    # Execute crew
-    try:
-        start_time = datetime.utcnow()
-        
-        crew = Crew(
-            agents=[manager, coder, reviewer] if require_review else [manager, coder],
-            tasks=tasks,
-            process=Process.sequential,
-            verbose=True,
-        )
-        
-        result = crew.kickoff()
-        
-        duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
-        
-        # Log agent execution
-        logger.log_agent_call(
-            agent="dev_crew",
-            task=task_description[:200],
-            response=str(result)[:500],
-            duration_ms=duration_ms,
-        )
-        
-    except BudgetExceededError as e:
-        logger.log(AuditEvent(
-            action_type=ActionType.TASK_FAILED,
-            description=f"Budget exceeded during execution: {e}",
-        ))
-        cost_tracker.record_failure(str(e))
-        return {
-            "result": None,
-            "status": "budget_exceeded",
-            "reason": str(e),
-            "audit_summary": logger.get_session_summary(),
-            "cost_summary": cost_tracker.get_summary(),
-            "needs_approval": False,
-        }
-    except CircuitBreakerOpenError as e:
-        logger.log(AuditEvent(
-            action_type=ActionType.TASK_FAILED,
-            description=f"Circuit breaker tripped: {e}",
-        ))
-        return {
-            "result": None,
-            "status": "circuit_breaker",
-            "reason": str(e),
-            "audit_summary": logger.get_session_summary(),
-            "cost_summary": cost_tracker.get_summary(),
-            "needs_approval": False,
-        }
-    except Exception as e:
-        cost_tracker.record_failure(str(e))
-        logger.log(AuditEvent(
-            action_type=ActionType.TASK_FAILED,
-            description=f"Execution error: {e}",
-        ))
-        return {
-            "result": None,
-            "status": "error",
-            "reason": str(e),
-            "audit_summary": logger.get_session_summary(),
-            "cost_summary": cost_tracker.get_summary(),
-            "needs_approval": False,
-        }
-    
+    # Execute crew with reflection loop: if reviewer rejects, feed back to coder
+    MAX_REFLECTION_RETRIES = 2
+    result = None
+    result_str = ""
+
+    for attempt in range(1 + MAX_REFLECTION_RETRIES):
+        try:
+            start_time = datetime.utcnow()
+
+            crew = Crew(
+                agents=[manager, coder, reviewer] if require_review else [manager, coder],
+                tasks=tasks,
+                process=Process.sequential,
+                verbose=True,
+            )
+
+            result = crew.kickoff()
+
+            duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+
+            logger.log_agent_call(
+                agent="dev_crew",
+                task=task_description[:200],
+                response=str(result)[:500],
+                duration_ms=duration_ms,
+            )
+
+        except BudgetExceededError as e:
+            logger.log(AuditEvent(
+                action_type=ActionType.TASK_FAILED,
+                description=f"Budget exceeded during execution: {e}",
+            ))
+            cost_tracker.record_failure(str(e))
+            return {
+                "result": None,
+                "status": "budget_exceeded",
+                "reason": str(e),
+                "audit_summary": logger.get_session_summary(),
+                "cost_summary": cost_tracker.get_summary(),
+                "needs_approval": False,
+            }
+        except CircuitBreakerOpenError as e:
+            logger.log(AuditEvent(
+                action_type=ActionType.TASK_FAILED,
+                description=f"Circuit breaker tripped: {e}",
+            ))
+            return {
+                "result": None,
+                "status": "circuit_breaker",
+                "reason": str(e),
+                "audit_summary": logger.get_session_summary(),
+                "cost_summary": cost_tracker.get_summary(),
+                "needs_approval": False,
+            }
+        except Exception as e:
+            cost_tracker.record_failure(str(e))
+            logger.log(AuditEvent(
+                action_type=ActionType.TASK_FAILED,
+                description=f"Execution error: {e}",
+            ))
+            return {
+                "result": None,
+                "status": "error",
+                "reason": str(e),
+                "audit_summary": logger.get_session_summary(),
+                "cost_summary": cost_tracker.get_summary(),
+                "needs_approval": False,
+            }
+
+        result_str = str(result)
+
+        # ── Reflection: if reviewer rejected, retry with feedback ──
+        if require_review and attempt < MAX_REFLECTION_RETRIES:
+            review_rejected = "REJECT" in result_str.upper() or "NEEDS_CHANGES" in result_str.upper()
+            if review_rejected:
+                logger.log(AuditEvent(
+                    action_type=ActionType.VALIDATION_CHECK,
+                    description=f"Review rejected on attempt {attempt + 1}, retrying with feedback",
+                ))
+
+                # Rebuild tasks with reviewer feedback injected into coder task
+                tasks = []
+                tasks.append(plan_task)  # Re-use the same plan
+
+                revision_task = Task(
+                    description=f"""The reviewer found issues with your previous implementation.
+Fix ALL issues listed below and resubmit.
+
+ORIGINAL TASK: {task_description}
+
+{f'CONTEXT: {context}' if context else ''}
+
+REVIEWER FEEDBACK:
+---
+{result_str[-3000:]}
+---
+
+TOOLS: {tools_instruction}
+
+RULES:
+1. Address EVERY issue the reviewer raised
+2. Do NOT introduce new issues
+3. Write complete, working code — no placeholders
+4. Report: [FILES_MODIFIED: ...] and [CONFIDENCE: XX%]""",
+                    expected_output="Revised implementation addressing all reviewer feedback",
+                    agent=coder,
+                    context=[plan_task],
+                )
+                tasks.append(revision_task)
+
+                if require_review:
+                    review_task_retry = Task(
+                        description=review_task.description,
+                        expected_output=review_task.expected_output,
+                        agent=reviewer,
+                        context=[revision_task],
+                    )
+                    tasks.append(review_task_retry)
+
+                continue  # Retry the crew
+        break  # No rejection or max retries reached
+
     # ==========================================================================
     # PHASE 5: POST-VALIDATION
     # ==========================================================================
-    
-    result_str = str(result)
+
     post_validation = validate_after_execution(response=result_str)
     logger.log_validation("PostValidator", post_validation.to_dict(), context="agent_response")
-    
-    # Check for REJECT verdict in review
+
+    # Check for REJECT verdict in final review (after all retries exhausted)
     if require_review and "REJECT" in result_str.upper():
         logger.log(AuditEvent(
             action_type=ActionType.TASK_FAILED,
-            description="Code review resulted in REJECT",
+            description="Code review resulted in REJECT after all retries",
         ))
         return {
             "result": result_str,
             "status": "rejected",
-            "reason": "Code review resulted in REJECT - requires fixes",
+            "reason": "Code review resulted in REJECT after reflection retries",
             "validation": post_validation.to_dict(),
             "audit_summary": logger.get_session_summary(),
             "cost_summary": cost_tracker.get_summary(),

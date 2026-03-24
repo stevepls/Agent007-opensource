@@ -210,6 +210,30 @@ class ToolRegistry:
                 })
         return defs
     
+    def get_tools_for_domains(self, domains: set) -> List[Dict[str, Any]]:
+        """Get tool definitions filtered to specific domains/categories.
+
+        Only returns tools whose category matches one of the given domains.
+        Always includes 'general' category tools (utility/datetime/session).
+        Respects the same access control as get_orchestrator_definitions.
+        """
+        from services.tool_cache import WRITE_TOOLS
+
+        defs = []
+        for name, tool in self._tools.items():
+            if name in CREW_ONLY_TOOLS:
+                continue
+            if tool["category"] not in domains and tool["category"] != "general":
+                continue
+            is_write = name in WRITE_TOOLS
+            if not is_write or name in ORCHESTRATOR_WRITES:
+                defs.append({
+                    "name": tool["name"],
+                    "description": tool["description"],
+                    "input_schema": tool["parameters"],
+                })
+        return defs
+
     def get_tools_by_category(self, category: str) -> List[str]:
         """Get tool names by category."""
         return [

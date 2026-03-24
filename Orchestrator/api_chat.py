@@ -140,28 +140,42 @@ class ChatResponse(BaseModel):
 # System Prompt
 # ============================================================================
 
-SYSTEM_PROMPT = """You are Agent007, Steve's AI chief of staff for software development and business operations.
+SYSTEM_PROMPT = """You are Agent007, the virtual COO/CFO for People Like Software. You report to Steve.
+
+Your job is to **run the business** — not just answer questions. You think in terms of revenue, profitability, client health, team utilization, and operational risk. Every piece of data you touch, you interpret through a business lens.
+
+## Identity & Judgment
+
+You are an executive, not an assistant. When Steve asks "how are things?", he wants the same answer a COO would give: what's on track, what's at risk, and what needs his attention.
+
+**Decision hierarchy** (use this to prioritize):
+1. Revenue impact > everything else
+2. Client satisfaction > internal convenience
+3. Trend data > point-in-time data
+4. Action > analysis > reporting
+
+**Business awareness** — apply these instincts to every interaction:
+- When reporting time data, connect hours to dollars (billable rates from Harvest)
+- When reporting task data, highlight overdue items and client impact
+- When you spot a pattern (declining hours, stale tasks, quiet clients), say so — don't wait to be asked
+- When something threatens revenue or a client relationship, flag it immediately
+
+**Escalation tiers:**
+- CRITICAL (revenue at risk, client relationship in danger, deadline today) → flag immediately, recommend action
+- WARNING (trend declining, hours untracked, tasks stale) → mention proactively with context
+- INFO (positive signal, opportunity, milestone) → include when relevant
 
 ## Core Behavior — ACT, DON'T ASK
 
-You are a proactive operator, not a passive assistant. Your job is to DO things, not ask permission for every step.
+You are a proactive operator. Your job is to DO things, not ask permission for every step.
 
 **Rules:**
 1. **Act first, confirm after.** If you have enough context to take action, DO IT. Don't list options and ask "which one?" — pick the best one and execute.
-2. **Use conversation context.** If you've been discussing a topic for 10 minutes, you already know the project, the task, and the context. Use it.
+2. **Use conversation context.** If you've been discussing a topic, you already know the project, the task, and the context. Use it.
 3. **Infer intelligently.** "Log this time" → you know what you've been working on, pick the right Harvest project and task, log it. Don't ask for every parameter.
-4. **Chain tools.** Don't stop after one tool call and summarize — keep going until the job is done. If logging time requires getting the project list first, do both in sequence.
+4. **Chain tools.** Don't stop after one tool call and summarize — keep going until the job is done.
 5. **Be concise.** No walls of text. No bullet-point menus of "Would you like me to..." — just do the most useful thing.
 6. **Only ask when truly ambiguous.** Missing a critical piece with no way to infer it? Then ask ONE focused question, not five.
-
-**Example — WRONG:**
-User: "Log the time we spent on this"
-Agent: "I'd be happy to help! Which project? Here are 8 options... How many hours? What task type?"
-
-**Example — CORRECT:**
-User: "Log the time we spent on this"
-Agent: *[calls get_session_time to get actual elapsed time and inferred project, then harvest_log_time]*
-"Logged 1.5h to Product & Technology / Programming — ShipStation research."
 
 ## Available Tools
 
@@ -183,6 +197,13 @@ Agent: *[calls get_session_time to get actual elapsed time and inferred project,
 - **ClickUp**: `clickup_create_task`, `clickup_list_tasks`, `clickup_update_task`, `clickup_get_task`, `clickup_add_comment`, `clickup_list_spaces`
 - **Zendesk**: `zendesk_list_tickets`, `zendesk_get_ticket`, `zendesk_create_ticket`
 
+### Business Intelligence
+- **Advisor**: `advisor_take_snapshot`, `advisor_get_advisories`, `advisor_get_health_report`, `advisor_get_trends`
+  - `advisor_get_health_report` — full SWOT + health score + KPIs + advisories (use for "how's the business?")
+  - `advisor_get_advisories` — specific issues: overdue tasks, time gaps, client health, risks
+  - `advisor_get_trends` — metric changes over time (hours, tasks, communication patterns)
+  - `advisor_take_snapshot` — capture current state for historical comparison
+
 ### Utility
 - **DateTime**: `get_current_datetime` — call before any time-sensitive operation
 - **Session Time**: `get_session_time` — elapsed time, topics, and inferred project for the current session. `list_pending_time` — all unlogged session time entries.
@@ -195,19 +216,20 @@ Agent: *[calls get_session_time to get actual elapsed time and inferred project,
 
 Your architecture, integrations, project mappings, and known issues are stored in memory. Use `memory_recall` when asked about yourself or your capabilities.
 
-## Anti-Hallucination
+## Planning Complex Tasks
 
-- ONLY report data that appears in actual tool responses
-- NEVER fabricate IDs, names, or results
-- If a tool fails or returns truncated data, say so
-- If you create items, verify with a follow-up tool call
+For multi-step requests (anything requiring 3+ tool calls):
+1. **Think first**: Identify all the data you need and the tools required
+2. **Order dependencies**: Call independent tools first, dependent ones after
+3. **Verify results**: After creating/modifying anything, confirm it worked
+4. **Summarize at the end**: Give a clear summary of everything you did
 
 ## Response Style
 
-- Be direct and action-oriented
-- Summarize tool results — don't dump raw data
+- Be direct and action-oriented — speak like an executive, not a chatbot
+- Interpret data, don't just report it. "You logged 32h this week across 4 projects — utilization looks solid but Forge Lab is eating 60% of capacity"
 - Use markdown: tables for structured data, bold for key info, bullet points for lists
-- Keep it short
+- Keep it short. Lead with the insight, then the data.
 
 ## Cached Data
 
@@ -215,21 +237,15 @@ Tool results with `_cache_meta.source: "cache"` are already fresh — don't re-f
 
 Card types: info, success, warning, error, progress, metric
 
-## Important - ANTI-HALLUCINATION RULES
+## Anti-Hallucination (DO NOT VIOLATE)
 
-- Steve manages multiple projects (Forge Lab, Agent007, Nemesis, etc.)
-- Always use tools to get REAL data - never guess or fabricate
-- If a tool fails, explain the error and suggest fixes
-- Use memory_remember to store important facts Steve tells you
-- For complex development tasks, use run_dev_task to delegate to the AI crew
-
-### Critical Rules (DO NOT VIOLATE):
-1. **NEVER fabricate IDs** - task IDs, entry IDs, URLs must come from tool responses
-2. **ALWAYS check verification** - After creating tasks/time entries, check if verification.verified is true
-3. **Report failures honestly** - If verification fails, tell the user the action may not have completed
-4. **Use listing tools to confirm** - After creating anything, use the appropriate list tool to verify
-5. **No phantom data** - If harvest_get_time_entries returns 0 entries, report 0 entries (don't make up hours)
-6. **Time logging must verify** - Only confirm time was logged if the tool returns success:true AND verification.verified:true"""
+1. **ONLY report data from actual tool responses** — never guess or fabricate
+2. **NEVER fabricate IDs** — task IDs, entry IDs, URLs must come from tool responses
+3. **ALWAYS check verification** — After creating tasks/time entries, check if verification.verified is true
+4. **Report failures honestly** — If verification fails, tell Steve the action may not have completed
+5. **Use listing tools to confirm** — After creating anything, use the appropriate list tool to verify
+6. **No phantom data** — If harvest_get_time_entries returns 0 entries, report 0 entries (don't make up hours)
+7. **Time logging must verify** — Only confirm time was logged if the tool returns success:true AND verification.verified:true"""
 
 
 # ============================================================================
@@ -346,7 +362,7 @@ CREW_KEYWORDS = [
 
 # ── Domains that signal the orchestrator should use tools ─────────────
 # Orchestrator handles single-tool and multi-tool requests directly via
-# Claude API + native tool_use (up to 8 iterations).
+# Claude API + native tool_use (up to 15 iterations).
 TOOL_DOMAINS = [
     "email", "gmail", "unread", "inbox",
     "harvest", "hubstaff", "time entr", "time track", "hours", "timer",
@@ -366,38 +382,121 @@ TOOL_DOMAINS = [
     "comment", "reply", "send", "draft", "commit",
     "github", "pull request", "branch", "pr ", "repo",
     "build",
+    "advisor", "business health", "health report", "health score",
+    "advisories", "swot", "kpi", "trends", "how's the business",
+    "how is the business", "business intelligence", "utilization",
+    "revenue", "profitability",
 ]
+
+# ── Map keywords to tool registry categories for domain-based filtering ──
+KEYWORD_TO_CATEGORY = {
+    "email": "gmail", "gmail": "gmail", "unread": "gmail", "inbox": "gmail",
+    "draft": "gmail",
+    "harvest": "harvest", "time entr": "harvest", "time track": "harvest",
+    "hours": "harvest", "timer": "harvest", "log time": "harvest",
+    "log hours": "harvest", "timesheet": "harvest", "invoice": "harvest",
+    "hubstaff": "hubstaff",
+    "clickup": "clickup", "task": "clickup", "ticket": "clickup",
+    "to do": "clickup", "todo": "clickup", "create task": "clickup",
+    "create a task": "clickup", "update task": "clickup",
+    "create subtask": "clickup", "assign task": "clickup",
+    "create space": "clickup", "create folder": "clickup",
+    "comment": "clickup",
+    "zendesk": "zendesk", "support ticket": "zendesk",
+    "calendar": "calendar", "meeting": "calendar", "schedule": "calendar",
+    "event": "calendar",
+    "slack": "slack", "message": "slack", "channel": "slack",
+    "reply": "slack", "send": "slack",
+    "notification": "notification", "notion": "notification",
+    "airtable": "notification",
+    "asana": "asana", "sync asana": "asana", "pull asana": "asana",
+    "drive": "docs", "docs": "docs", "file": "docs", "create doc": "docs",
+    "sheet": "sheets", "spreadsheet": "sheets", "update sheet": "sheets",
+    "generate report": "sheets",
+    "remember": "memory", "recall": "memory", "memory": "memory",
+    "github": "github", "pull request": "github", "branch": "github",
+    "pr ": "github", "repo": "github", "build": "github", "commit": "github",
+    "advisor": "advisor", "business health": "advisor", "health report": "advisor",
+    "health score": "advisor", "advisories": "advisor", "swot": "advisor",
+    "kpi": "advisor", "trends": "advisor", "how's the business": "advisor",
+    "how is the business": "advisor", "business intelligence": "advisor",
+    "utilization": "advisor", "revenue": "advisor", "profitability": "advisor",
+}
+
+
+def _detect_tool_domains(message: str) -> set:
+    """Detect which tool categories are relevant for a user message."""
+    msg = message.lower()
+    domains = {"general"}  # Always include utility tools
+    for keyword, category in KEYWORD_TO_CATEGORY.items():
+        if keyword in msg:
+            domains.add(category)
+    return domains
+
+
+def _classify_request_keywords(message: str, memory_context: str = "") -> str:
+    """Fast keyword-based classification (instant, no API call)."""
+    msg = message.lower().strip()
+
+    if any(kw in msg for kw in CREW_KEYWORDS):
+        return "crew"
+
+    if any(kw in msg for kw in TOOL_DOMAINS):
+        return "orchestrator"
+
+    if memory_context and len(memory_context) > 50:
+        return "direct"
+
+    if len(msg.split()) <= 12:
+        return "direct"
+
+    return "orchestrator"
 
 
 def _classify_request(message: str, memory_context: str = "") -> str:
     """Classify how to handle a request: 'direct', 'orchestrator', or 'crew'.
 
-    - 'direct': simple chat, no tools needed
-    - 'orchestrator': handle with Claude + native tool_use (most requests)
-    - 'crew': complex multi-step tasks needing CrewAI agents
-
-    Priority: crew keywords (batch/multi-step) > tool domains (single ops) > direct.
+    Uses fast keyword matching first. For ambiguous cases (longer messages that
+    don't match any keywords), falls back to a cheap LLM call (Haiku) for
+    intent classification.
     """
-    msg = message.lower().strip()
+    # Fast path: keyword match
+    keyword_result = _classify_request_keywords(message, memory_context)
 
-    # Complex/batch operations -> crew (checked first, but only for true multi-step)
-    if any(kw in msg for kw in CREW_KEYWORDS):
-        return "crew"
+    # If keywords gave a confident answer (crew or orchestrator), trust it
+    if keyword_result in ("crew", "orchestrator"):
+        return keyword_result
 
-    # If the message mentions any tool domain -> orchestrator handles it directly
-    if any(kw in msg for kw in TOOL_DOMAINS):
-        return "orchestrator"
+    # For "direct" results on longer messages, use LLM to check if tools are needed
+    if keyword_result == "direct" and len(message.split()) > 12:
+        try:
+            import anthropic as _anthropic
+            api_key = os.getenv("ANTHROPIC_API_KEY", "")
+            if api_key:
+                client = _anthropic.Anthropic(api_key=api_key)
+                resp = client.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=20,
+                    system=(
+                        "Classify the user's intent. Reply with exactly one word:\n"
+                        "- CHAT if it's a conversational question needing no external tools\n"
+                        "- TOOLS if it requires looking up data, sending messages, managing tasks, "
+                        "logging time, checking business health, reviewing KPIs/trends/revenue, "
+                        "getting advisories, or any action involving external services\n"
+                        "- CODE if it requires writing/modifying code, deploying, or multi-step dev work"
+                    ),
+                    messages=[{"role": "user", "content": message}],
+                )
+                label = resp.content[0].text.strip().upper()
+                if "CODE" in label:
+                    return "crew"
+                if "TOOL" in label:
+                    return "orchestrator"
+                return "direct"
+        except Exception:
+            pass  # Fall through to keyword result on any error
 
-    # If memory has relevant context, Claude can answer directly
-    if memory_context and len(memory_context) > 50:
-        return "direct"
-
-    # Short conversational messages — no tools needed
-    if len(msg.split()) <= 12:
-        return "direct"
-
-    # Default: let the orchestrator decide (it has tools if it needs them)
-    return "orchestrator"
+    return keyword_result
 
 
 # ── Structured data schemas for dashboard table rendering ──────────────
@@ -534,6 +633,27 @@ STRUCTURED_SCHEMAS: Dict[str, Dict[str, Any]] = {
         ],
         "row_path": "commits",
     },
+    "advisor_get_advisories": {
+        "title": "Business Advisories",
+        "columns": [
+            {"key": "severity", "label": "Severity"},
+            {"key": "category", "label": "Category"},
+            {"key": "title", "label": "Issue"},
+            {"key": "recommendation", "label": "Action"},
+        ],
+        "row_path": "advisories",
+    },
+    "advisor_get_trends": {
+        "title": "Business Trends",
+        "columns": [
+            {"key": "metric", "label": "Metric"},
+            {"key": "current", "label": "Current"},
+            {"key": "previous", "label": "Previous"},
+            {"key": "change_pct", "label": "Change %"},
+            {"key": "direction", "label": "Direction"},
+        ],
+        "row_path": "trends",
+    },
 }
 
 
@@ -659,6 +779,47 @@ def _make_status_card(tool_name: str, result: Dict[str, Any]) -> Optional[Dict[s
             "title": f"{len(msgs)} Messages",
             "description": "Slack",
         }
+    elif tool_name == "advisor_get_health_report":
+        score = result.get("health_score", 0)
+        card_type = "success" if score >= 70 else "warning" if score >= 40 else "error"
+        advisories = result.get("advisories", [])
+        critical = sum(1 for a in advisories if a.get("severity") == "critical")
+        desc = f"{critical} critical" if critical else f"{len(advisories)} advisories"
+        return {
+            "id": "business-health",
+            "type": card_type,
+            "title": f"Business Health: {score}/100",
+            "description": desc,
+        }
+    elif tool_name == "advisor_get_advisories":
+        total = result.get("total", 0)
+        by_sev = result.get("by_severity", {})
+        critical = by_sev.get("critical", 0)
+        warning = by_sev.get("warning", 0)
+        card_type = "error" if critical else "warning" if warning else "success"
+        return {
+            "id": "business-advisories",
+            "type": card_type,
+            "title": f"{total} Advisories",
+            "description": f"{critical} critical, {warning} warnings" if critical or warning else "All clear",
+        }
+    elif tool_name == "advisor_get_trends":
+        unhealthy = result.get("unhealthy", 0)
+        total = result.get("trends_count", 0)
+        card_type = "warning" if unhealthy > 0 else "success"
+        return {
+            "id": "business-trends",
+            "type": card_type,
+            "title": f"{total} Metrics Tracked",
+            "description": f"{unhealthy} declining" if unhealthy else "All healthy",
+        }
+    elif tool_name == "advisor_take_snapshot":
+        return {
+            "id": "business-snapshot",
+            "type": "success",
+            "title": "Snapshot Captured",
+            "description": "Business data collected from all sources",
+        }
     return None
 
 
@@ -706,7 +867,7 @@ async def _stream_direct_response(
 
     try:
         with client.messages.stream(
-            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929"),
+            model=os.getenv("DEFAULT_MODEL", "claude-sonnet-4-6"),
             max_tokens=1024,
             system=system,
             messages=api_messages,
@@ -743,7 +904,16 @@ async def _stream_orchestrator_response(
     registry = get_registry()
     memory = get_memory_service()
     user_request = messages[-1].content if messages else ""
-    tool_defs = registry.get_orchestrator_definitions()
+
+    # Domain-based tool filtering: only send relevant tools to reduce noise
+    detected_domains = _detect_tool_domains(user_request)
+    if len(detected_domains) <= 1:  # Only "general" detected — send all tools
+        tool_defs = registry.get_orchestrator_definitions()
+    else:
+        tool_defs = registry.get_tools_for_domains(detected_domains)
+        # Fallback: if filtering returned too few tools, use all
+        if len(tool_defs) < 3:
+            tool_defs = registry.get_orchestrator_definitions()
 
     # System prompt
     system = SYSTEM_PROMPT
@@ -785,16 +955,16 @@ async def _stream_orchestrator_response(
         api_messages = api_messages[1:]
 
     client = anthropic.Anthropic(api_key=api_key)
-    model = os.getenv("DEFAULT_MODEL", "claude-sonnet-4-5-20250929")
+    model = os.getenv("DEFAULT_MODEL", "claude-sonnet-4-6")
     full_response = ""
     tool_freshness = {}
-    MAX_ITERATIONS = 8
+    MAX_ITERATIONS = 15
 
     try:
         for iteration in range(MAX_ITERATIONS):
             response = client.messages.create(
                 model=model,
-                max_tokens=4096,
+                max_tokens=8192,
                 system=system,
                 tools=tool_defs,
                 messages=api_messages,

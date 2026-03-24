@@ -26,16 +26,16 @@ load_dotenv()
 def get_llm(model: str = None) -> LLM:
     """
     Get configured LLM instance.
-    
+
     Supports both Anthropic and OpenAI.
-    Defaults to Claude Opus 4 for maximum capability.
-    
+    Defaults to Claude Opus 4.6 for maximum capability.
+
     Available models:
-    - claude-opus-4-20250514 (most capable, best for complex orchestration)
-    - claude-sonnet-4-20250514 (fast, great for most tasks)
-    - claude-3-5-sonnet-20241022 (previous generation)
+    - claude-opus-4-6 (most capable, best for complex orchestration)
+    - claude-sonnet-4-6 (fast, great for most tasks)
+    - claude-haiku-4-5-20251001 (fastest, good for classification)
     """
-    model = model or os.getenv("DEFAULT_MODEL", "claude-opus-4-20250514")
+    model = model or os.getenv("DEFAULT_MODEL", "claude-opus-4-6")
     
     # Determine provider from model name
     if "claude" in model.lower():
