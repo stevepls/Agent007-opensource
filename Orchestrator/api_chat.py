@@ -988,6 +988,38 @@ async def _stream_orchestrator_response(
     except Exception:
         pass
 
+    # Inject priority queue + briefing summary so the agent can proactively brief
+    try:
+        from services.queue_aggregator import get_queue_aggregator
+        from services.briefing import get_briefing_engine
+        qa = get_queue_aggregator()
+        breaching = qa.get_breaching()
+        top_items = qa.get_prioritized(limit=5)
+        queue_summary = qa.get_summary()
+
+        system += "\n\n## Priority Queue Status"
+        system += f"\nTotal items: {queue_summary.get('total', 0)} across {len(queue_summary.get('by_project', {}))} projects"
+        if breaching:
+            system += f"\n**SLA BREACHING ({len(breaching)}):**"
+            for b in breaching[:5]:
+                system += f"\n- [{b.priority_score.sla_status.value.upper()}] {b.title} ({b.project_name}) — {b.source_url or b.source_id}"
+        if top_items:
+            system += "\n**Top priority items:**"
+            for t in top_items[:5]:
+                system += f"\n- [score {t.priority_score.score}] {t.title} ({t.project_name}, {t.source} {t.source_id})"
+
+        engine = get_briefing_engine()
+        briefing_items = engine.get_briefing(max_items=5, refresh=False)
+        if briefing_items:
+            system += "\n\n## Active Briefing Items"
+            for bi in briefing_items:
+                prio_label = {0: "CRITICAL", 1: "HIGH", 2: "MEDIUM"}.get(bi.priority.value, "INFO")
+                system += f"\n- [{prio_label}] {bi.title}: {bi.description[:120]}"
+
+        system += "\n\nWhen the user asks you to brief them or starts a new conversation, proactively present the most urgent items from the queue and briefing above. Lead with SLA breaches, then critical briefing items, then top priority tasks. Be concise — 2-3 sentences per item with a recommended action."
+    except Exception:
+        pass
+
     if memory_context:
         system += f"\n\nRelevant context from memory:\n{memory_context}"
 

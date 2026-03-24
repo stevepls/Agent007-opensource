@@ -135,6 +135,21 @@ export default function Dashboard() {
     }
   }, [messages, isLoaded, saveMessages]);
 
+  // Auto-brief on new/empty chat
+  const autoBriefedRef = useRef(false);
+  useEffect(() => {
+    if (isLoaded && messages.length === 0 && !isLoading && !autoBriefedRef.current) {
+      autoBriefedRef.current = true;
+      // Small delay to let the UI settle
+      const timer = setTimeout(() => {
+        setInput("Brief me on what needs my attention right now. Start with the most urgent items.");
+        const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+        setTimeout(() => handleSubmit(fakeEvent), 150);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoaded, messages.length, isLoading, setInput, handleSubmit]);
+
   // Process real-time progress events from annotations
   const lastDataLengthRef = useRef(0);
   useEffect(() => {
@@ -258,6 +273,9 @@ export default function Dashboard() {
     setGlobalProgress(null);
     setPendingApproval(null);
     processedUpdatesRef.current.clear();
+    autoBriefedRef.current = false; // Re-trigger auto-brief on new chat
+    setDismissedQueueIds(new Set());
+    setActiveQueueItemId(null);
   }, [clearHistory, setMessages]);
 
   // Apply UI updates from orchestrator (with deduplication)
