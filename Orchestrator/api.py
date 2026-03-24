@@ -44,6 +44,12 @@ except ImportError:
     BRIEFING_AVAILABLE = False
 
 try:
+    from services.queue_aggregator import get_queue_aggregator
+    QUEUE_AGGREGATOR_AVAILABLE = True
+except ImportError:
+    QUEUE_AGGREGATOR_AVAILABLE = False
+
+try:
     from services.message_queue import get_message_queue
     QUEUE_AVAILABLE = True
 except ImportError:
@@ -81,11 +87,28 @@ async def lifespan(app: FastAPI):
     # Start proactive agent scheduler (scaffolding, ticket scanning)
     proactive = None
     try:
-        from services.proactive_scheduler import get_proactive_scheduler
+        from services.proactive_scheduler import get_proactive_scheduler, ProactiveJob
         proactive = get_proactive_scheduler()
         proactive.start()
     except Exception as e:
         print(f"[WARN] Proactive scheduler not available: {e}")
+
+    # Register daily briefing as a proactive job
+    try:
+        from agents.daily_briefing.agent import run_daily_briefing
+        if proactive is not None:
+            proactive._jobs.append(ProactiveJob(
+                name="daily_briefing",
+                runner=run_daily_briefing,
+                # Check every 30 minutes; the agent itself has a time-of-day
+                # gate so it only actually runs between 7-9 AM.
+                interval_seconds=1800,
+            ))
+            print("[INFO] Daily briefing registered as proactive job")
+    except ImportError:
+        pass
+    except Exception as e:
+        print(f"[WARN] Daily briefing job not registered: {e}")
 
     # Register time-tracking agent as the queue idle handler
     try:
@@ -307,6 +330,14 @@ except Exception as e:
 if HARVEST_AVAILABLE and harvest_router:
     app.include_router(harvest_router)
 
+# Mount project context API as a sub-application
+try:
+    from services.project_context.api import app as project_context_app
+    app.mount("/api/projects", project_context_app)
+    print("✅ Project context API mounted at /api/projects")
+except Exception as e:
+    print(f"⚠️ Project context API not loaded: {e}")
+
 
 # ============================================================================
 # Models
@@ -505,6 +536,76 @@ async def cancel_background_task(task_id: str):
     if success:
         return {"success": True, "message": f"Cancellation requested for task {task_id}"}
     raise HTTPException(status_code=404, detail="Task not found or not cancellable")
+
+
+# ============================================================================
+# Unified Work Queue Endpoints
+# ============================================================================
+
+@app.get("/api/queue", tags=["Queue"])
+async def get_queue(project: str = None, limit: int = 50):
+    """Get the unified prioritized work queue."""
+    if not QUEUE_AGGREGATOR_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Queue aggregator not available")
+    try:
+        queue = get_queue_aggregator()
+        if project:
+            items = queue.get_by_project(project)
+        else:
+            items = queue.get_prioritized(limit=limit)
+        return {
+            "items": [item.to_dict() for item in items],
+            "summary": queue.get_summary(),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Queue fetch failed: {e}")
+
+
+@app.get("/api/queue/breaching", tags=["Queue"])
+async def get_breaching():
+    """Get items breaching or approaching SLA."""
+    if not QUEUE_AGGREGATOR_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Queue aggregator not available")
+    try:
+        queue = get_queue_aggregator()
+        items = queue.get_breaching()
+        return {"items": [item.to_dict() for item in items], "count": len(items)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Breaching fetch failed: {e}")
+
+
+# ============================================================================
+# Briefing Endpoints
+# ============================================================================
+
+@app.get("/api/briefing", tags=["Briefing"])
+async def get_briefing(max_items: int = 15):
+    """Get the current briefing."""
+    if not BRIEFING_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Briefing engine not available")
+    try:
+        engine = get_briefing_engine()
+        items = engine.get_briefing(max_items=max_items, refresh=True)
+        return {
+            "greeting": engine.get_greeting(),
+            "items": [item.to_dict() for item in items],
+            "summary": engine.get_summary(),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Briefing fetch failed: {e}")
+
+
+@app.post("/api/briefing/dismiss/{item_id}", tags=["Briefing"])
+async def dismiss_briefing_item(item_id: str):
+    """Dismiss a briefing item."""
+    if not BRIEFING_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Briefing engine not available")
+    try:
+        engine = get_briefing_engine()
+        engine.dismiss_item(item_id)
+        return {"dismissed": item_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Dismiss failed: {e}")
 
 
 # ============================================================================

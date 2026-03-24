@@ -40,6 +40,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from services.schema_detector import get_schema_detector
+from services.project_context.project_registry import get_project_registry
 
 # ============================================================================
 # Configuration
@@ -435,6 +436,48 @@ def _detect_tool_domains(message: str) -> set:
         if keyword in msg:
             domains.add(category)
     return domains
+
+
+def _detect_project(messages: list) -> Optional[dict]:
+    """Detect which project the user is asking about from their message.
+
+    Returns a dict with project info or None.
+    """
+    try:
+        registry = get_project_registry()
+        # Check the last 3 user messages for project references
+        for msg in reversed(messages[-3:]):
+            if msg.get("role") == "user":
+                content = msg.get("content", "")
+                if isinstance(content, str):
+                    project = registry.match_project(content)
+                    if project:
+                        return {
+                            "name": project.name,
+                            "clickup_space_id": project.clickup_space_id,
+                            "clickup_list_id": project.clickup_list_id,
+                            "zendesk_tag": project.zendesk_tag,
+                            "harvest_project_id": project.harvest_project_id,
+                            "sla_tier": project.sla_tier,
+                        }
+        return None
+    except Exception:
+        return None
+
+
+def _build_project_context_summary(project_info: dict) -> str:
+    """Build a concise project context string for the system prompt."""
+    lines = [f"## Active Project Context: {project_info['name']}"]
+    if project_info.get("clickup_space_id"):
+        lines.append(f"- ClickUp Space: {project_info['clickup_space_id']}, List: {project_info.get('clickup_list_id', 'N/A')}")
+    if project_info.get("zendesk_tag"):
+        lines.append(f"- Zendesk Tag: {project_info['zendesk_tag']}")
+    if project_info.get("harvest_project_id"):
+        lines.append(f"- Harvest Project ID: {project_info['harvest_project_id']}")
+    lines.append(f"- SLA Tier: {project_info['sla_tier'].upper()}")
+    lines.append("")
+    lines.append("Use these IDs when calling tools for this project. Do not ask the user for IDs — you have them.")
+    return "\n".join(lines)
 
 
 def _classify_request_keywords(message: str, memory_context: str = "") -> str:
@@ -859,6 +902,13 @@ async def _stream_direct_response(
     if memory_context:
         system += f"\n\nRelevant context from memory:\n{memory_context}"
 
+    # Detect and inject project context
+    msg_dicts = [{"role": m.role, "content": m.content} for m in messages]
+    project_info = _detect_project(msg_dicts)
+    if project_info:
+        project_context = _build_project_context_summary(project_info)
+        system = system + "\n\n" + project_context
+
     client = anthropic.Anthropic(api_key=api_key)
     api_messages = [
         {"role": m.role if m.role in ("user", "assistant") else "user", "content": m.content}
@@ -940,6 +990,13 @@ async def _stream_orchestrator_response(
 
     if memory_context:
         system += f"\n\nRelevant context from memory:\n{memory_context}"
+
+    # Detect and inject project context
+    msg_dicts = [{"role": m.role, "content": m.content} for m in messages]
+    project_info = _detect_project(msg_dicts)
+    if project_info:
+        project_context = _build_project_context_summary(project_info)
+        system = system + "\n\n" + project_context
 
     # Build message history — filter empty content to avoid 400 errors
     api_messages = []

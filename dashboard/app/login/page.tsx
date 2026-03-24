@@ -2,38 +2,36 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { Zap } from "lucide-react";
+import { Zap, MapPin, Loader2 } from "lucide-react";
+import { useGeolocation } from "@/lib/useGeolocation";
 
-/**
- * Dashboard Sign-In Page
- *
- * Shows a branded sign-in page with a "Sign in with Google" button.
- * When clicked, initiates the OAuth flow through the Orchestrator.
- * Displays error messages from failed auth attempts.
- */
 function LoginContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
+  const { location, status } = useGeolocation();
 
   const handleSignIn = () => {
-    window.location.href = "/api/auth/start";
+    const params = new URLSearchParams();
+    if (location) {
+      params.set("lat", String(location.latitude));
+      params.set("lng", String(location.longitude));
+      if (location.displayName) params.set("geo", location.displayName);
+    }
+    const qs = params.toString();
+    window.location.href = `/api/auth/start${qs ? `?${qs}` : ""}`;
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
-      {/* Login Card */}
       <div className="w-full max-w-md">
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card/50 backdrop-blur-xl shadow-2xl">
-          {/* Top gradient accent */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500" />
 
           <div className="px-8 py-12 text-center">
-            {/* Logo */}
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-lg shadow-violet-500/25">
               <Zap className="h-8 w-8 text-white" />
             </div>
 
-            {/* Title */}
             <h1 className="mb-2 text-2xl font-bold tracking-tight gradient-text">
               Agent007
             </h1>
@@ -41,19 +39,16 @@ function LoginContent() {
               Command Center
             </p>
 
-            {/* Error message */}
             {error && (
               <div className="mb-6 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
                 {error}
               </div>
             )}
 
-            {/* Sign in button */}
             <button
               onClick={handleSignIn}
               className="group flex w-full items-center justify-center gap-3 rounded-xl bg-white px-6 py-3.5 text-base font-semibold text-gray-800 shadow-md transition-all hover:bg-gray-50 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
             >
-              {/* Google icon */}
               <svg className="h-5 w-5 flex-shrink-0" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
@@ -75,8 +70,35 @@ function LoginContent() {
               Sign in with Google
             </button>
 
-            {/* Footer */}
-            <p className="mt-8 text-xs text-muted-foreground/50">
+            {/* Geolocation indicator */}
+            <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground/70">
+              {(status === "requesting" || status === "geocoding") && (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Detecting location&hellip;</span>
+                </>
+              )}
+              {status === "resolved" && location?.displayName && (
+                <>
+                  <MapPin className="h-3 w-3" />
+                  <span>{location.displayName}</span>
+                </>
+              )}
+              {status === "resolved" && !location?.displayName && location && (
+                <>
+                  <MapPin className="h-3 w-3" />
+                  <span>{location.latitude.toFixed(2)}°, {location.longitude.toFixed(2)}°</span>
+                </>
+              )}
+              {status === "denied" && (
+                <>
+                  <MapPin className="h-3 w-3 opacity-50" />
+                  <span>Location access denied</span>
+                </>
+              )}
+            </div>
+
+            <p className="mt-6 text-xs text-muted-foreground/50">
               Authorized users only
             </p>
           </div>

@@ -11,9 +11,12 @@ import { ChatMessages } from "@/components/ChatMessages";
 import { ChatInput, type Attachment } from "@/components/ChatInput";
 import { DynamicStatusCards } from "@/components/DynamicStatusCards";
 import { TaskQueue } from "@/components/TaskQueue";
+import { QueueView } from "@/components/QueueView";
+import { BriefingPanel } from "@/components/BriefingPanel";
 import { DynamicApproveDialog } from "@/components/DynamicApproveDialog";
 import { Progress } from "@/components/ui/progress";
 import {
+  cn,
   type AgentUpdate,
   type StatusCard,
   type ApprovalRequest,
@@ -21,7 +24,7 @@ import {
   type ProgressEvent,
   type StructuredData,
 } from "@/lib/utils";
-import { Menu, X, Zap, Plus, Trash2 } from "lucide-react";
+import { Menu, X, Zap, Plus, Trash2, PanelRightOpen, PanelRightClose, LayoutList, Activity, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePersistedChat, useChatMemorySync } from "@/lib/usePersistedChat";
 
@@ -58,6 +61,7 @@ export default function Dashboard() {
   const [globalProgress, setGlobalProgress] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [rightView, setRightView] = useState<"queue" | "tasks" | "status">("queue");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   type Provider = "auto" | "orchestrator" | "orchestrator-claude" | "orchestrator-openai" | "claude" | "openai";
   const [currentProvider, setCurrentProvider] = useState<string>("connecting");
@@ -514,6 +518,9 @@ export default function Dashboard() {
             )}
           </AnimatePresence>
 
+          {/* Briefing Summary */}
+          <BriefingPanel />
+
           {/* Agent List */}
           <AgentList agents={agents} onAgentClick={handleQuickAction} />
         </div>
@@ -521,6 +528,19 @@ export default function Dashboard() {
 
       {/* Main Content - Chat */}
       <main className="flex-1 flex flex-col min-w-0 h-full">
+        {/* Top bar with right panel toggle */}
+        <div className="flex items-center justify-end px-4 py-2 border-b border-border bg-card/30">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setRightPanelOpen(!rightPanelOpen)}
+            title={rightPanelOpen ? "Hide panel" : "Show panel"}
+          >
+            {rightPanelOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
+          </Button>
+        </div>
+
         {/* Chat Messages */}
         <div className="flex-1 overflow-hidden">
           <ChatMessages
@@ -546,25 +566,67 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* Right Panel - Status Cards */}
+      {/* Right Panel - Tabbed View */}
       <aside
         className={`
-          hidden xl:flex flex-col w-80 border-l border-border bg-card/30 backdrop-blur-xl
+          ${rightPanelOpen ? "flex" : "hidden"} flex-col w-80 border-l border-border bg-card/30 backdrop-blur-xl
           transition-all duration-300
-          ${rightPanelOpen ? "translate-x-0" : "translate-x-full"}
         `}
       >
-        <div className="p-4 border-b border-border">
-          <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
-            Live Status
-          </h2>
+        {/* Tab header */}
+        <div className="flex items-center border-b border-border">
+          <button
+            onClick={() => setRightView("queue")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors",
+              rightView === "queue"
+                ? "text-violet-400 border-b-2 border-violet-400"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <LayoutList className="w-3.5 h-3.5" />
+            Queue
+          </button>
+          <button
+            onClick={() => setRightView("tasks")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors",
+              rightView === "tasks"
+                ? "text-violet-400 border-b-2 border-violet-400"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Activity className="w-3.5 h-3.5" />
+            Tasks
+          </button>
+          <button
+            onClick={() => setRightView("status")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors",
+              rightView === "status"
+                ? "text-violet-400 border-b-2 border-violet-400"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Bell className="w-3.5 h-3.5" />
+            Status
+          </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          <TaskQueue />
-          <DynamicStatusCards
-            cards={statusCards}
-            onAction={handleQuickAction}
-          />
+
+        {/* Tab content */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {rightView === "queue" && <QueueView />}
+          {rightView === "tasks" && (
+            <div className="space-y-6">
+              <TaskQueue />
+            </div>
+          )}
+          {rightView === "status" && (
+            <div className="space-y-6">
+              <BriefingPanel />
+              <DynamicStatusCards cards={statusCards} onAction={handleQuickAction} />
+            </div>
+          )}
         </div>
       </aside>
 

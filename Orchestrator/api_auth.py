@@ -156,6 +156,8 @@ def create_session(user_info: dict) -> str:
         "iat": int(time.time()),
         "exp": int(time.time()) + SESSION_MAX_AGE,
     }
+    if user_info.get("geo"):
+        payload["geo"] = user_info["geo"]
     return _sign(payload)
 
 
@@ -235,6 +237,8 @@ PUBLIC_PATHS = {
 
 PUBLIC_PREFIXES = [
     "/auth/",
+    "/api/queue",
+    "/api/briefing",
 ]
 
 
@@ -388,14 +392,22 @@ async def login_page(request: Request, error: Optional[str] = None):
 
 
 @router.get("/login")
-async def login(request: Request, next_service: Optional[str] = None):
+async def login(
+    request: Request,
+    next_service: Optional[str] = None,
+    geo_lat: Optional[str] = None,
+    geo_lng: Optional[str] = None,
+    geo_name: Optional[str] = None,
+):
     """Redirect to Google OAuth consent screen.
     
     Args:
         next_service: Optional URL of an external service to redirect to after login.
                      Must be in ALLOWED_REDIRECT_DOMAINS for security.
+        geo_lat: Client-reported latitude (from browser Geolocation API).
+        geo_lng: Client-reported longitude.
+        geo_name: Reverse-geocoded location name (city, region, country).
     """
-    # Rate limit login attempts
     if login_limiter.is_rate_limited(request):
         return RedirectResponse(
             url="/auth/login-page?error=Too+many+login+attempts.+Please+wait+a+few+minutes."
@@ -408,8 +420,6 @@ async def login(request: Request, next_service: Optional[str] = None):
         )
 
     redirect_uri = _get_redirect_uri(request)
-
-    # Generate state parameter to prevent CSRF
     state = secrets.token_urlsafe(32)
 
     params = {
@@ -422,25 +432,37 @@ async def login(request: Request, next_service: Optional[str] = None):
         "prompt": "select_account",
     }
 
-    # Detect actual scheme (may differ from request.url.scheme behind proxy)
     actual_scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
     is_secure = actual_scheme == "https"
 
     google_url = f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
     print(f"[OAuth] /auth/login → redirect_uri={redirect_uri}, next_service={next_service}, google_url={google_url[:120]}...")
 
-    # Store state in a short-lived cookie
+    if geo_name:
+        print(f"[OAuth] 📍 Login from: {geo_name} ({geo_lat}, {geo_lng})")
+
     response = RedirectResponse(url=google_url)
     response.set_cookie(
         key="oauth_state",
         value=state,
-        max_age=600,  # 10 minutes
+        max_age=600,
         httponly=True,
         samesite="lax",
         secure=is_secure,
     )
 
-    # Store next_service redirect (if valid) for cross-domain auth
+    # Store geolocation for inclusion in the session after successful auth
+    if geo_lat and geo_lng:
+        geo_data = json.dumps({"lat": geo_lat, "lng": geo_lng, "name": geo_name or ""})
+        response.set_cookie(
+            key="auth_geo",
+            value=geo_data,
+            max_age=600,
+            httponly=True,
+            samesite="lax",
+            secure=is_secure,
+        )
+
     if next_service and _is_allowed_redirect(next_service):
         response.set_cookie(
             key="auth_next_service",
@@ -530,6 +552,17 @@ async def callback(request: Request, code: Optional[str] = None, state: Optional
             url=f"/auth/login-page?error={quote_plus(f'Access denied for {email}. Contact admin.')}"
         )
 
+    # Attach geolocation data from login step (if provided)
+    geo_cookie = request.cookies.get("auth_geo")
+    geo_info = None
+    if geo_cookie:
+        try:
+            geo_info = json.loads(geo_cookie)
+            user_info["geo"] = geo_info
+            print(f"[OAuth] 📍 Authenticated {email} from {geo_info.get('name', 'unknown location')} ({geo_info.get('lat')}, {geo_info.get('lng')})")
+        except (json.JSONDecodeError, TypeError):
+            pass
+
     # Create session
     session_token = create_session(user_info)
 
@@ -552,10 +585,10 @@ async def callback(request: Request, code: Optional[str] = None, state: Optional
             secure=is_secure,
             path="/",
         )
-        # Clean up temp cookies
         response.delete_cookie("oauth_state")
         response.delete_cookie("auth_next")
         response.delete_cookie("auth_next_service")
+        response.delete_cookie("auth_geo")
         print(f"✅ User logged in: {email} → redirecting to {next_service}")
         return response
 
@@ -576,10 +609,10 @@ async def callback(request: Request, code: Optional[str] = None, state: Optional
         secure=is_secure,
         path="/",
     )
-    # Clean up temp cookies
     response.delete_cookie("oauth_state")
     response.delete_cookie("auth_next")
     response.delete_cookie("auth_next_service")
+    response.delete_cookie("auth_geo")
 
     print(f"✅ User logged in: {email} → {next_url}")
     return response
@@ -599,12 +632,15 @@ async def me(request: Request):
     user = get_current_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return {
+    result: Dict[str, Any] = {
         "email": user.get("email"),
         "name": user.get("name"),
         "picture": user.get("picture"),
         "authenticated": True,
     }
+    if user.get("geo"):
+        result["geo"] = user["geo"]
+    return result
 
 
 @router.get("/verify-token")
