@@ -150,6 +150,24 @@ export default function Dashboard() {
     }
   }, [isLoaded, messages.length, isLoading, setInput, handleSubmit]);
 
+  // Auto-cycle: after finishing one item, prompt for the next
+  const prevDismissedCountRef = useRef(0);
+  useEffect(() => {
+    const currentCount = dismissedQueueIds.size;
+    const justDismissed = currentCount > prevDismissedCountRef.current;
+    prevDismissedCountRef.current = currentCount;
+
+    // Only trigger when a new item was just dismissed AND we're not loading
+    if (justDismissed && !isLoading && messages.length > 0) {
+      const timer = setTimeout(() => {
+        setInput("What's next? Brief me on the next most urgent item.");
+        const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+        setTimeout(() => handleSubmit(fakeEvent), 150);
+      }, 2000); // 2s pause between items so Steve can read the response
+      return () => clearTimeout(timer);
+    }
+  }, [dismissedQueueIds.size, isLoading, messages.length, setInput, handleSubmit]);
+
   // Process real-time progress events from annotations
   const lastDataLengthRef = useRef(0);
   useEffect(() => {
