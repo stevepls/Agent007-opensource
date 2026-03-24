@@ -418,7 +418,7 @@ class BriefingEngine:
                     if result and result.get("error"):
                         items.append(BriefingItem(
                             id=f"proactive-error-{agent_name}",
-                            type=ItemType.ALERT,
+                            type=ItemType.ERROR,
                             priority=Priority.HIGH,
                             title=f"{agent_name.replace('_', ' ').title()} Agent Error",
                             description=result["error"],
@@ -436,7 +436,7 @@ class BriefingEngine:
                         if detail.get("status") == "success":
                             items.append(BriefingItem(
                                 id=f"scaffolding-done-{detail.get('task_id', 'x')}",
-                                type=ItemType.UPDATE,
+                                type=ItemType.SUGGESTION,
                                 priority=Priority.MEDIUM,
                                 title=f"Scaffolded: {detail.get('task_name', 'Unknown')}",
                                 description=f"Branch `{detail.get('branch', '?')}` ready for {detail.get('project', '?')}",
@@ -448,7 +448,7 @@ class BriefingEngine:
                 if agent_name == "ticket_scan":
                     items.append(BriefingItem(
                         id=f"ticket-dupes-{result.get('timestamp', 'x')[:10]}",
-                        type=ItemType.ALERT,
+                        type=ItemType.ERROR,
                         priority=Priority.HIGH if found >= 3 else Priority.MEDIUM,
                         title=f"{found} Potential Duplicate Ticket(s)",
                         description="\n".join(

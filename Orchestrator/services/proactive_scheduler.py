@@ -192,6 +192,23 @@ def _run_ticket_scan() -> AgentResult:
     return result
 
 
+def _coerce_result(result, job_name: str = "unknown") -> AgentResult:
+    """Convert a dict result to AgentResult if needed."""
+    if isinstance(result, AgentResult):
+        return result
+    if isinstance(result, dict):
+        return AgentResult(
+            agent=result.get("agent", job_name),
+            timestamp=result.get("timestamp", datetime.now(timezone.utc).isoformat()),
+            items_processed=result.get("items_processed", 0),
+            items_found=result.get("items_found", 0),
+            summary=result.get("summary", ""),
+            details=result.get("details", []),
+            error=result.get("error"),
+        )
+    return AgentResult(agent=job_name, error=f"Unexpected result type: {type(result)}")
+
+
 def _save_result(result: AgentResult):
     """Persist result to disk and push to briefing engine."""
     # Save to disk
@@ -226,7 +243,7 @@ def _push_to_briefing(result: AgentResult):
         if result.error:
             engine._cached_items.append(BriefingItem(
                 id=f"proactive-{result.agent}-error-{int(time.time())}",
-                type=ItemType.ALERT,
+                type=ItemType.ERROR,
                 priority=Priority.HIGH,
                 title=f"{result.agent.replace('_', ' ').title()} Agent Error",
                 description=result.error,
@@ -240,7 +257,7 @@ def _push_to_briefing(result: AgentResult):
                 if detail.get("status") == "success":
                     engine._cached_items.append(BriefingItem(
                         id=f"scaffolding-{detail.get('task_id', 'unknown')}",
-                        type=ItemType.UPDATE,
+                        type=ItemType.SUGGESTION,
                         priority=Priority.MEDIUM,
                         title=f"Scaffolded: {detail.get('task_name', 'Unknown task')}",
                         description=f"Branch `{detail.get('branch', '?')}` created for {detail.get('project', '?')}. Task moved to To Do.",
@@ -252,7 +269,7 @@ def _push_to_briefing(result: AgentResult):
         if result.agent == "ticket_manager" and result.items_found > 0:
             engine._cached_items.append(BriefingItem(
                 id=f"ticket-duplicates-{int(time.time())}",
-                type=ItemType.ALERT,
+                type=ItemType.ERROR,
                 priority=Priority.HIGH if result.items_found >= 3 else Priority.MEDIUM,
                 title=f"{result.items_found} Potential Duplicate Ticket(s)",
                 description="\n".join(
@@ -359,7 +376,8 @@ class ProactiveScheduler:
 
                 logger.info(f"Running proactive job: {job.name}")
                 try:
-                    result = job.runner()
+                    raw_result = job.runner()
+                    result = _coerce_result(raw_result, job.name)
                     job.last_result = result
                     job.last_run = now
                     _save_result(result)
