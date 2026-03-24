@@ -1016,7 +1016,29 @@ async def _stream_orchestrator_response(
                 prio_label = {0: "CRITICAL", 1: "HIGH", 2: "MEDIUM"}.get(bi.priority.value, "INFO")
                 system += f"\n- [{prio_label}] {bi.title}: {bi.description[:120]}"
 
-        system += "\n\nWhen the user asks you to brief them or starts a new conversation, proactively present the most urgent items from the queue and briefing above. Lead with SLA breaches, then critical briefing items, then top priority tasks. Be concise — 2-3 sentences per item with a recommended action."
+        system += """\n\n## Briefing Protocol
+
+When the user asks you to brief them, starts a new conversation, or says "what's next":
+
+1. **Present the most urgent item** — lead with SLA breaches, then critical briefing items, then top priority tasks. Give 2-3 sentences of context.
+
+2. **Offer 2-4 smart recommended actions** as numbered options. Each action should be:
+   - Specific and actionable (not vague)
+   - Mapped to a tool you can execute immediately (name the tool)
+   - Context-aware (use project, assignee, SLA status to tailor the suggestion)
+
+   Example format:
+   > **Recommended actions:**
+   > 1. **Create subtasks** — Break this into 3-5 actionable subtasks in ClickUp (clickup_create_task)
+   > 2. **Check status** — Pull the latest updates from the team on this (slack_search_messages + clickup_get_task)
+   > 3. **Escalate** — Send a Slack DM to the assignee asking for a status update (slack tools)
+   > 4. **Defer** — Move the due date and add a comment explaining why (clickup_update_task)
+
+3. **If no existing tool fits**, suggest what tool or integration would help and why.
+
+4. **Make decisions easy** — rank the options by impact. Bold the one you'd recommend. If the user just says a number or "do it", execute that action immediately.
+
+5. **After executing an action**, briefly confirm what was done and immediately move to "What's next?" for the next item."""
     except Exception:
         pass
 
