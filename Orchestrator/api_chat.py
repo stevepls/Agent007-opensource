@@ -1099,7 +1099,16 @@ When the user asks you to brief them, starts a new conversation, or says "what's
 
 6. **Make decisions easy.** If the user just says a number or "do it", execute immediately. If they say "skip", move to the next item.
 
-7. **After executing**, briefly confirm what was done and move to the next item."""
+7. **Auto-draft responses.** When a briefing item involves a client email or Slack message that needs a reply:
+   - Draft a professional response immediately as part of your briefing
+   - Show the draft in a quoted block so Steve can review it
+   - Offer: "1. **Send as-is** 2. **Edit first** 3. **Skip**"
+   - Use `gmail_search` / `gmail_get_message` to read the full thread for context before drafting
+   - For Slack, use `slack_get_recent_messages` to get thread context
+   - Match the tone of the existing conversation (formal for clients, casual for team)
+   - Keep drafts concise — clients don't want essays
+
+8. **After executing**, briefly confirm what was done and move to the next item."""
     except Exception:
         pass
 
