@@ -405,6 +405,45 @@ export default function Dashboard() {
     setTimeout(() => handleSubmit(fakeEvent), 100);
   }, [setInput, handleSubmit]);
 
+  // Handle "Create Task" from a queue/briefing item
+  const handleCreateTask = useCallback((item: any) => {
+    const title = item.title || "";
+    const desc = item.description || "";
+    const project = item.project_name || "";
+    const source = item.source_url ? `\nSource: ${item.source_url}` : "";
+
+    let prompt = "";
+    if (project) {
+      prompt = `Create a ClickUp task in the ${project} project:\nTitle: ${title}\nDescription: ${desc}${source}\n\nUse the appropriate ClickUp list for this project.`;
+    } else {
+      prompt = `Create a ClickUp task from this briefing item:\nTitle: ${title}\nDescription: ${desc}\n\nPick the most appropriate project and list based on the content.`;
+    }
+
+    setInput(prompt);
+    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+    setTimeout(() => handleSubmit(fakeEvent), 100);
+  }, [setInput, handleSubmit]);
+
+  // Handle "Break into Subtasks" from a queue/briefing item
+  const handleBreakdown = useCallback((item: any) => {
+    const title = item.title || "";
+    const desc = item.description || "";
+    const project = item.project_name || "";
+    const sourceId = item.source_id || "";
+    const source = item.source || "";
+
+    let prompt = "";
+    if (source === "clickup" && sourceId) {
+      prompt = `Break down this ClickUp task into subtasks:\nTask: "${title}" (ID: ${sourceId}, Project: ${project})\n${desc ? `Context: ${desc}\n` : ""}\nAnalyze what needs to be done and create 3-5 actionable subtasks in ClickUp under this task.`;
+    } else {
+      prompt = `Break down this item into actionable subtasks:\nItem: "${title}"\n${desc ? `Context: ${desc}\n` : ""}${project ? `Project: ${project}\n` : ""}\nAnalyze what needs to be done and create 3-5 actionable ClickUp tasks for this work.`;
+    }
+
+    setInput(prompt);
+    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+    setTimeout(() => handleSubmit(fakeEvent), 100);
+  }, [setInput, handleSubmit]);
+
   // Simulate real-time updates (demo)
   useEffect(() => {
     const interval = setInterval(() => {
@@ -614,6 +653,8 @@ export default function Dashboard() {
           <QueueView
             activeItemId={activeQueueItemId}
             onItemSelect={handleQueueItemSelect}
+            onCreateTask={handleCreateTask}
+            onBreakdown={handleBreakdown}
             dismissedIds={dismissedQueueIds}
           />
         </div>

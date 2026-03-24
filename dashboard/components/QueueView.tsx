@@ -20,6 +20,8 @@ import {
   Zap,
   ShieldAlert,
   Bell,
+  ListPlus,
+  GitBranch,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -85,6 +87,8 @@ interface QueueResponse {
 interface QueueViewProps {
   activeItemId?: string | null;
   onItemSelect?: (item: QueueItem | BriefingItemData) => void;
+  onCreateTask?: (item: QueueItem | BriefingItemData) => void;
+  onBreakdown?: (item: QueueItem | BriefingItemData) => void;
   dismissedIds?: Set<string>;
 }
 
@@ -287,7 +291,7 @@ function briefingPriorityLabel(priority: number): string {
 
 const MAX_VISIBLE = 10;
 
-function QueueView({ activeItemId, onItemSelect, dismissedIds }: QueueViewProps) {
+function QueueView({ activeItemId, onItemSelect, onCreateTask, onBreakdown, dismissedIds }: QueueViewProps) {
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [briefingItems, setBriefingItems] = useState<BriefingItemData[]>([]);
   const [summary, setSummary] = useState<QueueSummary | null>(null);
@@ -493,6 +497,8 @@ function QueueView({ activeItemId, onItemSelect, dismissedIds }: QueueViewProps)
                   item={feedItem.data}
                   isActive={isActive}
                   onItemSelect={onItemSelect}
+                  onCreateTask={onCreateTask}
+                  onBreakdown={onBreakdown}
                 />
               );
             }
@@ -503,6 +509,8 @@ function QueueView({ activeItemId, onItemSelect, dismissedIds }: QueueViewProps)
                 item={feedItem.data}
                 isActive={isActive}
                 onItemSelect={onItemSelect}
+                onCreateTask={onCreateTask}
+                onBreakdown={onBreakdown}
               />
             );
           })}
@@ -532,10 +540,14 @@ function QueueCard({
   item,
   isActive,
   onItemSelect,
+  onCreateTask,
+  onBreakdown,
 }: {
   item: QueueItem;
   isActive: boolean;
   onItemSelect?: (item: QueueItem | BriefingItemData) => void;
+  onCreateTask?: (item: QueueItem | BriefingItemData) => void;
+  onBreakdown?: (item: QueueItem | BriefingItemData) => void;
 }) {
   const sla = SLA_CONFIG[item.priority_score?.sla_status] ?? SLA_CONFIG.no_sla;
 
@@ -653,6 +665,28 @@ function QueueCard({
                   {timeAgo(item.created_at)}
                 </span>
               </div>
+
+              {/* Action buttons */}
+              {!isActive && (
+                <div className="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    className="flex items-center gap-0.5 text-[9px] text-emerald-400 hover:text-emerald-300 transition-colors px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20"
+                    onClick={(e) => { e.stopPropagation(); onCreateTask?.(item); }}
+                    title="Create ClickUp task from this item"
+                  >
+                    <ListPlus className="w-2.5 h-2.5" />
+                    Task
+                  </button>
+                  <button
+                    className="flex items-center gap-0.5 text-[9px] text-sky-400 hover:text-sky-300 transition-colors px-1.5 py-0.5 rounded bg-sky-500/10 hover:bg-sky-500/20"
+                    onClick={(e) => { e.stopPropagation(); onBreakdown?.(item); }}
+                    title="Break this into subtasks"
+                  >
+                    <GitBranch className="w-2.5 h-2.5" />
+                    Subtasks
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -669,10 +703,14 @@ function BriefingCard({
   item,
   isActive,
   onItemSelect,
+  onCreateTask,
+  onBreakdown,
 }: {
   item: BriefingItemData;
   isActive: boolean;
   onItemSelect?: (item: QueueItem | BriefingItemData) => void;
+  onCreateTask?: (item: QueueItem | BriefingItemData) => void;
+  onBreakdown?: (item: QueueItem | BriefingItemData) => void;
 }) {
   return (
     <motion.div
@@ -774,6 +812,28 @@ function BriefingCard({
                   {timeAgo(item.created_at)}
                 </span>
               </div>
+
+              {/* Action buttons */}
+              {!isActive && (
+                <div className="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    className="flex items-center gap-0.5 text-[9px] text-emerald-400 hover:text-emerald-300 transition-colors px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20"
+                    onClick={(e) => { e.stopPropagation(); onCreateTask?.(item); }}
+                    title="Convert to ClickUp task"
+                  >
+                    <ListPlus className="w-2.5 h-2.5" />
+                    Task
+                  </button>
+                  <button
+                    className="flex items-center gap-0.5 text-[9px] text-sky-400 hover:text-sky-300 transition-colors px-1.5 py-0.5 rounded bg-sky-500/10 hover:bg-sky-500/20"
+                    onClick={(e) => { e.stopPropagation(); onBreakdown?.(item); }}
+                    title="Break into subtasks"
+                  >
+                    <GitBranch className="w-2.5 h-2.5" />
+                    Subtasks
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
