@@ -3,11 +3,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import {
-  Hammer,       // scaffolding
-  Ticket,       // ticket_scan / ticket_manager
-  Newspaper,    // daily_briefing
-  GitPullRequest, // pr_scanner (future)
-  Bot,          // generic fallback
+  Hammer,           // scaffolding
+  Ticket,           // ticket_scan
+  Newspaper,        // daily_briefing
+  GitPullRequest,   // pr_scanner
+  ShieldCheck,      // sla_monitor
+  SearchX,          // stale_detector
+  Clock,            // time_gap_detector
+  MessageSquare,    // comms_gap_detector
+  AlertTriangle,    // deadline_watchdog
+  Bot,              // generic fallback
   Loader2,
 } from "lucide-react";
 
@@ -44,6 +49,31 @@ const AGENT_CONFIG: Record<string, { icon: React.ReactNode; label: string; color
     icon: <GitPullRequest className="w-3.5 h-3.5" />,
     label: "PRs",
     color: "emerald",
+  },
+  sla_monitor: {
+    icon: <ShieldCheck className="w-3.5 h-3.5" />,
+    label: "SLA",
+    color: "red",
+  },
+  stale_detector: {
+    icon: <SearchX className="w-3.5 h-3.5" />,
+    label: "Stale",
+    color: "orange",
+  },
+  time_gap_detector: {
+    icon: <Clock className="w-3.5 h-3.5" />,
+    label: "Time",
+    color: "cyan",
+  },
+  comms_gap_detector: {
+    icon: <MessageSquare className="w-3.5 h-3.5" />,
+    label: "Comms",
+    color: "pink",
+  },
+  deadline_watchdog: {
+    icon: <AlertTriangle className="w-3.5 h-3.5" />,
+    label: "Deadlines",
+    color: "yellow",
   },
 };
 

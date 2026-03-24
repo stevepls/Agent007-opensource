@@ -488,6 +488,11 @@ export default function Dashboard() {
       ticket_scan: "ticket manager agent",
       daily_briefing: "daily briefing agent",
       pr_scanner: "PR scanner agent",
+      sla_monitor: "SLA monitor agent",
+      stale_detector: "stale task detector agent",
+      time_gap_detector: "time gap detector agent",
+      comms_gap_detector: "client communication gap detector agent",
+      deadline_watchdog: "deadline watchdog agent",
     };
     const label = labels[agentName] || agentName.replace(/_/g, " ") + " agent";
     setInput(`What has the ${label} been doing? Show me its latest results and any items that need my attention.`);

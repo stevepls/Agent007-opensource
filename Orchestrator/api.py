@@ -110,6 +110,31 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[WARN] Daily briefing job not registered: {e}")
 
+    # Register Phase 2 proactive agents
+    if proactive is not None:
+        _phase2_agents = [
+            ("sla_monitor", "agents.sla_monitor.agent", "run_sla_monitor", 1800),
+            ("stale_detector", "agents.stale_detector.agent", "run_stale_detector", 3600),
+            ("time_gap_detector", "agents.time_gap_detector.agent", "run_time_gap_detector", 7200),
+            ("comms_gap_detector", "agents.comms_gap_detector.agent", "run_comms_gap_detector", 14400),
+            ("deadline_watchdog", "agents.deadline_watchdog.agent", "run_deadline_watchdog", 3600),
+            ("pr_scanner", "agents.pr_scanner.agent", "run_pr_scanner", 600),
+        ]
+        for name, module, func, interval in _phase2_agents:
+            try:
+                import importlib
+                mod = importlib.import_module(module)
+                runner = getattr(mod, func)
+                proactive._jobs.append(ProactiveJob(
+                    name=name,
+                    runner=runner,
+                    interval_seconds=interval,
+                ))
+            except Exception as e:
+                print(f"[WARN] Agent '{name}' not registered: {e}")
+        registered = [j.name for j in proactive._jobs]
+        print(f"[INFO] All proactive agents registered: {', '.join(registered)}")
+
     # Register time-tracking agent as the queue idle handler
     try:
         from agents.time_tracker.agent import get_time_tracking_agent
