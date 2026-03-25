@@ -85,6 +85,64 @@ class PriorityPolicy:
         return 0.0
 
 
+class QueueEligibility:
+    """
+    Rules for whether an item belongs in Steve's queue.
+
+    Hard rules:
+    - "internal review" status → always in my queue (needs my review)
+    - overdue (past deadline) → always in my queue
+    - requires my approval → always in my queue
+    - high/critical with no assignee → always in my queue
+    - delegated follow-up failed → escalate to my queue
+
+    Everything else: route to assigned dev/client first.
+    """
+
+    @staticmethod
+    def is_queue_eligible(item: QueueItem) -> bool:
+        """Should this item appear in Steve's action queue?"""
+        # Hard rule: internal review → always mine
+        if item.status in ("internal review", "internal_review", "in review", "needs review"):
+            return True
+
+        # Hard rule: overdue → always mine
+        if item.deadline_at and item.deadline_at < datetime.now(timezone.utc):
+            return True
+        if item.sla_deadline_at and item.sla_deadline_at < datetime.now(timezone.utc):
+            return True
+
+        # Hard rule: requires my approval/review
+        if item.notification.acknowledgment_required and item.severity in (Severity.HIGH, Severity.CRITICAL):
+            return True
+
+        # Hard rule: high/critical with no assignee → needs my attention to assign
+        if item.severity in (Severity.HIGH, Severity.CRITICAL) and not item.assignee:
+            return True
+
+        # Hard rule: agent-completed pending review
+        if item.status in ("completed_pending_review", "agent_completed_pending_review", "ready for review"):
+            return True
+
+        # Otherwise: route to assigned dev/client, not me
+        if item.assignee:
+            return False
+
+        # Unassigned non-critical → still mine (needs triage)
+        return True
+
+    @staticmethod
+    def show_after_queue_clear(item: QueueItem) -> bool:
+        """Should this show in the progress/updates feed after the action queue is empty?"""
+        # Delegated items with assignees
+        if item.assignee and item.status in ("in progress", "in_progress"):
+            return True
+        # Low-severity items
+        if item.severity == Severity.INFO:
+            return True
+        return False
+
+
 class PromotionPolicy:
     """Rules for when a queue item should interrupt or change mode."""
 

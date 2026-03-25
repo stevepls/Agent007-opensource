@@ -509,6 +509,7 @@ export default function Dashboard() {
       comms_gap_detector: "client communication gap detector agent",
       deadline_watchdog: "deadline watchdog agent",
       cx_agent: "customer experience agent",
+      ticket_review: "ticket review agent",
     };
     const label = labels[agentName] || agentName.replace(/_/g, " ") + " agent";
     setInput(`What has the ${label} been doing? Show me its latest results and any items that need my attention.`);

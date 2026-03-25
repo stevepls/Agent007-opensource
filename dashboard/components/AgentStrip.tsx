@@ -81,6 +81,11 @@ const AGENT_CONFIG: Record<string, { icon: React.ReactNode; label: string; color
     label: "CX",
     color: "rose",
   },
+  ticket_review: {
+    icon: <Ticket className="w-3.5 h-3.5" />,
+    label: "Review",
+    color: "cyan",
+  },
 };
 
 function getStatusColor(age: number | null, enabled: boolean): string {
