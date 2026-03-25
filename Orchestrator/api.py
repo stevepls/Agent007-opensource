@@ -357,6 +357,14 @@ except Exception as e:
 if HARVEST_AVAILABLE and harvest_router:
     app.include_router(harvest_router)
 
+# Include task detail router (clickup/zendesk full detail + comments)
+try:
+    from api_task_detail import router as task_detail_router
+    app.include_router(task_detail_router)
+    print("✅ Task detail router registered")
+except Exception as e:
+    print(f"⚠️ Task detail router not loaded: {e}")
+
 # Mount project context API as a sub-application
 try:
     from services.project_context.api import app as project_context_app

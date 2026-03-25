@@ -28,6 +28,8 @@ import {
   GitBranch,
   Sparkles,
   X,
+  UserPlus,
+  Send,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -954,90 +956,83 @@ function QueueCard({
                 )}
               </div>
 
-              {/* Metadata row */}
+              {/* Status + metadata row */}
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                {/* Project badge */}
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-[11px] py-0 px-1.5 font-normal",
-                    projectColor(item.project_name)
-                  )}
-                >
-                  {item.project_name}
-                </Badge>
+                {/* SLA dot */}
+                <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", sla.dot)} title={sla.label} />
 
-                <span className="text-[11px] text-muted-foreground/40">&middot;</span>
-
-                {/* Source label */}
-                <span className={cn(
-                  "text-xs",
-                  item.source === "clickup" ? "text-blue-400/70" : "text-emerald-400/70"
-                )}>
-                  {item.source === "clickup" ? "ClickUp" : "Zendesk"}
+                {/* Status */}
+                <span className="text-xs text-zinc-400 capitalize">
+                  {(item.status || "").replace(/_/g, " ")}
                 </span>
 
-                <span className="text-[11px] text-muted-foreground/40">&middot;</span>
+                <span className="text-[11px] text-muted-foreground/30">&middot;</span>
 
-                {/* SLA status */}
-                <span className={cn("text-xs", sla.labelColor)}>
-                  {sla.label}
-                </span>
+                {/* Project */}
+                <span className="text-xs text-zinc-500">{item.project_name}</span>
 
-                {/* Time remaining if approaching/breaching */}
-                {item.priority_score?.time_remaining &&
-                  (item.priority_score.sla_status === "approaching" ||
-                    item.priority_score.sla_status === "breaching") && (
-                    <span className="text-[11px] text-orange-400 flex items-center gap-0.5">
-                      <Clock className="w-3 h-3" />
-                      {item.priority_score.time_remaining}
-                    </span>
-                  )}
+                {/* Assignee */}
+                {item.assignee && (
+                  <>
+                    <span className="text-[11px] text-muted-foreground/30">&middot;</span>
+                    <span className="text-xs text-zinc-500">{item.assignee}</span>
+                  </>
+                )}
+                {!item.assignee && (
+                  <>
+                    <span className="text-[11px] text-muted-foreground/30">&middot;</span>
+                    <span className="text-xs text-red-400/70">Unassigned</span>
+                  </>
+                )}
 
-                {/* Time ago */}
-                <span className="text-[11px] text-muted-foreground/50 ml-auto">
+                {/* Age */}
+                <span className="text-xs text-muted-foreground/40 ml-auto">
                   {timeAgo(item.updated_at || item.created_at)}
                 </span>
               </div>
 
-              {/* Action buttons — always visible, subtle */}
+              {/* Recommended actions — context-specific */}
               {!isActive && (
-                <div className="flex items-center gap-1.5 mt-2.5">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2.5 text-[11px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 gap-1.5"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onItemSelect?.(item);
-                    }}
-                  >
-                    <MessageSquare className="w-3 h-3" />
-                    Discuss
+                <div className="flex items-center gap-1.5 mt-2">
+                  {/* Primary action — context-dependent */}
+                  {!item.assignee && (
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-indigo-400 hover:bg-indigo-500/10 gap-1"
+                      onClick={(e) => { e.stopPropagation(); onCreateTask?.(item); }}>
+                      <UserPlus className="w-3 h-3" />
+                      Assign
+                    </Button>
+                  )}
+                  {item.assignee && item.status === "open" && (
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-indigo-400 hover:bg-indigo-500/10 gap-1"
+                      onClick={(e) => { e.stopPropagation(); onItemSelect?.(item); }}>
+                      <Send className="w-3 h-3" />
+                      Ping {item.assignee.split(" ")[0]}
+                    </Button>
+                  )}
+                  {item.status === "in_progress" && (
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-zinc-400 hover:bg-zinc-800 gap-1"
+                      onClick={(e) => { e.stopPropagation(); onItemSelect?.(item); }}>
+                      <Clock className="w-3 h-3" />
+                      Check status
+                    </Button>
+                  )}
+                  {(item.status === "review" || item.status === "internal review" || item.status === "internal_review") && (
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-emerald-400 hover:bg-emerald-500/10 gap-1"
+                      onClick={(e) => { e.stopPropagation(); onItemSelect?.(item); }}>
+                      <CheckSquare className="w-3 h-3" />
+                      Review
+                    </Button>
+                  )}
+
+                  {/* Secondary actions */}
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 gap-1"
+                    onClick={(e) => { e.stopPropagation(); onItemSelect?.(item); }}>
+                    Focus
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2.5 text-[11px] text-zinc-400 hover:text-emerald-300 hover:bg-emerald-500/10 gap-1.5"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onCreateTask?.(item);
-                    }}
-                  >
-                    <ListPlus className="w-3 h-3" />
-                    Update
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2.5 text-[11px] text-zinc-400 hover:text-sky-300 hover:bg-sky-500/10 gap-1.5"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onBreakdown?.(item);
-                    }}
-                  >
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 gap-1"
+                    onClick={(e) => { e.stopPropagation(); onBreakdown?.(item); }}>
                     <GitBranch className="w-3 h-3" />
-                    Subtasks
+                    Split
                   </Button>
                 </div>
               )}

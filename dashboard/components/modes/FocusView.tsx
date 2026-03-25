@@ -101,7 +101,7 @@ function MetaItem({ icon, label, value, alert }: {
 // ── Focus Panel ───────────────────────────────────────────────
 
 export function FocusView({ entity, chatSlot, onBack, onAction }: FocusViewProps) {
-  const d = entity.data;
+  const [fullDetail, setFullDetail] = useState<Record<string, any> | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [chatVisible, setChatVisible] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
@@ -112,6 +112,9 @@ export function FocusView({ entity, chatSlot, onBack, onAction }: FocusViewProps
   const [comments, setComments] = useState<CommentData[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
 
+  // Merge full detail with entity data — full detail wins when available
+  const d = fullDetail ? { ...entity.data, ...fullDetail } : entity.data;
+
   const typeIcon = entity.type === "ticket"
     ? <Headphones className="w-5 h-5" />
     : <CheckSquare className="w-5 h-5" />;
@@ -121,33 +124,31 @@ export function FocusView({ entity, chatSlot, onBack, onAction }: FocusViewProps
 
   const fire = (action: string) => onAction?.(action, entity);
 
-  // Fetch latest comments/activity for this entity
+  // Fetch full task details (description, assignees, comments) on focus entry
   useEffect(() => {
-    if (!entity.source?.system || !d.source_id) return;
+    const source = entity.source?.system;
+    const sourceId = entity.data.source_id || entity.id.replace(/^(clickup|zendesk)-/, "");
+
+    if (!source || !sourceId) return;
 
     setCommentsLoading(true);
-    // Try to fetch task details which include comments
-    fetch(`/api/orchestrator/api/cache/stats`) // Lightweight check that orchestrator is up
-      .then(() => {
-        // Fetch the actual task with comments via the queue proxy
-        const source = entity.source?.system;
-        if (source === "clickup") {
-          return fetch(`/api/queue?limit=1`).then(r => r.json()).then(() => {
-            // Comments would come from a dedicated endpoint
-            // For now, use the entity's existing data
-            if (d.comments && Array.isArray(d.comments)) {
-              setComments(d.comments.slice(-5));
-            }
-          });
+    fetch(`/api/task/${source}/${sourceId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.detail) {
+          setFullDetail(data.detail);
+          // Extract comments
+          const rawComments = data.detail.comments || [];
+          setComments(rawComments.slice(-10));
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        // Fallback to entity data
+        if (entity.data.comments && Array.isArray(entity.data.comments)) {
+          setComments(entity.data.comments.slice(-5));
+        }
+      })
       .finally(() => setCommentsLoading(false));
-
-    // Also set comments from entity data if available
-    if (d.comments && Array.isArray(d.comments)) {
-      setComments(d.comments.slice(-5));
-    }
   }, [entity.id]);
 
   return (
