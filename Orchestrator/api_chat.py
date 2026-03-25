@@ -1016,6 +1016,36 @@ async def _stream_orchestrator_response(
                 prio_label = {0: "CRITICAL", 1: "HIGH", 2: "MEDIUM"}.get(bi.priority.value, "INFO")
                 system += f"\n- [{prio_label}] {bi.title}: {bi.description[:120]}"
 
+        # Inject proactive agent activity (what agents did, findings, token usage)
+        try:
+            from services.proactive_scheduler import get_proactive_scheduler
+            ps = get_proactive_scheduler()
+            status = ps.get_status()
+            if status.get("jobs"):
+                system += "\n\n## Background Agent Activity"
+                for job in status["jobs"]:
+                    name = job.get("name", "?")
+                    age = job.get("age")
+                    summary = job.get("last_summary") or "No results yet"
+                    age_str = f"{int(age)}s ago" if age else "never"
+                    enabled = job.get("enabled", True)
+                    if not enabled:
+                        system += f"\n- **{name}**: disabled"
+                    else:
+                        system += f"\n- **{name}** (ran {age_str}): {summary[:150]}"
+
+                # Include latest scaffolding results with detail
+                latest = ps.get_latest_results()
+                for agent_name in ("scaffolding", "ticket_scan", "pr_scanner"):
+                    result = latest.get(agent_name)
+                    if result and result.get("items_found", 0) > 0:
+                        system += f"\n\n**{agent_name} details:**"
+                        for d in result.get("details", [])[:5]:
+                            if isinstance(d, dict):
+                                system += f"\n  - {d.get('task_name', d.get('title', str(d)[:80]))}: {d.get('status', d.get('comment', ''))}"
+        except Exception:
+            pass
+
         # Check for velocity-unblocking emails
         try:
             from services.tool_registry import get_registry as _get_tr
