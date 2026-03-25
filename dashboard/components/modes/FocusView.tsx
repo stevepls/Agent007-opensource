@@ -17,6 +17,8 @@ import {
   ListPlus,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   AlertTriangle,
   Pause,
   UserPlus,
@@ -31,6 +33,10 @@ interface FocusViewProps {
   chatSlot: React.ReactNode;
   onBack?: () => void;
   onAction?: (action: string, entity: TypedEntity) => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
 }
 
 interface CommentData {
@@ -100,7 +106,7 @@ function MetaItem({ icon, label, value, alert }: {
 
 // ── Focus Panel ───────────────────────────────────────────────
 
-export function FocusView({ entity, chatSlot, onBack, onAction }: FocusViewProps) {
+export function FocusView({ entity, chatSlot, onBack, onAction, onPrev, onNext, hasPrev, hasNext }: FocusViewProps) {
   const [fullDetail, setFullDetail] = useState<Record<string, any> | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [chatVisible, setChatVisible] = useState(false);
@@ -151,6 +157,18 @@ export function FocusView({ entity, chatSlot, onBack, onAction }: FocusViewProps
       .finally(() => setCommentsLoading(false));
   }, [entity.id]);
 
+  // Keyboard navigation: left/right arrows to move between queue items
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "ArrowLeft" && hasPrev) { e.preventDefault(); onPrev?.(); }
+      if (e.key === "ArrowRight" && hasNext) { e.preventDefault(); onNext?.(); }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onPrev, onNext, hasPrev, hasNext]);
+
   return (
     <div className="flex flex-col h-full">
       {/* ── Focus Panel — owns the canvas ────────────────── */}
@@ -172,12 +190,24 @@ export function FocusView({ entity, chatSlot, onBack, onAction }: FocusViewProps
               {d.project_name}
             </Badge>
           )}
-          {entity.source?.url && (
-            <a href={entity.source.url} target="_blank" rel="noopener noreferrer"
-               className="ml-auto text-muted-foreground hover:text-indigo-400 transition-colors flex-shrink-0">
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          )}
+          {/* Prev / Next navigation */}
+          <div className="flex items-center gap-1 ml-auto">
+            {onPrev && (
+              <Button variant="ghost" size="icon" className={cn("h-7 w-7", !hasPrev && "opacity-30 pointer-events-none")} onClick={onPrev} disabled={!hasPrev} title="Previous item (←)">
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+            )}
+            {onNext && (
+              <Button variant="ghost" size="icon" className={cn("h-7 w-7", !hasNext && "opacity-30 pointer-events-none")} onClick={onNext} disabled={!hasNext} title="Next item (→)">
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            )}
+            {entity.source?.url && (
+              <a href={entity.source.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-indigo-400 transition-colors">
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Title — responsive sizing */}

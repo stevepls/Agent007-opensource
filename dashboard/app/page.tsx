@@ -76,6 +76,7 @@ export default function Dashboard() {
   const [activeQueueItemId, setActiveQueueItemId] = useState<string | null>(null);
   const [dismissedQueueIds, setDismissedQueueIds] = useState<Set<string>>(new Set());
   const activeQueueItemRef = useRef<string | null>(null);
+  const queueItemIdsRef = useRef<string[]>([]);
 
   // Adaptive view protocol
   const [viewDirective, setViewDirective] = useState<ViewDirective>(EMPTY_DIRECTIVE);
@@ -459,12 +460,28 @@ export default function Dashboard() {
         },
       };
 
+      // Build context-specific recommended actions
+      const actions: ActionDefinition[] = [];
+      if (!q.assignee) {
+        actions.push({ id: "assign", label: "Assign to team member", style: "primary", key: null, requires_approval: false, tool: null, args: {} });
+      }
+      if (q.status === "open" || q.status === "to do") {
+        actions.push({ id: "start", label: "Move to In Progress", style: "secondary", key: null, requires_approval: false, tool: null, args: {} });
+      }
+      if (q.status === "in_progress" || q.status === "in progress") {
+        actions.push({ id: "review", label: "Move to Review", style: "secondary", key: null, requires_approval: false, tool: null, args: {} });
+      }
+      if (q.source === "zendesk") {
+        actions.push({ id: "reply", label: "Reply to customer", style: "primary", key: null, requires_approval: false, tool: null, args: {} });
+      }
+
       setViewDirective({
         ...EMPTY_DIRECTIVE,
         mode: "focus",
         primary_entity: entity,
         layout: { canvas: "split", emphasis: "entity", feed: "minimized" },
         chat: { visible: true, input_placeholder: `Ask about ${q.title}...` },
+        actions: actions,
       });
 
       // No auto-chat prompt. The entity card IS the interaction.
@@ -580,6 +597,26 @@ export default function Dashboard() {
       setTimeout(() => handleSubmit(fakeEvent), 100);
     }
   }, [viewDirective, setInput, handleSubmit]);
+
+  // Navigate between queue items in focus mode
+  const handleFocusPrev = useCallback(() => {
+    // Re-enter queue mode — the user can click the previous card
+    setViewDirective(EMPTY_DIRECTIVE);
+    setActiveQueueItemId(null);
+  }, []);
+
+  const handleFocusNext = useCallback(() => {
+    // Dismiss current item and return to queue — next item is visually next
+    if (activeQueueItemId) {
+      setDismissedQueueIds(prev => {
+        const next = new Set(prev);
+        next.add(activeQueueItemId);
+        return next;
+      });
+    }
+    setViewDirective(EMPTY_DIRECTIVE);
+    setActiveQueueItemId(null);
+  }, [activeQueueItemId]);
 
   // Handle agent focus — bring agent's work into the chat
   const handleAgentFocus = useCallback((agentName: string) => {
@@ -868,6 +905,10 @@ export default function Dashboard() {
                   setViewDirective(EMPTY_DIRECTIVE);
                   setActiveQueueItemId(null);
                 }}
+                onPrev={handleFocusPrev}
+                onNext={handleFocusNext}
+                hasPrev={true}
+                hasNext={true}
                 onAction={(action, entity) => {
                   const d = entity.data;
 
