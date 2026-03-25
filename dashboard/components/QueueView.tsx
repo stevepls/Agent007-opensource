@@ -386,6 +386,7 @@ function QueueView({
   const [showFilter, setShowFilter] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [itemActions, setItemActions] = useState<Record<string, any[]>>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Use parent-controlled project scope, or internal state as fallback
@@ -457,6 +458,20 @@ function QueueView({
         summary: newSummary ?? summary,
         timestamp: Date.now(),
       };
+
+      // Fetch recommended actions for top items (non-blocking)
+      fetch("/api/queue/actions?limit=10")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.items) {
+            const actionMap: Record<string, any[]> = {};
+            for (const [id, info] of Object.entries(data.items as Record<string, any>)) {
+              actionMap[id] = info.actions || [];
+            }
+            setItemActions(actionMap);
+          }
+        })
+        .catch(() => {});
     } catch {
       // Silently handle — stale cache still showing
     } finally {
@@ -831,6 +846,7 @@ function QueueView({
                     onCreateTask={onCreateTask}
                     onBreakdown={onBreakdown}
                     onDiscuss={onDiscuss}
+                    recommendedActions={itemActions[id] || []}
                     onFocus={() => setFocusedIndex(index)}
                   />
                 );
@@ -885,6 +901,7 @@ function QueueCard({
   onCreateTask,
   onBreakdown,
   onDiscuss,
+  recommendedActions,
   onFocus,
 }: {
   item: QueueItem;
@@ -895,6 +912,7 @@ function QueueCard({
   onCreateTask?: (item: QueueItem | BriefingItemData) => void;
   onBreakdown?: (item: QueueItem | BriefingItemData) => void;
   onDiscuss?: (item: QueueItem | BriefingItemData) => void;
+  recommendedActions?: any[];
   onFocus: () => void;
 }) {
   const sla = SLA_CONFIG[item.priority_score?.sla_status] ?? SLA_CONFIG.no_sla;
@@ -1005,54 +1023,39 @@ function QueueCard({
                 </span>
               </div>
 
-              {/* Recommended actions — context-specific */}
+              {/* Recommended actions from Orchestrator */}
               {!isActive && (
-                <div className="flex items-center gap-1.5 mt-2">
-                  {/* Primary action — context-dependent */}
-                  {!item.assignee && (
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-indigo-400 hover:bg-indigo-500/10 gap-1"
-                      onClick={(e) => { e.stopPropagation(); onCreateTask?.(item); }}>
-                      <UserPlus className="w-3 h-3" />
-                      Assign
+                <div className="flex items-center gap-1 mt-2 flex-wrap">
+                  {(recommendedActions && recommendedActions.length > 0
+                    ? recommendedActions.slice(0, 4)
+                    : [
+                        { id: "focus", label: "Focus", style: "ghost" },
+                        { id: "discuss", label: "Discuss", style: "ghost" },
+                      ]
+                  ).map((action: any) => (
+                    <Button
+                      key={action.id}
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "h-6 px-2 text-[11px] gap-1",
+                        action.style === "primary"
+                          ? "text-indigo-400 hover:bg-indigo-500/10"
+                          : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+                      )}
+                      title={action.reason || action.label}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (action.id === "focus") onItemSelect?.(item);
+                        else if (action.id === "discuss") onDiscuss?.(item);
+                        else if (action.id === "assign") onCreateTask?.(item);
+                        else if (action.id === "break_down" || action.id === "split") onBreakdown?.(item);
+                        else onItemSelect?.(item); // Default: open focus
+                      }}
+                    >
+                      {action.label}
                     </Button>
-                  )}
-                  {item.assignee && item.status === "open" && (
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-indigo-400 hover:bg-indigo-500/10 gap-1"
-                      onClick={(e) => { e.stopPropagation(); onItemSelect?.(item); }}>
-                      <Send className="w-3 h-3" />
-                      Ping {item.assignee.split(" ")[0]}
-                    </Button>
-                  )}
-                  {item.status === "in_progress" && (
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-zinc-400 hover:bg-zinc-800 gap-1"
-                      onClick={(e) => { e.stopPropagation(); onItemSelect?.(item); }}>
-                      <Clock className="w-3 h-3" />
-                      Check status
-                    </Button>
-                  )}
-                  {(item.status === "review" || item.status === "internal review" || item.status === "internal_review") && (
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-emerald-400 hover:bg-emerald-500/10 gap-1"
-                      onClick={(e) => { e.stopPropagation(); onItemSelect?.(item); }}>
-                      <CheckSquare className="w-3 h-3" />
-                      Review
-                    </Button>
-                  )}
-
-                  {/* Secondary actions */}
-                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 gap-1"
-                    onClick={(e) => { e.stopPropagation(); onItemSelect?.(item); }}>
-                    Focus
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 gap-1"
-                    onClick={(e) => { e.stopPropagation(); onDiscuss?.(item); }}>
-                    <MessageSquare className="w-3 h-3" />
-                    Discuss
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 gap-1"
-                    onClick={(e) => { e.stopPropagation(); onBreakdown?.(item); }}>
-                    <GitBranch className="w-3 h-3" />
-                    Split
-                  </Button>
+                  ))}
                 </div>
               )}
             </div>

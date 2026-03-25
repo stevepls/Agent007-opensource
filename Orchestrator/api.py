@@ -366,6 +366,14 @@ try:
 except Exception as e:
     print(f"⚠️ Task detail router not loaded: {e}")
 
+# Include queue actions router (recommended actions per item)
+try:
+    from api_queue_actions import router as queue_actions_router
+    app.include_router(queue_actions_router)
+    print("✅ Queue actions router registered")
+except Exception as e:
+    print(f"⚠️ Queue actions router not loaded: {e}")
+
 # Mount project context API as a sub-application
 try:
     from services.project_context.api import app as project_context_app
