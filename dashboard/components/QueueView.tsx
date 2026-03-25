@@ -27,6 +27,7 @@ import {
   ListPlus,
   GitBranch,
   Sparkles,
+  X,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -95,6 +96,8 @@ interface QueueViewProps {
   onCreateTask?: (item: QueueItem | BriefingItemData) => void;
   onBreakdown?: (item: QueueItem | BriefingItemData) => void;
   dismissedIds?: Set<string>;
+  activeProject?: string | null;
+  onProjectSelect?: (project: string | null) => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -372,16 +375,25 @@ function QueueView({
   onCreateTask,
   onBreakdown,
   dismissedIds,
+  activeProject,
+  onProjectSelect,
 }: QueueViewProps) {
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [briefingItems, setBriefingItems] = useState<BriefingItemData[]>([]);
   const [summary, setSummary] = useState<QueueSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filterProject, setFilterProject] = useState<string>("");
   const [showFilter, setShowFilter] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Use parent-controlled project scope, or internal state as fallback
+  const filterProject = activeProject || "";
+  const setFilterProject = (p: string) => {
+    if (onProjectSelect) {
+      onProjectSelect(p || null);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -411,7 +423,7 @@ function QueueView({
     } finally {
       setLoading(false);
     }
-  }, [filterProject]);
+  }, [activeProject]);
 
   // Initial fetch + poll every 60 seconds
   useEffect(() => {
@@ -545,10 +557,19 @@ function QueueView({
       {/* ---- Header ---- */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-violet-400" />
+          <Sparkles className="w-4 h-4 text-indigo-400" />
           <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-            Priority Feed
+            {filterProject ? `${filterProject}` : "Priority Feed"}
           </span>
+          {filterProject && (
+            <button
+              onClick={() => setFilterProject("")}
+              className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              title="Clear project filter"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5">

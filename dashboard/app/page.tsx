@@ -76,6 +76,9 @@ export default function Dashboard() {
 
   // Adaptive view protocol
   const [viewDirective, setViewDirective] = useState<ViewDirective>(EMPTY_DIRECTIVE);
+
+  // Project scope — filters queue and constrains orchestrator context
+  const [activeProject, setActiveProject] = useState<string | null>(null);
   type Provider = "auto" | "orchestrator" | "orchestrator-claude" | "orchestrator-openai" | "claude" | "openai";
   const [currentProvider, setCurrentProvider] = useState<string>("connecting");
   const [preferredProvider, setPreferredProvider] = useState<Provider>("auto");
@@ -735,6 +738,8 @@ export default function Dashboard() {
               onCreateTask={handleCreateTask}
               onBreakdown={handleBreakdown}
               dismissedIds={dismissedQueueIds}
+              activeProject={activeProject}
+              onProjectSelect={setActiveProject}
             />
           }
 
