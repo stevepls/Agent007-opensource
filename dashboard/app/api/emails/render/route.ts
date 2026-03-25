@@ -3,13 +3,14 @@ import { render } from "@react-email/components";
 import StatusUpdate from "@/emails/StatusUpdate";
 import TicketResolved from "@/emails/TicketResolved";
 import Welcome from "@/emails/Welcome";
+import RecurringChargeReport from "@/emails/RecurringChargeReport";
 import { createElement } from "react";
 
-// Template registry
 const TEMPLATES: Record<string, React.FC<any>> = {
   "status-update": StatusUpdate,
   "ticket-resolved": TicketResolved,
   "welcome": Welcome,
+  "recurring-charge-report": RecurringChargeReport,
 };
 
 export async function POST(req: NextRequest) {
