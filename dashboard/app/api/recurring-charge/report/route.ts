@@ -7,17 +7,21 @@ const MAGENTO_API_TOKEN = process.env.CW_MAGENTO_API_TOKEN || "";
 /**
  * Proxy to the Magento ReportGenerator API.
  *
- * GET  /api/recurring-charge/report          → generate report JSON
- * POST /api/recurring-charge/report?channel= → deliver to slack | email
+ * GET  /api/recurring-charge/report              → pre-run report JSON
+ * GET  /api/recurring-charge/report?type=post    → post-run report JSON
+ * POST /api/recurring-charge/report?channel=     → deliver to slack | email
  */
 export async function GET(req: NextRequest) {
   const chargeDate =
     req.nextUrl.searchParams.get("date") ||
     new Date().toISOString().split("T")[0];
+  const reportType = req.nextUrl.searchParams.get("type") || "pre";
+  const magentoPath =
+    reportType === "post" ? "report/post" : "report";
 
   try {
     const url = new URL(
-      `${MAGENTO_API_URL}/rest/V1/recurring-charge/report`
+      `${MAGENTO_API_URL}/rest/V1/recurring-charge/${magentoPath}`
     );
     url.searchParams.set("chargeDate", chargeDate);
 
