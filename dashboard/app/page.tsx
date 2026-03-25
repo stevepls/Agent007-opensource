@@ -131,7 +131,7 @@ export default function Dashboard() {
         // Not valid JSON, that's fine
       }
 
-      // Mark the active queue item as addressed
+      // Mark the active queue item as addressed and return to queue
       if (activeQueueItemRef.current) {
         setDismissedQueueIds(prev => {
           const next = new Set(prev);
@@ -139,6 +139,8 @@ export default function Dashboard() {
           return next;
         });
         setActiveQueueItemId(null);
+        // Return to queue mode
+        setViewDirective(EMPTY_DIRECTIVE);
       }
     },
   });
@@ -313,6 +315,8 @@ export default function Dashboard() {
     autoBriefedRef.current = false; // Re-trigger auto-brief on new chat
     setDismissedQueueIds(new Set());
     setActiveQueueItemId(null);
+    setViewDirective(EMPTY_DIRECTIVE); // Return to queue
+    setActiveProject(null);
   }, [clearHistory, setMessages]);
 
   // Apply UI updates from orchestrator (with deduplication)
@@ -444,20 +448,55 @@ export default function Dashboard() {
     const itemId = item.id || item.data?.id;
     setActiveQueueItemId(itemId);
 
-    // Build a prompt for the orchestrator to address this item
-    let prompt = "";
-    if (item.kind === "briefing" || item.type) {
-      // Briefing item
-      prompt = `Address this briefing item: "${item.title || item.data?.title}"\n\n${item.description || item.data?.description || ""}`;
-    } else {
-      // Queue item
-      const q = item.data || item;
-      prompt = `Review and brief me on this task: "${q.title}" (${q.project_name}, ${q.source} ${q.source_id})${q.source_url ? `\nLink: ${q.source_url}` : ""}`;
-    }
+    // Build a TypedEntity and switch to focus mode
+    const isQueue = !item.type && !item.kind?.includes("briefing");
+    const q = item.data || item;
 
-    setInput(prompt);
-    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-    setTimeout(() => handleSubmit(fakeEvent), 100);
+    if (isQueue && q.source) {
+      // Queue item → real entity in focus mode
+      const entity = {
+        type: (q.source === "zendesk" ? "ticket" : "task") as any,
+        id: itemId,
+        source: {
+          system: q.source as any,
+          url: q.source_url || undefined,
+        },
+        data: {
+          title: q.title,
+          project_name: q.project_name,
+          source_id: q.source_id,
+          status: q.status,
+          assignee: q.assignee,
+          sla_tier: q.sla_tier,
+          task_type: q.task_type,
+          priority_score: q.priority_score,
+          created_at: q.created_at,
+          updated_at: q.updated_at,
+          due_date: q.due_date,
+          tags: q.tags,
+        },
+      };
+
+      setViewDirective({
+        ...EMPTY_DIRECTIVE,
+        mode: "focus",
+        primary_entity: entity,
+        layout: { canvas: "split", emphasis: "entity", feed: "minimized" },
+      });
+
+      // Send a contextual brief to chat (secondary)
+      const prompt = `Brief me on this ${q.source} item: "${q.title}" (${q.project_name}, ${q.source} ${q.source_id}). What's the current status, who's on it, and what should I do next?`;
+      setInput(prompt);
+      const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+      setTimeout(() => handleSubmit(fakeEvent), 200);
+    } else {
+      // Briefing item → stay in queue, send chat prompt
+      const title = item.title || q.title || "";
+      const desc = item.description || q.description || "";
+      setInput(`Address this briefing item: "${title}"\n\n${desc}`);
+      const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+      setTimeout(() => handleSubmit(fakeEvent), 100);
+    }
   }, [setInput, handleSubmit]);
 
   // Handle "Create Task" from a queue/briefing item
@@ -749,6 +788,10 @@ export default function Dashboard() {
             viewDirective.primary_entity ? (
               <FocusView
                 entity={viewDirective.primary_entity}
+                onBack={() => {
+                  setViewDirective(EMPTY_DIRECTIVE);
+                  setActiveQueueItemId(null);
+                }}
                 chatSlot={
                   <div className="flex flex-col h-full">
                     <div className="flex-1 overflow-hidden">
