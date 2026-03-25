@@ -12,6 +12,7 @@ import {
   Clock,            // time_gap_detector
   MessageSquare,    // comms_gap_detector
   AlertTriangle,    // deadline_watchdog
+  Heart,            // cx_agent
   Bot,              // generic fallback
   Loader2,
 } from "lucide-react";
@@ -74,6 +75,11 @@ const AGENT_CONFIG: Record<string, { icon: React.ReactNode; label: string; color
     icon: <AlertTriangle className="w-3.5 h-3.5" />,
     label: "Deadlines",
     color: "yellow",
+  },
+  cx_agent: {
+    icon: <Heart className="w-3.5 h-3.5" />,
+    label: "CX",
+    color: "rose",
   },
 };
 

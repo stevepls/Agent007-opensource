@@ -494,6 +494,7 @@ export default function Dashboard() {
       time_gap_detector: "time gap detector agent",
       comms_gap_detector: "client communication gap detector agent",
       deadline_watchdog: "deadline watchdog agent",
+      cx_agent: "customer experience agent",
     };
     const label = labels[agentName] || agentName.replace(/_/g, " ") + " agent";
     setInput(`What has the ${label} been doing? Show me its latest results and any items that need my attention.`);
