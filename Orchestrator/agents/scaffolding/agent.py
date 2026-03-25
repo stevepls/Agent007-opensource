@@ -742,7 +742,15 @@ Reply with exactly one word: "covers" (fully addresses), "partial" (partially ad
 TASK:
 {task_text[:3000]}
 
-IMPORTANT: Ignore any comments about git errors, branch issues, or repository problems. Those are handled separately and are NOT blockers. Only set blocked=true for actual dependency or requirements issues (e.g. missing API keys, waiting on client response, needs design approval).
+IMPORTANT CHECKS — read the comments carefully:
+
+1. **Existing PR/branch**: If ANY comment mentions a PR, pull request, branch name, or links to GitHub — set has_existing_pr=true and extract the reference. Do NOT create duplicate work.
+
+2. **Work in progress**: If comments indicate someone is actively working on this (e.g., "working on it", "in progress", "started", "will push today") — set work_in_progress=true.
+
+3. **Requirement changes**: If recent comments change the original requirements, contradict the description, add scope, or provide new details — capture them in requirement_updates.
+
+4. **Blockers**: Only set blocked=true for actual dependency issues (missing API keys, waiting on client, needs design approval). Ignore git/branch/repo comments — those are handled separately.
 
 Respond in JSON:
 {{
@@ -751,6 +759,11 @@ Respond in JSON:
     "urgency": "critical|high|normal|low",
     "blocked": false,
     "blocked_reason": null,
+    "has_existing_pr": false,
+    "existing_pr_ref": null,
+    "work_in_progress": false,
+    "wip_author": null,
+    "requirement_updates": [],
     "files_to_modify": ["list/of/likely/files"],
     "branch_prefix": "bugfix|feature|update|upgrade|hotfix|project"
 }}"""
@@ -1536,7 +1549,46 @@ Rules:
         analysis = self.analyze_task(details)
         self.logger.info(f"  Analysis: {analysis.get('summary', 'N/A')}")
 
-        # 3. Check if blocked (only trust explicit blockers, not LLM guesses about git/repo state)
+        # 3a. Check if a PR already exists (from comments)
+        if analysis.get("has_existing_pr"):
+            pr_ref = analysis.get("existing_pr_ref", "unknown")
+            self._stop_time_tracking(time_entry_id)
+            comment = (
+                f"🔗 **Existing PR detected** — skipping scaffolding.\n\n"
+                f"A pull request or branch was found in the comments: `{pr_ref}`\n"
+                f"Will not create duplicate work."
+            )
+            self.add_task_comment(task.id, comment)
+            self.logger.info(f"  Skipping — existing PR found: {pr_ref}")
+            return TaskResult(
+                task_id=task.id,
+                task_name=task.name,
+                status="skipped",
+                comment=f"Existing PR: {pr_ref}",
+            )
+
+        # 3b. Check if work is in progress
+        if analysis.get("work_in_progress"):
+            wip_author = analysis.get("wip_author", "someone")
+            self._stop_time_tracking(time_entry_id)
+            comment = (
+                f"👷 **Work in progress** — skipping scaffolding.\n\n"
+                f"Comments indicate {wip_author} is actively working on this.\n"
+                f"Will check again on next run."
+            )
+            self.add_task_comment(task.id, comment)
+            self.logger.info(f"  Skipping — WIP by {wip_author}")
+            return TaskResult(
+                task_id=task.id,
+                task_name=task.name,
+                status="skipped",
+                comment=f"WIP by {wip_author}",
+            )
+
+        # 3c. Document requirement changes in PR description if any
+        requirement_updates = analysis.get("requirement_updates", [])
+
+        # 3d. Check if blocked (only trust explicit blockers, not LLM guesses about git/repo state)
         if analysis.get("blocked"):
             reason = analysis.get("blocked_reason", "")
             # Ignore false positives about git/branch/repo issues — we verify those ourselves
@@ -1626,11 +1678,21 @@ Rules:
             actual_files = self._get_actual_committed_files(actual_branch)
             files_str = "\n".join(f"  - `{f}`" for f in actual_files) if actual_files else "  _No files modified_"
 
+            # Build requirement updates section if any were found in comments
+            req_section = ""
+            if requirement_updates:
+                req_lines = "\n".join(f"  - {r}" for r in requirement_updates)
+                req_section = (
+                    f"\n**⚠️ Requirement updates from comments:**\n{req_lines}\n"
+                    f"_These changes from ticket comments were incorporated into the scaffolding._\n\n"
+                )
+
             comment = (
                 f"🌿 **Scaffolding complete**\n\n"
                 f"Branch: `{actual_branch}`\n"
                 f"Link: {branch_url}\n\n"
                 f"**Summary:** {analysis.get('summary', task.name)}\n\n"
+                f"{req_section}"
                 f"**Work done:**\n{work_summary}\n\n"
                 f"**Files changed:**\n{files_str}\n\n"
                 f"---\n"
