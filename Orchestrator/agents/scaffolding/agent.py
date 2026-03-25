@@ -418,36 +418,105 @@ class ScaffoldingAgent:
     # ClickUp Operations
     # =========================================================================
 
+    # Status priority order: scaffolding first, then todo, then internal review
+    STATUS_CASCADE = [
+        "pending ai scaffolding",  # Priority 1: explicitly queued for scaffolding
+        "to do",                   # Priority 2: ready for work, agent picks up if idle
+        "internal review",         # Priority 3: review existing work
+    ]
+
+    def _is_agent_last_commenter(self, task_id: str) -> bool:
+        """Check if the scaffolding agent was the last to comment on a task."""
+        try:
+            comments = self.clickup.get_comments(task_id)
+            if not comments:
+                return False
+            # Sort by date descending to get the latest
+            sorted_comments = sorted(comments, key=lambda c: c.date, reverse=True)
+            latest = sorted_comments[0]
+            # Check if the latest comment is from the agent
+            agent_markers = ["ScaffoldingAgent", "Scaffolding complete", "Scaffolding Blocked",
+                             "Existing PR detected", "Work in progress"]
+            return any(marker in (latest.text or "") for marker in agent_markers)
+        except Exception:
+            return False
+
+    def _was_waiting_for_process(self, task_id: str) -> bool:
+        """Check if the agent's last comment indicated it was waiting for something to finish."""
+        try:
+            comments = self.clickup.get_comments(task_id)
+            if not comments:
+                return False
+            sorted_comments = sorted(comments, key=lambda c: c.date, reverse=True)
+            for c in sorted_comments[:3]:
+                text = (c.text or "").lower()
+                if any(w in text for w in ["will retry", "waiting", "push failed", "blocked"]):
+                    return True
+                # Stop searching once we hit a non-agent comment
+                if "scaffoldingagent" not in (c.text or ""):
+                    break
+            return False
+        except Exception:
+            return False
+
     def fetch_pending_tasks(self, skip_unchanged: bool = True) -> List[ClickUpTask]:
         """
-        Fetch tasks in 'Pending AI Scaffolding' status.
-        
-        If skip_unchanged=True, only returns tasks that were updated
-        since we last interacted with them.
+        Fetch tasks across a status cascade:
+        1. 'Pending AI Scaffolding' — always process these first
+        2. 'To Do' — pick up if no scaffolding tasks, skip if agent already handled it
+        3. 'Internal Review' — review existing work if nothing else to do
+
+        For non-scaffolding statuses, skips tasks where the agent was the last
+        commenter (unless it was waiting for a process to finish).
         """
-        self.logger.info(f"Fetching tasks with status: '{self.config.status_pending}'")
-        
-        # Fetch all open tasks and filter by status in code
-        # (ClickUp API status filter can be unreliable with spaces/encoding)
+        # Fetch all open tasks once
         all_tasks = self.clickup.list_tasks(
             list_id=self.config.clickup_list_id,
             include_closed=False,
         )
-        tasks = [
-            t for t in all_tasks
-            if t.status.lower().strip() == self.config.status_pending.lower().strip()
-        ]
-        
-        if skip_unchanged:
-            # Filter to only tasks that changed since we last touched them
-            fresh_tasks = [t for t in tasks if self._was_task_updated_since_last_touch(t)]
-            self.logger.info(
-                f"Found {len(fresh_tasks)} fresh task(s) (out of {len(tasks)} pending, {len(all_tasks)} open)"
-            )
-            return fresh_tasks
-        else:
-            self.logger.info(f"Found {len(tasks)} pending task(s) (out of {len(all_tasks)} open)")
-            return tasks
+
+        result_tasks = []
+
+        for status in self.STATUS_CASCADE:
+            matching = [
+                t for t in all_tasks
+                if t.status.lower().strip() == status.lower().strip()
+            ]
+
+            if not matching:
+                continue
+
+            if status == self.config.status_pending.lower().strip():
+                # Scaffolding status: always process, respect skip_unchanged
+                if skip_unchanged:
+                    matching = [t for t in matching if self._was_task_updated_since_last_touch(t)]
+                self.logger.info(f"  [{status}]: {len(matching)} task(s)")
+                result_tasks.extend(matching)
+            else:
+                # To Do / Internal Review: skip if agent was last commenter
+                # (unless it was waiting for something)
+                filtered = []
+                for t in matching:
+                    if self._is_agent_last_commenter(t.id):
+                        if self._was_waiting_for_process(t.id):
+                            self.logger.info(f"  [{status}] {t.id}: agent was waiting, retrying")
+                            filtered.append(t)
+                        else:
+                            self.logger.debug(f"  [{status}] {t.id}: agent already handled, skipping")
+                    else:
+                        filtered.append(t)
+
+                if filtered:
+                    self.logger.info(f"  [{status}]: {len(filtered)} task(s) (skipped {len(matching) - len(filtered)} already handled)")
+                    result_tasks.extend(filtered)
+
+            # If we found scaffolding tasks, don't look at lower-priority statuses
+            if result_tasks and status == self.config.status_pending.lower().strip():
+                self.logger.info(f"Found {len(result_tasks)} scaffolding task(s), prioritizing those.")
+                break
+
+        self.logger.info(f"Total tasks to process: {len(result_tasks)} (from {len(all_tasks)} open)")
+        return result_tasks
 
     def get_task_details(self, task: ClickUpTask) -> Dict[str, Any]:
         """Get full task details including comments."""
@@ -739,10 +808,15 @@ Reply with exactly one word: "covers" (fully addresses), "partial" (partially ad
                     "role": "user",
                     "content": f"""Analyze this ClickUp task for a {stack_info} project.
 
+The task is currently in **{task_details.get('status', 'unknown')}** status.
+- If "pending ai scaffolding": full scaffolding is expected — create branch, write code, push.
+- If "to do": task is ready for work. Only proceed if no one else is working on it and scaffolding would add value. Set skip_scaffolding=true if a human should handle this instead.
+- If "internal review": do NOT create new code. Instead, review existing work — check for quality issues, security concerns, missing tests. Set review_only=true.
+
 TASK:
 {task_text[:3000]}
 
-IMPORTANT CHECKS — read the comments carefully:
+IMPORTANT CHECKS — read the comments AND custom fields carefully:
 
 1. **Existing PR/branch**: If ANY comment mentions a PR, pull request, branch name, or links to GitHub — set has_existing_pr=true and extract the reference. Do NOT create duplicate work.
 
@@ -750,7 +824,9 @@ IMPORTANT CHECKS — read the comments carefully:
 
 3. **Requirement changes**: If recent comments change the original requirements, contradict the description, add scope, or provide new details — capture them in requirement_updates.
 
-4. **Blockers**: Only set blocked=true for actual dependency issues (missing API keys, waiting on client, needs design approval). Ignore git/branch/repo comments — those are handled separately.
+4. **Custom fields**: Check custom_fields for any relevant context — environment (staging/production), client name, linked tickets, estimated effort, affected version, deploy target, etc. Include anything relevant in custom_field_notes.
+
+5. **Blockers**: Only set blocked=true for actual dependency issues (missing API keys, waiting on client, needs design approval). Ignore git/branch/repo comments — those are handled separately.
 
 Respond in JSON:
 {{
@@ -764,6 +840,11 @@ Respond in JSON:
     "work_in_progress": false,
     "wip_author": null,
     "requirement_updates": [],
+    "custom_field_notes": [],
+    "skip_scaffolding": false,
+    "skip_reason": null,
+    "review_only": false,
+    "review_notes": [],
     "files_to_modify": ["list/of/likely/files"],
     "branch_prefix": "bugfix|feature|update|upgrade|hotfix|project"
 }}"""
@@ -1585,10 +1666,45 @@ Rules:
                 comment=f"WIP by {wip_author}",
             )
 
-        # 3c. Document requirement changes in PR description if any
+        # 3c. Check if LLM says to skip scaffolding (to-do tasks that need a human)
+        if analysis.get("skip_scaffolding"):
+            skip_reason = analysis.get("skip_reason", "Task better suited for a human")
+            self._stop_time_tracking(time_entry_id)
+            self.logger.info(f"  Skipping scaffolding: {skip_reason}")
+            return TaskResult(
+                task_id=task.id,
+                task_name=task.name,
+                status="skipped",
+                comment=f"Skip: {skip_reason}",
+            )
+
+        # 3d. Handle review-only mode (internal review tasks)
+        if analysis.get("review_only"):
+            self._stop_time_tracking(time_entry_id)
+            review_notes = analysis.get("review_notes", [])
+            if review_notes:
+                notes_str = "\n".join(f"  - {n}" for n in review_notes)
+                comment = (
+                    f"🔍 **Code Review Notes**\n\n"
+                    f"{notes_str}\n\n"
+                    f"---\n"
+                    f"_Agent: ScaffoldingAgent/{self.config.project_key} (review mode)_"
+                )
+                self.add_task_comment(task.id, comment)
+                self.logger.info(f"  Review posted with {len(review_notes)} note(s)")
+            else:
+                self.logger.info(f"  Review mode but no notes to add")
+            return TaskResult(
+                task_id=task.id,
+                task_name=task.name,
+                status="reviewed",
+                comment=f"Review: {len(review_notes)} notes",
+            )
+
+        # 3e. Document requirement changes in PR description if any
         requirement_updates = analysis.get("requirement_updates", [])
 
-        # 3d. Check if blocked (only trust explicit blockers, not LLM guesses about git/repo state)
+        # 3f. Check if blocked (only trust explicit blockers, not LLM guesses about git/repo state)
         if analysis.get("blocked"):
             reason = analysis.get("blocked_reason", "")
             # Ignore false positives about git/branch/repo issues — we verify those ourselves
@@ -1687,6 +1803,12 @@ Rules:
                     f"_These changes from ticket comments were incorporated into the scaffolding._\n\n"
                 )
 
+            # Build custom field context section
+            custom_notes = analysis.get("custom_field_notes", [])
+            if custom_notes:
+                cf_lines = "\n".join(f"  - {n}" for n in custom_notes)
+                req_section += f"**📋 Custom field context:**\n{cf_lines}\n\n"
+
             comment = (
                 f"🌿 **Scaffolding complete**\n\n"
                 f"Branch: `{actual_branch}`\n"
@@ -1753,28 +1875,9 @@ Rules:
             return []
 
         try:
-            # Check if list has any updates since last run
-            list_changed = self._has_list_changed()
-            if not list_changed:
-                # Even if no list changes, always check for tasks stuck in pending status
-                # (they may have been set to "pending ai scaffolding" before our last check)
-                stuck_tasks = self.fetch_pending_tasks(skip_unchanged=False)
-                if not stuck_tasks:
-                    self.logger.info("No changes in list and no pending tasks, nothing to do.")
-                    state = self._load_state()
-                    state["last_list_check"] = _utcnow().isoformat()
-                    self._save_state(state)
-                    return []
-                else:
-                    self.logger.info(f"No list changes but found {len(stuck_tasks)} task(s) still in pending status — processing them.")
-
-            # Ensure repo is ready
-            if not self.ensure_repo_ready():
-                self.logger.error("Repository not ready, aborting.")
-                return []
-
-            # Fetch pending tasks
-            tasks = self.fetch_pending_tasks(skip_unchanged=not list_changed)
+            # Fetch tasks across the status cascade (scaffolding → to do → internal review)
+            # Always use skip_unchanged=False for the cascade since it handles its own filtering
+            tasks = self.fetch_pending_tasks(skip_unchanged=False)
             if not tasks:
                 self.logger.info("No fresh tasks to process.")
                 # Update state to record this check
