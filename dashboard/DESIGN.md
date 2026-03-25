@@ -1,22 +1,30 @@
 # Agent007 Design System
 
-> Last updated: 2026-03-24
+> Last updated: 2026-03-25
+
+## Product Definition
+
+Agent007 is a **queue-first, context-orchestrated anything interface** for operational work. The user should not need to context-switch into other windows, tabs, or apps. The Orchestrator pulls work from multiple systems, manages context, and shifts the main canvas into the right mode so the user can act.
+
+This is NOT primarily a chat app. This is NOT a static dashboard. It is a **work surface** whose layout is shaped by context, work type, urgency, and intent.
 
 ## Design Philosophy
 
-Agent007 is an **AI-first operations dashboard** — not a static admin panel. The interface should feel like a conversation with a capable executive assistant who can reshape the room to fit the work at hand.
-
 ### Core Principles
 
-1. **Context drives the UI, not the other way around.** When you're triaging tickets, the feed is prominent. When you're reviewing a PR, the diff viewer takes over. When you're analyzing time data, charts appear. The interface adapts to the work — the user and the Orchestrator can both reshape it.
+1. **Queue is root.** The queue is the home state, the default surface, and the return state. Everything else is a temporary mode that the Orchestrator enters and exits. When there's nothing focused, the queue dominates.
 
-2. **Color means something or it's not there.** Red = breach/danger. Amber = warning/attention. Green = healthy/success. Blue = info/interactive. Indigo = accent/focus. Everything else is neutral gray. No decorative color.
+2. **Chat is secondary.** Chat is for steering, clarification, narration, and override. It is NOT the primary container for diffs, charts, tables, data, or approval flows. Chat lives in a narrow panel — the work surface owns the canvas.
 
-3. **Content speaks, chrome whispers.** Titles are readable (text-sm minimum). Metadata is secondary. Borders are subtle. Surfaces are solid, not blurred. The data is the hero, not the UI framework.
+3. **Context drives the surface.** The Orchestrator sends typed business objects (tasks, tickets, PRs, emails, metrics). The dashboard decides how to render them. The surface reshapes based on what the user is doing, not based on what tab they clicked.
 
-4. **Every card is a command center.** A card should tell you what's happening, who's on it, how urgent it is, and what to do next — all at a glance. No clicking required to understand the situation.
+4. **Color means something or it's not there.** Red = breach/danger. Amber = warning/attention. Green = healthy/success. Blue = info/interactive. Indigo = accent/focus. Everything else is neutral gray. No decorative color.
 
-5. **The AI controls the layout.** The Orchestrator can send view instructions as part of its response. Text renders as text, tables render as tables, charts render as charts, diffs render as diffs. Never flatten rich data into a chat bubble.
+5. **Content speaks, chrome whispers.** Titles are readable (text-sm minimum). Metadata is secondary. Borders are subtle. Surfaces are solid. The data is the hero.
+
+6. **Every card is a command center.** A card should tell you what's happening, who's on it, how urgent it is, and what to do next — all at a glance.
+
+7. **External systems are renderable contexts, not destinations.** GitHub, Zendesk, ClickUp, Gmail, Slack, Harvest — their data renders inside this surface. The user stays here.
 
 6. **Keyboard-first, mouse-friendly.** Power users navigate with j/k/Enter/s. Casual users click. Both paths feel natural.
 

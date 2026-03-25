@@ -727,7 +727,7 @@ export default function Dashboard() {
             </div>
           }
 
-          feedSlot={
+          queueSlot={
             <QueueView
               activeItemId={activeQueueItemId}
               onItemSelect={handleQueueItemSelect}
