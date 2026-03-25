@@ -836,13 +836,23 @@ export default function Dashboard() {
                 }}
                 onAction={(action, entity) => {
                   const d = entity.data;
+
+                  // Handle inline comment with actual text
+                  if (action.startsWith("add_comment:")) {
+                    const text = action.slice("add_comment:".length);
+                    const prompt = `Add this comment to ${entity.source?.system} ${d.source_id} ("${d.title}"):\n\n${text}`;
+                    setInput(prompt);
+                    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+                    setTimeout(() => handleSubmit(fakeEvent), 100);
+                    return;
+                  }
+
                   const prompts: Record<string, string> = {
                     assign: `Assign task "${d.title}" (${d.project_name}, ${entity.source?.system} ${d.source_id}) to the most appropriate team member.`,
                     message_assignee: `Send a Slack message to ${d.assignee} asking for a status update on "${d.title}" (${d.project_name}).`,
                     subtasks: `Break down "${d.title}" (${d.project_name}, ${entity.source?.system} ${d.source_id}) into 3-5 actionable subtasks in ClickUp.`,
                     branch: `Create a feature branch for "${d.title}" (${d.project_name}, ${entity.source?.system} ${d.source_id}) and push it to GitHub.`,
                     snooze: `Snooze "${d.title}" for 24 hours. Add a comment that it's been deferred.`,
-                    comment: `Add a comment to "${d.title}" (${entity.source?.system} ${d.source_id}): `,
                   };
                   const prompt = prompts[action] || `Take action "${action}" on "${d.title}"`;
                   setInput(prompt);

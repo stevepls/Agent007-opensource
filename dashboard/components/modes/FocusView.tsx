@@ -104,6 +104,8 @@ export function FocusView({ entity, chatSlot, onBack, onAction }: FocusViewProps
   const d = entity.data;
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [chatVisible, setChatVisible] = useState(false);
+  const [commentMode, setCommentMode] = useState(false);
+  const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<CommentData[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
 
@@ -235,12 +237,59 @@ export function FocusView({ entity, chatSlot, onBack, onAction }: FocusViewProps
             <Pause className="w-3.5 h-3.5" />
             Snooze
           </Button>
-          <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs gap-1.5 border-[#333] text-zinc-300"
-            onClick={() => fire("comment")}>
+          <Button variant="outline" size="sm"
+            className={cn("h-8 sm:h-9 text-xs gap-1.5 border-[#333]", commentMode ? "text-indigo-400 border-indigo-500/30" : "text-zinc-300")}
+            onClick={() => setCommentMode(!commentMode)}>
             <MessageSquare className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Comment</span>
           </Button>
         </div>
+
+        {/* Inline comment input */}
+        {commentMode && (
+          <div className="px-3 sm:px-5 pb-4">
+            <div className="flex gap-2">
+              <textarea
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Add a comment..."
+                autoFocus
+                className="flex-1 text-sm bg-[#141414] border border-[#262626] rounded-lg px-3 py-2 text-foreground placeholder:text-[#525252] focus:border-indigo-500/50 outline-none resize-none min-h-[80px]"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && commentText.trim()) {
+                    e.preventDefault();
+                    onAction?.("add_comment:" + commentText.trim(), entity);
+                    setCommentText("");
+                    setCommentMode(false);
+                  }
+                  if (e.key === "Escape") {
+                    setCommentMode(false);
+                    setCommentText("");
+                  }
+                }}
+              />
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <Button size="sm" className="h-7 text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white"
+                disabled={!commentText.trim()}
+                onClick={() => {
+                  if (commentText.trim()) {
+                    onAction?.("add_comment:" + commentText.trim(), entity);
+                    setCommentText("");
+                    setCommentMode(false);
+                  }
+                }}>
+                <Send className="w-3 h-3" />
+                Post
+              </Button>
+              <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground"
+                onClick={() => { setCommentMode(false); setCommentText(""); }}>
+                Cancel
+              </Button>
+              <span className="text-xs text-muted-foreground ml-auto">Enter to post · Shift+Enter for newline · Esc to cancel</span>
+            </div>
+          </div>
+        )}
 
         {/* Description */}
         {(d.description || d.body) && (
