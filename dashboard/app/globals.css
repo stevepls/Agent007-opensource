@@ -91,12 +91,6 @@
   animation-delay: 0.4s;
 }
 
-/* Glass effect — subtle frosted surface */
-.glass {
-  backdrop-filter: blur(12px);
-  background: hsl(var(--background) / 0.85);
-}
-
 /* Status dot animation */
 .status-pulse {
   @apply relative;

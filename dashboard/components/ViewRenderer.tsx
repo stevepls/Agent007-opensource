@@ -4,15 +4,13 @@ import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ActionBar } from "@/components/ActionBar";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, LayoutList, X } from "lucide-react";
+import { MessageSquare, LayoutList, X, ChevronRight } from "lucide-react";
 import type { ViewDirective, ViewMode, ActionDefinition, LayoutHint } from "@/lib/viewProtocol";
 import { resolveMode, resolveLayout } from "@/lib/viewProtocol";
 
 // ── Surface Renderer ──────────────────────────────────────────
-// Queue-first. Responsive. Chat is secondary on all screen sizes.
-//
-// Mobile (<lg): single column, bottom toggle for chat/queue swap
-// Desktop (lg+): side-by-side panels per layout mode
+// Queue-first. Chat is a drawer, not a permanent column.
+// Queue owns the full canvas in queue-dominant mode.
 
 interface ViewRendererProps {
   directive: ViewDirective;
@@ -46,78 +44,93 @@ export function ViewRenderer({
   );
   const actions = directive.actions;
 
-  // Mobile: toggle between queue and chat views
-  const [mobileView, setMobileView] = useState<"queue" | "chat">("queue");
+  // Chat drawer state — closed by default in queue mode
+  const [chatOpen, setChatOpen] = useState(false);
+
+  // Mobile: toggle between primary and chat
+  const [mobileView, setMobileView] = useState<"primary" | "chat">("primary");
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 h-full">
+    <div className="flex-1 flex flex-col min-w-0 h-full relative">
       {/* ── Canvas ─────────────────────────────────────────── */}
       <div className="flex-1 flex min-h-0">
 
-        {/* ══════════════════════════════════════════════════════
-            QUEUE-DOMINANT LAYOUT
-            Desktop: chat left (narrow) + queue center
-            Mobile: queue or chat (toggled), one at a time
-           ══════════════════════════════════════════════════════ */}
+        {/* ══════════════════════════════════════════════════
+            QUEUE-DOMINANT — Queue owns the full canvas.
+            Chat is a slide-over drawer, NOT a permanent column.
+           ══════════════════════════════════════════════════ */}
         {layout.canvas === "queue-dominant" && (
           <>
-            {/* Desktop: side-by-side */}
-            <div className="hidden lg:flex flex-1 min-h-0">
-              {/* Chat — narrow left */}
-              <div className="w-80 flex flex-col border-r border-[#262626] bg-[#0a0a0a]">
-                {chatSlot}
+            {/* Queue — full width */}
+            <div className="flex-1 flex flex-col bg-[#0a0a0a]">
+              {/* Agent strip + chat toggle */}
+              <div className="flex items-center justify-between px-4 py-2 border-b border-[#1a1a1a]">
+                <div className="flex-1">{agentStripSlot}</div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-7 text-xs gap-1.5 ml-3",
+                    chatOpen ? "text-indigo-400" : "text-muted-foreground"
+                  )}
+                  onClick={() => setChatOpen(!chatOpen)}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Chat</span>
+                </Button>
               </div>
-              {/* Queue — main surface */}
-              <div className="flex-1 flex flex-col bg-[#0a0a0a]">
-                <div className="px-4 py-2.5 border-b border-[#262626]">
-                  {agentStripSlot}
-                </div>
-                <div className="flex-1 overflow-y-auto p-4">
-                  {queueSlot}
-                </div>
+
+              {/* Queue content — full width on desktop and mobile */}
+              <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+                {queueSlot}
               </div>
             </div>
 
-            {/* Mobile: one panel at a time */}
-            <div className="flex lg:hidden flex-1 flex-col min-h-0">
-              {mobileView === "queue" ? (
-                <div className="flex-1 flex flex-col bg-[#0a0a0a]">
-                  <div className="px-3 py-2 border-b border-[#262626]">
-                    {agentStripSlot}
+            {/* Chat drawer — slides in from right on desktop, bottom on mobile */}
+            {chatOpen && (
+              <>
+                {/* Desktop: right drawer */}
+                <div className="hidden lg:flex flex-col w-96 border-l border-[#1a1a1a] bg-[#0a0a0a] animate-in slide-in-from-right duration-200">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-[#1a1a1a]">
+                    <span className="text-xs font-medium text-muted-foreground">Chat</span>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setChatOpen(false)}>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-3">
-                    {queueSlot}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col bg-[#0a0a0a]">
                   {chatSlot}
                 </div>
-              )}
-            </div>
+
+                {/* Mobile: full-screen overlay */}
+                <div className="flex lg:hidden fixed inset-0 z-40 flex-col bg-[#0a0a0a]">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-[#1a1a1a]">
+                    <span className="text-xs font-medium text-muted-foreground">Chat</span>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setChatOpen(false)}>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                  {chatSlot}
+                </div>
+              </>
+            )}
           </>
         )}
 
-        {/* ══════════════════════════════════════════════════════
-            SPLIT LAYOUT (focus mode)
-            Desktop: entity+chat main + queue sidebar
-            Mobile: entity+chat stacked, no sidebar
-           ══════════════════════════════════════════════════════ */}
+        {/* ══════════════════════════════════════════════════
+            SPLIT — Entity + chat main, queue sidebar
+           ══════════════════════════════════════════════════ */}
         {layout.canvas === "split" && (
           <>
-            {/* Main area — entity + chat */}
             <div className="flex-1 flex flex-col min-w-0">
               {mode === "focus" && (focusSlot || <ModePlaceholder mode="focus" />)}
               {mode === "queue" && chatSlot}
             </div>
 
-            {/* Queue sidebar — desktop only, minimized */}
             {layout.feed !== "hidden" && (
               <aside className={cn(
-                "hidden lg:flex border-l border-[#262626] bg-[#0f0f0f] flex-col transition-all duration-300",
+                "hidden lg:flex border-l border-[#1a1a1a] bg-[#0a0a0a] flex-col transition-all duration-300",
                 layout.feed === "minimized" ? "w-64" : "w-80",
               )}>
-                <div className="p-3 border-b border-[#262626]">
+                <div className="p-3 border-b border-[#1a1a1a]">
                   {agentStripSlot}
                 </div>
                 <div className="flex-1 overflow-y-auto p-3">
@@ -128,10 +141,9 @@ export function ViewRenderer({
           </>
         )}
 
-        {/* ══════════════════════════════════════════════════════
-            CANVAS-DOMINANT (analysis, review)
-            Full width on all devices.
-           ══════════════════════════════════════════════════════ */}
+        {/* ══════════════════════════════════════════════════
+            CANVAS-DOMINANT — Full width, no sidebar
+           ══════════════════════════════════════════════════ */}
         {layout.canvas === "canvas-dominant" && (
           <div className="flex-1 flex flex-col min-w-0">
             {mode === "analysis" && (analysisSlot || <ModePlaceholder mode="analysis" />)}
@@ -139,60 +151,48 @@ export function ViewRenderer({
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════
-            COMPOSE-DOMINANT
-            Desktop: editor + chat sidebar
-            Mobile: editor full, chat via toggle
-           ══════════════════════════════════════════════════════ */}
+        {/* ══════════════════════════════════════════════════
+            COMPOSE-DOMINANT — Editor + chat sidebar
+           ══════════════════════════════════════════════════ */}
         {layout.canvas === "compose-dominant" && (
           <>
-            {/* Desktop */}
             <div className="hidden lg:flex flex-1 min-w-0">
               <div className="flex-1 flex flex-col min-w-0">
                 {composeSlot || <ModePlaceholder mode="compose" />}
               </div>
-              <div className="w-80 flex flex-col border-l border-[#262626] bg-[#0a0a0a]">
+              <div className="w-80 flex flex-col border-l border-[#1a1a1a] bg-[#0a0a0a]">
                 {chatSlot}
               </div>
             </div>
-            {/* Mobile */}
             <div className="flex lg:hidden flex-1 flex-col min-h-0">
-              {mobileView === "queue" ? (
-                <div className="flex-1 flex flex-col">
-                  {composeSlot || <ModePlaceholder mode="compose" />}
-                </div>
+              {mobileView === "primary" ? (
+                composeSlot || <ModePlaceholder mode="compose" />
               ) : (
-                <div className="flex-1 flex flex-col bg-[#0a0a0a]">
-                  {chatSlot}
-                </div>
+                <div className="flex-1 flex flex-col bg-[#0a0a0a]">{chatSlot}</div>
               )}
             </div>
           </>
         )}
       </div>
 
-      {/* ── Mobile Toggle Bar ──────────────────────────────────── */}
-      {(layout.canvas === "queue-dominant" || layout.canvas === "compose-dominant") && (
-        <div className="flex lg:hidden items-center border-t border-[#262626] bg-[#0f0f0f]">
+      {/* ── Mobile bottom bar (compose mode) ─────────────────── */}
+      {layout.canvas === "compose-dominant" && (
+        <div className="flex lg:hidden items-center border-t border-[#1a1a1a] bg-[#0f0f0f]">
           <button
-            onClick={() => setMobileView("queue")}
+            onClick={() => setMobileView("primary")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors",
-              mobileView === "queue"
-                ? "text-indigo-400 bg-indigo-500/10"
-                : "text-muted-foreground"
+              mobileView === "primary" ? "text-indigo-400 bg-indigo-500/10" : "text-muted-foreground"
             )}
           >
             <LayoutList className="w-4 h-4" />
-            {layout.canvas === "compose-dominant" ? "Editor" : "Queue"}
+            Editor
           </button>
           <button
             onClick={() => setMobileView("chat")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors",
-              mobileView === "chat"
-                ? "text-indigo-400 bg-indigo-500/10"
-                : "text-muted-foreground"
+              mobileView === "chat" ? "text-indigo-400 bg-indigo-500/10" : "text-muted-foreground"
             )}
           >
             <MessageSquare className="w-4 h-4" />
