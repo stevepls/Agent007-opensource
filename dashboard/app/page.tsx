@@ -632,6 +632,7 @@ export default function Dashboard() {
       deadline_watchdog: "deadline watchdog agent",
       cx_agent: "customer experience agent",
       ticket_review: "ticket review agent",
+      notification_agent: "notification agent",
     };
     const label = labels[agentName] || agentName.replace(/_/g, " ") + " agent";
 

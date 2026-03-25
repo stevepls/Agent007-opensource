@@ -121,6 +121,7 @@ async def lifespan(app: FastAPI):
             ("pr_scanner", "agents.pr_scanner.agent", "run_pr_scanner", 600),
             ("cx_agent", "agents.cx_agent.agent", "run_cx_agent", 7200),
             ("ticket_review", "agents.ticket_review.agent", "run_ticket_review", 1800),
+            ("notification_agent", "agents.notification_agent.agent", "run_notification_agent", 300),
         ]
         for name, module, func, interval in _phase2_agents:
             try:

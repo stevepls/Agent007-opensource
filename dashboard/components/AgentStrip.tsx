@@ -13,6 +13,7 @@ import {
   MessageSquare,    // comms_gap_detector
   AlertTriangle,    // deadline_watchdog
   Heart,            // cx_agent
+  Bell,             // notification_agent
   Bot,              // generic fallback
   Loader2,
 } from "lucide-react";
@@ -85,6 +86,11 @@ const AGENT_CONFIG: Record<string, { icon: React.ReactNode; label: string; color
     icon: <Ticket className="w-3.5 h-3.5" />,
     label: "Review",
     color: "cyan",
+  },
+  notification_agent: {
+    icon: <Bell className="w-3.5 h-3.5" />,
+    label: "Notify",
+    color: "orange",
   },
 };
 
