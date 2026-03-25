@@ -22,7 +22,8 @@ import {
   type ProgressEvent,
   type StructuredData,
 } from "@/lib/utils";
-import { Menu, X, Zap, Plus, Trash2, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { Menu, X, Zap, Plus, Trash2, PanelRightOpen, PanelRightClose, Settings } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { usePersistedChat, useChatMemorySync } from "@/lib/usePersistedChat";
 
@@ -647,6 +648,12 @@ export default function Dashboard() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Settings link */}
+          <Link href="/settings" className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-[#1a1a1a] transition-colors mb-2">
+            <Settings className="w-3.5 h-3.5" />
+            Settings
+          </Link>
 
           {/* Agent List */}
           <AgentList agents={agents} onAgentClick={handleQuickAction} />
