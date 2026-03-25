@@ -1692,21 +1692,27 @@ Rules:
 
         try:
             # Check if list has any updates since last run
-            if not self._has_list_changed():
-                self.logger.info("No changes in list since last check, nothing to do.")
-                # Update timestamp so we don't re-check the same window next run
-                state = self._load_state()
-                state["last_list_check"] = _utcnow().isoformat()
-                self._save_state(state)
-                return []
+            list_changed = self._has_list_changed()
+            if not list_changed:
+                # Even if no list changes, always check for tasks stuck in pending status
+                # (they may have been set to "pending ai scaffolding" before our last check)
+                stuck_tasks = self.fetch_pending_tasks(skip_unchanged=False)
+                if not stuck_tasks:
+                    self.logger.info("No changes in list and no pending tasks, nothing to do.")
+                    state = self._load_state()
+                    state["last_list_check"] = _utcnow().isoformat()
+                    self._save_state(state)
+                    return []
+                else:
+                    self.logger.info(f"No list changes but found {len(stuck_tasks)} task(s) still in pending status — processing them.")
 
             # Ensure repo is ready
             if not self.ensure_repo_ready():
                 self.logger.error("Repository not ready, aborting.")
                 return []
 
-            # Fetch pending tasks (only those updated since we last touched them)
-            tasks = self.fetch_pending_tasks(skip_unchanged=True)
+            # Fetch pending tasks
+            tasks = self.fetch_pending_tasks(skip_unchanged=not list_changed)
             if not tasks:
                 self.logger.info("No fresh tasks to process.")
                 # Update state to record this check
