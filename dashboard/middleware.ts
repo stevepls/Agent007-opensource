@@ -16,6 +16,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 const COOKIE_NAME = "dashboard_session";
 
+// Set BYPASS_AUTH=true in .env.local to skip Google OAuth for local dev
+const BYPASS_AUTH = process.env.BYPASS_AUTH === "true";
+
 // Paths that skip auth
 const PUBLIC_PATHS = [
   "/login",
@@ -36,6 +39,29 @@ export function middleware(request: NextRequest) {
 
   // Skip auth for public paths and static assets
   if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Local dev: bypass auth entirely when BYPASS_AUTH=true
+  if (BYPASS_AUTH) {
+    // Inject a fake session cookie if one doesn't exist so downstream
+    // code that reads the cookie still works
+    const existing = request.cookies.get(COOKIE_NAME);
+    if (!existing?.value) {
+      const response = NextResponse.next();
+      const devSession = JSON.stringify({
+        email: "dev@localhost",
+        name: "Local Dev",
+        picture: "",
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 86400 * 30, // 30 days
+      });
+      response.cookies.set(COOKIE_NAME, devSession, {
+        path: "/",
+        maxAge: 86400 * 30,
+      });
+      return response;
+    }
     return NextResponse.next();
   }
 
