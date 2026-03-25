@@ -17,6 +17,7 @@ import { ViewRenderer } from "@/components/ViewRenderer";
 import { FocusView } from "@/components/modes/FocusView";
 import { ComposeView } from "@/components/modes/ComposeView";
 import { AnalysisView } from "@/components/modes/AnalysisView";
+import { ReviewView } from "@/components/modes/ReviewView";
 import { Progress } from "@/components/ui/progress";
 import {
   type AgentUpdate,
@@ -154,38 +155,16 @@ export default function Dashboard() {
     }
   }, [messages, isLoaded, saveMessages]);
 
-  // Auto-brief on new/empty chat
+  // Auto-brief ref kept for potential future use
   const autoBriefedRef = useRef(false);
-  useEffect(() => {
-    if (isLoaded && messages.length === 0 && !isLoading && !autoBriefedRef.current) {
-      autoBriefedRef.current = true;
-      // Small delay to let the UI settle
-      const timer = setTimeout(() => {
-        setInput("Brief me on what needs my attention right now. Start with the most urgent items.");
-        const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-        setTimeout(() => handleSubmit(fakeEvent), 150);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoaded, messages.length, isLoading, setInput, handleSubmit]);
+  // Queue IS the brief. No auto-chat-prompt needed.
+  // The user scans, taps, and acts from the queue directly.
 
-  // Auto-cycle: after finishing one item, prompt for the next
+  // Track dismissed count for potential future use
   const prevDismissedCountRef = useRef(0);
   useEffect(() => {
-    const currentCount = dismissedQueueIds.size;
-    const justDismissed = currentCount > prevDismissedCountRef.current;
-    prevDismissedCountRef.current = currentCount;
-
-    // Only trigger when a new item was just dismissed AND we're not loading
-    if (justDismissed && !isLoading && messages.length > 0) {
-      const timer = setTimeout(() => {
-        setInput("What's next? Brief me on the next most urgent item.");
-        const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-        setTimeout(() => handleSubmit(fakeEvent), 150);
-      }, 2000); // 2s pause between items so Steve can read the response
-      return () => clearTimeout(timer);
-    }
-  }, [dismissedQueueIds.size, isLoading, messages.length, setInput, handleSubmit]);
+    prevDismissedCountRef.current = dismissedQueueIds.size;
+  }, [dismissedQueueIds.size]);
 
   // Process real-time progress events from annotations
   const lastDataLengthRef = useRef(0);
@@ -484,22 +463,33 @@ export default function Dashboard() {
         mode: "focus",
         primary_entity: entity,
         layout: { canvas: "split", emphasis: "entity", feed: "minimized" },
+        chat: { visible: true, input_placeholder: `Ask about ${q.title}...` },
       });
 
-      // Send a contextual brief to chat (secondary)
-      const prompt = `Brief me on this ${q.source} item: "${q.title}" (${q.project_name}, ${q.source} ${q.source_id}). What's the current status, who's on it, and what should I do next?`;
-      setInput(prompt);
-      const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-      setTimeout(() => handleSubmit(fakeEvent), 200);
+      // No auto-chat prompt. The entity card IS the interaction.
+      // Chat is available if the user wants to ask something.
     } else {
-      // Briefing item → stay in queue, send chat prompt
-      const title = item.title || q.title || "";
-      const desc = item.description || q.description || "";
-      setInput(`Address this briefing item: "${title}"\n\n${desc}`);
-      const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-      setTimeout(() => handleSubmit(fakeEvent), 100);
+      // Briefing item → focus with entity data from briefing
+      const briefingEntity = {
+        type: "task" as any,
+        id: itemId,
+        data: {
+          title: item.title || q.title || "",
+          description: item.description || q.description || "",
+          source: item.source || q.source || "",
+          priority: item.priority,
+        },
+      };
+
+      setViewDirective({
+        ...EMPTY_DIRECTIVE,
+        mode: "focus",
+        primary_entity: briefingEntity,
+        layout: { canvas: "split", emphasis: "entity", feed: "minimized" },
+        chat: { visible: true, input_placeholder: "Ask about this item..." },
+      });
     }
-  }, [setInput, handleSubmit]);
+  }, []);
 
   // Handle "Create Task" from a queue/briefing item
   const handleCreateTask = useCallback((item: any) => {
@@ -556,6 +546,39 @@ export default function Dashboard() {
     setViewDirective(EMPTY_DIRECTIVE);
     setActiveQueueItemId(null);
   }, []);
+
+  // Handle PR approve from review mode
+  const handleReviewApprove = useCallback(() => {
+    const entity = viewDirective.primary_entity;
+    if (entity) {
+      setInput(`Approve PR #${entity.data.number || entity.id} in ${entity.data.repo || "the repo"}. Post an approval review on GitHub.`);
+      const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+      setTimeout(() => handleSubmit(fakeEvent), 100);
+    }
+    setViewDirective(EMPTY_DIRECTIVE);
+    setActiveQueueItemId(null);
+  }, [viewDirective, setInput, handleSubmit]);
+
+  // Handle request changes from review mode
+  const handleReviewRequestChanges = useCallback((comment: string) => {
+    const entity = viewDirective.primary_entity;
+    if (entity) {
+      setInput(`Request changes on PR #${entity.data.number || entity.id} in ${entity.data.repo || "the repo"} with this comment: "${comment}"`);
+      const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+      setTimeout(() => handleSubmit(fakeEvent), 100);
+    }
+    setViewDirective(EMPTY_DIRECTIVE);
+  }, [viewDirective, setInput, handleSubmit]);
+
+  // Handle PR comment from review mode
+  const handleReviewComment = useCallback((comment: string) => {
+    const entity = viewDirective.primary_entity;
+    if (entity) {
+      setInput(`Add a comment to PR #${entity.data.number || entity.id}: "${comment}"`);
+      const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+      setTimeout(() => handleSubmit(fakeEvent), 100);
+    }
+  }, [viewDirective, setInput, handleSubmit]);
 
   // Handle agent focus — bring agent's work into the chat
   const handleAgentFocus = useCallback((agentName: string) => {
@@ -857,6 +880,21 @@ export default function Dashboard() {
             viewDirective.primary_entity && ["table", "time_entries", "metrics"].includes(viewDirective.primary_entity.type) ? (
               <AnalysisView
                 entity={viewDirective.primary_entity}
+                onBack={() => {
+                  setViewDirective(EMPTY_DIRECTIVE);
+                  setActiveQueueItemId(null);
+                }}
+              />
+            ) : undefined
+          }
+
+          reviewSlot={
+            viewDirective.primary_entity && ["pr", "diff"].includes(viewDirective.primary_entity.type) ? (
+              <ReviewView
+                entity={viewDirective.primary_entity}
+                onApprove={handleReviewApprove}
+                onRequestChanges={handleReviewRequestChanges}
+                onComment={handleReviewComment}
                 onBack={() => {
                   setViewDirective(EMPTY_DIRECTIVE);
                   setActiveQueueItemId(null);
