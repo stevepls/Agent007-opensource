@@ -1,0 +1,84 @@
+version: "3.8"
+
+services:
+  # ---------------------------------------------------------------------------
+  # Temporal persistence (dedicated MySQL — do NOT share with Magento)
+  # ---------------------------------------------------------------------------
+  temporal-mysql:
+    image: mysql:8.0
+    container_name: cw-temporal-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${TEMPORAL_MYSQL_ROOT_PASSWORD:-temporal}
+      MYSQL_DATABASE: temporal
+    ports:
+      - "3307:3306"
+    volumes:
+      - temporal-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Temporal Server (auto-setup creates schemas on first boot)
+  # ---------------------------------------------------------------------------
+  temporal-server:
+    image: temporalio/auto-setup:latest
+    container_name: cw-temporal-server
+    depends_on:
+      temporal-mysql:
+        condition: service_healthy
+    environment:
+      - DB=mysql8
+      - MYSQL_SEEDS=temporal-mysql
+      - MYSQL_USER=root
+      - MYSQL_PWD=${TEMPORAL_MYSQL_ROOT_PASSWORD:-temporal}
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+    ports:
+      - "7233:7233"
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Temporal UI
+  # ---------------------------------------------------------------------------
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: cw-temporal-ui
+    depends_on:
+      - temporal-server
+    environment:
+      - TEMPORAL_ADDRESS=temporal-server:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Temporal Worker (custom application logic)
+  # ---------------------------------------------------------------------------
+  temporal-worker:
+    build:
+      context: ./temporal-worker
+      dockerfile: Dockerfile
+    container_name: cw-temporal-worker
+    depends_on:
+      - temporal-server
+    environment:
+      - TEMPORAL_ADDRESS=temporal-server:7233
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE:-default}
+      - TEMPORAL_TASK_QUEUE=${TEMPORAL_TASK_QUEUE:-collegewise-payments}
+      # Magento MySQL (read/write payment data)
+      - CW_MYSQL_HOST=${CW_MYSQL_HOST}
+      - CW_MYSQL_PORT=${CW_MYSQL_PORT:-3306}
+      - CW_MYSQL_USER=${CW_MYSQL_USER}
+      - CW_MYSQL_PASSWORD=${CW_MYSQL_PASSWORD}
+      - CW_MYSQL_DATABASE=${CW_MYSQL_DATABASE:-collegewise}
+      # Magento REST API (Magento owns payment processing + notifications)
+      - CW_MAGENTO_API_URL=${CW_MAGENTO_API_URL}
+      - CW_MAGENTO_API_TOKEN=${CW_MAGENTO_API_TOKEN}
+    restart: unless-stopped
+
+volumes:
+  temporal-mysql-data:

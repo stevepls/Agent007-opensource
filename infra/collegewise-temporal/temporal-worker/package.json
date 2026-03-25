@@ -1,0 +1,28 @@
+{
+  "name": "cw-temporal-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Temporal worker for Collegewise recurring payment and email workflows",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/worker.js",
+    "dev": "ts-node src/worker.ts",
+    "client": "ts-node src/client.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@temporalio/activity": "^1.11.0",
+    "@temporalio/client": "^1.11.0",
+    "@temporalio/worker": "^1.11.0",
+    "@temporalio/workflow": "^1.11.0",
+    "mysql2": "^3.11.0"
+  },
+  "devDependencies": {
+    "@temporalio/testing": "^1.11.0",
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
