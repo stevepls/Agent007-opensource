@@ -55,7 +55,8 @@ function StatusPipeline({ status }: { status: string }) {
 
 export function FocusView({ entity, chatSlot, onBack, onAction }: FocusViewProps) {
   const d = entity.data;
-  const [detailsOpen, setDetailsOpen] = useState(true); // Open by default — this is focus mode
+  const [detailsOpen, setDetailsOpen] = useState(true);
+  const [chatVisible, setChatVisible] = useState(false);
 
   const typeIcon = entity.type === "ticket"
     ? <Headphones className="w-5 h-5" />
@@ -68,8 +69,8 @@ export function FocusView({ entity, chatSlot, onBack, onAction }: FocusViewProps
 
   return (
     <div className="flex flex-col h-full">
-      {/* ── Focus Panel — takes at least half the screen ──── */}
-      <div className="border-b border-[#1a1a1a] bg-[#0a0a0a] flex-shrink-0 min-h-[50vh] flex flex-col">
+      {/* ── Focus Panel — owns the canvas ────────────────── */}
+      <div className="bg-[#0a0a0a] flex-1 flex flex-col overflow-y-auto">
 
         {/* Back + source row */}
         <div className="flex items-center gap-2 px-5 pt-4 pb-2">
@@ -177,9 +178,21 @@ export function FocusView({ entity, chatSlot, onBack, onAction }: FocusViewProps
         )}
       </div>
 
-      {/* ── Chat — secondary, reduced height ─────────────── */}
-      <div className="h-48 lg:h-64 flex-shrink-0 overflow-hidden bg-[#0a0a0a] border-t border-[#1a1a1a]">
-        {chatSlot}
+      {/* ── Chat — collapsible bottom strip ────────────── */}
+      <div className="flex-shrink-0 border-t border-[#1a1a1a]">
+        <button
+          onClick={() => setChatVisible(!chatVisible)}
+          className="w-full flex items-center gap-2 px-5 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors bg-[#0f0f0f]"
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+          {chatVisible ? "Hide chat" : "Chat with Orchestrator"}
+          {chatVisible ? <ChevronDown className="w-3 h-3 ml-auto" /> : <ChevronUp className="w-3 h-3 ml-auto" />}
+        </button>
+        {chatVisible && (
+          <div className="h-64 overflow-hidden bg-[#0a0a0a]">
+            {chatSlot}
+          </div>
+        )}
       </div>
     </div>
   );
