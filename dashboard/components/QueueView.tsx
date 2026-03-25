@@ -97,6 +97,7 @@ interface QueueViewProps {
   onItemSelect?: (item: QueueItem | BriefingItemData) => void;
   onCreateTask?: (item: QueueItem | BriefingItemData) => void;
   onBreakdown?: (item: QueueItem | BriefingItemData) => void;
+  onDiscuss?: (item: QueueItem | BriefingItemData) => void;
   dismissedIds?: Set<string>;
   activeProject?: string | null;
   onProjectSelect?: (project: string | null) => void;
@@ -372,6 +373,7 @@ function QueueView({
   onItemSelect,
   onCreateTask,
   onBreakdown,
+  onDiscuss,
   dismissedIds,
   activeProject,
   onProjectSelect,
@@ -827,6 +829,7 @@ function QueueView({
                     onItemSelect={onItemSelect}
                     onCreateTask={onCreateTask}
                     onBreakdown={onBreakdown}
+                    onDiscuss={onDiscuss}
                     onFocus={() => setFocusedIndex(index)}
                   />
                 );
@@ -842,6 +845,7 @@ function QueueView({
                   onItemSelect={onItemSelect}
                   onCreateTask={onCreateTask}
                   onBreakdown={onBreakdown}
+                  onDiscuss={onDiscuss}
                   onFocus={() => setFocusedIndex(index)}
                 />
               );
@@ -879,6 +883,7 @@ function QueueCard({
   onItemSelect,
   onCreateTask,
   onBreakdown,
+  onDiscuss,
   onFocus,
 }: {
   item: QueueItem;
@@ -888,6 +893,7 @@ function QueueCard({
   onItemSelect?: (item: QueueItem | BriefingItemData) => void;
   onCreateTask?: (item: QueueItem | BriefingItemData) => void;
   onBreakdown?: (item: QueueItem | BriefingItemData) => void;
+  onDiscuss?: (item: QueueItem | BriefingItemData) => void;
   onFocus: () => void;
 }) {
   const sla = SLA_CONFIG[item.priority_score?.sla_status] ?? SLA_CONFIG.no_sla;
@@ -1030,6 +1036,11 @@ function QueueCard({
                     Focus
                   </Button>
                   <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 gap-1"
+                    onClick={(e) => { e.stopPropagation(); onDiscuss?.(item); }}>
+                    <MessageSquare className="w-3 h-3" />
+                    Discuss
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 gap-1"
                     onClick={(e) => { e.stopPropagation(); onBreakdown?.(item); }}>
                     <GitBranch className="w-3 h-3" />
                     Split
@@ -1056,6 +1067,7 @@ function BriefingCard({
   onItemSelect,
   onCreateTask,
   onBreakdown,
+  onDiscuss,
   onFocus,
 }: {
   item: BriefingItemData;
@@ -1065,6 +1077,7 @@ function BriefingCard({
   onItemSelect?: (item: QueueItem | BriefingItemData) => void;
   onCreateTask?: (item: QueueItem | BriefingItemData) => void;
   onBreakdown?: (item: QueueItem | BriefingItemData) => void;
+  onDiscuss?: (item: QueueItem | BriefingItemData) => void;
   onFocus: () => void;
 }) {
   return (

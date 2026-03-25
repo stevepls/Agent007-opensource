@@ -840,6 +840,18 @@ export default function Dashboard() {
               onItemSelect={handleQueueItemSelect}
               onCreateTask={handleCreateTask}
               onBreakdown={handleBreakdown}
+              onDiscuss={(item: any) => {
+                // Open chat drawer with contextual prompt — stay in queue mode
+                const q = item.data || item;
+                setInput(`Tell me about "${q.title || item.title}" (${q.project_name || ""}, ${q.source || ""} ${q.source_id || ""}). What's the current status and what should I do?`);
+                // ViewRenderer exposes chat drawer via a ref or state — for now
+                // we trigger it by setting a view hint
+                setViewDirective({
+                  ...viewDirective,
+                  mode: "queue",
+                  chat: { visible: true, input_placeholder: `Discussing ${q.title || item.title}...` },
+                });
+              }}
               dismissedIds={dismissedQueueIds}
               activeProject={activeProject}
               onProjectSelect={setActiveProject}

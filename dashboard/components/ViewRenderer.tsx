@@ -44,8 +44,15 @@ export function ViewRenderer({
   );
   const actions = directive.actions;
 
-  // Chat drawer state — closed by default in queue mode
+  // Chat drawer state — closed by default, opens when directive says so
   const [chatOpen, setChatOpen] = useState(false);
+
+  // Auto-open chat drawer when directive requests it
+  useMemo(() => {
+    if (directive.chat?.visible && layout.canvas === "queue-dominant") {
+      setChatOpen(true);
+    }
+  }, [directive.chat?.visible]);
 
   // Mobile: toggle between primary and chat
   const [mobileView, setMobileView] = useState<"primary" | "chat">("primary");
