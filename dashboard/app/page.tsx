@@ -15,6 +15,8 @@ import { AgentStrip } from "@/components/AgentStrip";
 import { DynamicApproveDialog } from "@/components/DynamicApproveDialog";
 import { ViewRenderer } from "@/components/ViewRenderer";
 import { FocusView } from "@/components/modes/FocusView";
+import { ComposeView } from "@/components/modes/ComposeView";
+import { AnalysisView } from "@/components/modes/AnalysisView";
 import { Progress } from "@/components/ui/progress";
 import {
   type AgentUpdate,
@@ -538,6 +540,23 @@ export default function Dashboard() {
     setTimeout(() => handleSubmit(fakeEvent), 100);
   }, [setInput, handleSubmit]);
 
+  // Handle send from compose mode
+  const handleComposeSend = useCallback((data: { to: string; subject: string; body: string; html?: string }) => {
+    // Send via chat — the Orchestrator will use the Gmail tool
+    const htmlFlag = data.html ? " (HTML email)" : "";
+    setInput(`Send this email${htmlFlag}:\nTo: ${data.to}\nSubject: ${data.subject}\n\n${data.body}`);
+    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+    setTimeout(() => handleSubmit(fakeEvent), 100);
+    // Return to queue after sending
+    setViewDirective(EMPTY_DIRECTIVE);
+  }, [setInput, handleSubmit]);
+
+  // Handle discard from compose mode
+  const handleComposeDiscard = useCallback(() => {
+    setViewDirective(EMPTY_DIRECTIVE);
+    setActiveQueueItemId(null);
+  }, []);
+
   // Handle agent focus — bring agent's work into the chat
   const handleAgentFocus = useCallback((agentName: string) => {
     const labels: Record<string, string> = {
@@ -816,6 +835,32 @@ export default function Dashboard() {
                     </div>
                   </div>
                 }
+              />
+            ) : undefined
+          }
+
+          composeSlot={
+            viewDirective.primary_entity?.type === "email_draft" ? (
+              <ComposeView
+                entity={viewDirective.primary_entity}
+                onSend={handleComposeSend}
+                onDiscard={handleComposeDiscard}
+                onBack={() => {
+                  setViewDirective(EMPTY_DIRECTIVE);
+                  setActiveQueueItemId(null);
+                }}
+              />
+            ) : undefined
+          }
+
+          analysisSlot={
+            viewDirective.primary_entity && ["table", "time_entries", "metrics"].includes(viewDirective.primary_entity.type) ? (
+              <AnalysisView
+                entity={viewDirective.primary_entity}
+                onBack={() => {
+                  setViewDirective(EMPTY_DIRECTIVE);
+                  setActiveQueueItemId(null);
+                }}
               />
             ) : undefined
           }
