@@ -28,15 +28,8 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} font-sans min-h-screen bg-gradient-to-br from-background via-background to-background`}
-        suppressHydrationWarning
+        className={`${inter.variable} ${jetbrainsMono.variable} font-sans min-h-screen bg-background text-foreground`}
       >
-        {/* Ambient background effects */}
-        <div className="fixed inset-0 -z-10 overflow-hidden">
-          <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-radial from-violet-500/10 via-transparent to-transparent blur-3xl" />
-          <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-radial from-fuchsia-500/10 via-transparent to-transparent blur-3xl" />
-        </div>
-        
         {children}
       </body>
     </html>
