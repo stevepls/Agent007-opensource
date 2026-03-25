@@ -519,7 +519,7 @@ export default function Dashboard() {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center animate-pulse">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center animate-pulse">
             <Zap className="w-5 h-5 text-white" />
           </div>
           <p className="text-sm text-muted-foreground">Loading chat history...</p>
@@ -546,17 +546,17 @@ export default function Dashboard() {
           fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-300 ease-in-out
           lg:relative lg:translate-x-0
           ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
-          bg-card/50 backdrop-blur-xl border-r border-border
+          bg-[#0f0f0f] border-r border-[#262626]
         `}
       >
         <div className="flex flex-col h-full p-4">
           {/* Logo */}
           <div className="flex items-center gap-3 mb-4 mt-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold gradient-text">Agent007</h1>
+              <h1 className="text-lg text-foreground font-bold">Agent007</h1>
               <div className="flex items-center gap-2">
                 <p className="text-xs text-muted-foreground">Command Center</p>
                 <div className="flex items-center gap-1">
@@ -569,7 +569,7 @@ export default function Dashboard() {
                         setPreferredProvider(value);
                       }
                     }}
-                    className="text-[10px] px-1 py-0.5 rounded bg-background/50 border border-border cursor-pointer hover:bg-accent/50 transition-colors"
+                    className="text-[10px] px-1 py-0.5 rounded bg-zinc-900 border border-border cursor-pointer hover:bg-accent/50 transition-colors"
                     title="Select AI Provider"
                   >
                     <option value="auto">🔄 Auto</option>
@@ -656,7 +656,7 @@ export default function Dashboard() {
       {/* Main Content - Chat */}
       <main className="flex-1 flex flex-col min-w-0 h-full">
         {/* Top bar with right panel toggle */}
-        <div className="flex items-center justify-end px-4 py-2 border-b border-border bg-card/30">
+        <div className="flex items-center justify-end px-4 py-2 border-b border-border bg-[#0a0a0a]">
           <Button
             variant="ghost"
             size="icon"
@@ -681,7 +681,7 @@ export default function Dashboard() {
         </div>
 
         {/* Chat Input */}
-        <div className="border-t border-border bg-card/30 backdrop-blur-xl">
+        <div className="bg-[#0f0f0f] border-t border-[#262626]">
           <ChatInput
             input={input}
             handleInputChange={handleInputChange}
@@ -696,7 +696,7 @@ export default function Dashboard() {
       {/* Right Panel */}
       <aside
         className={`
-          ${rightPanelOpen ? "flex" : "hidden"} flex-col w-80 border-l border-border bg-card/30 backdrop-blur-xl
+          ${rightPanelOpen ? "flex" : "hidden"} flex-col w-80 bg-[#0f0f0f] border-l border-[#262626]
           transition-all duration-300
         `}
       >
@@ -720,7 +720,7 @@ export default function Dashboard() {
       {/* Mobile overlay */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          className="fixed inset-0 bg-black/60 z-30 lg:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
