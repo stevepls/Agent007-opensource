@@ -60,6 +60,7 @@ interface QueueItem {
   updated_at: string;
   due_date: string | null;
   tags: string[];
+  description?: string;
 }
 
 interface BriefingItemData {
@@ -945,9 +946,16 @@ function QueueCard({
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-medium truncate flex-1 text-zinc-100">
-                  {item.title}
-                </p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate text-zinc-100">
+                    {item.title}
+                  </p>
+                  {item.description ? (
+                    <p className="text-xs text-zinc-500 truncate mt-0.5">
+                      {item.description.slice(0, 100)}
+                    </p>
+                  ) : null}
+                </div>
                 {item.source_url && (
                   <a
                     href={item.source_url}
