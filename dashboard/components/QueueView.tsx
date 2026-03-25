@@ -106,37 +106,32 @@ interface QueueViewProps {
 
 const SLA_CONFIG: Record<
   string,
-  { border: string; bg: string; label: string; labelColor: string }
+  { dot: string; label: string; labelColor: string }
 > = {
   within_sla: {
-    border: "border-l-emerald-500",
-    bg: "bg-emerald-950/10",
+    dot: "bg-emerald-400",
     label: "Within SLA",
-    labelColor: "text-emerald-400",
+    labelColor: "text-muted-foreground",
   },
   approaching: {
-    border: "border-l-yellow-400",
-    bg: "bg-yellow-950/10",
+    dot: "bg-yellow-400",
     label: "Approaching",
     labelColor: "text-yellow-400",
   },
   breaching: {
-    border: "border-l-orange-400",
-    bg: "bg-orange-950/15",
+    dot: "bg-orange-400",
     label: "Breaching",
     labelColor: "text-orange-400",
   },
   breached: {
-    border: "border-l-red-500",
-    bg: "bg-red-950/20",
+    dot: "bg-red-500",
     label: "Breached",
     labelColor: "text-red-400",
   },
   no_sla: {
-    border: "border-l-zinc-600",
-    bg: "bg-zinc-900/40",
-    label: "No SLA",
-    labelColor: "text-zinc-500",
+    dot: "bg-zinc-600",
+    label: "",
+    labelColor: "text-muted-foreground",
   },
 };
 
@@ -145,12 +140,12 @@ const SLA_CONFIG: Record<
 /* ------------------------------------------------------------------ */
 
 const PROJECT_COLORS = [
-  "bg-violet-500/15 border-violet-500/30 text-violet-400",
-  "bg-sky-500/15 border-sky-500/30 text-sky-400",
-  "bg-amber-500/15 border-amber-500/30 text-amber-400",
-  "bg-rose-500/15 border-rose-500/30 text-rose-400",
-  "bg-teal-500/15 border-teal-500/30 text-teal-400",
-  "bg-fuchsia-500/15 border-fuchsia-500/30 text-fuchsia-400",
+  "border-[#333] text-zinc-400",
+  "border-[#333] text-zinc-400",
+  "border-[#333] text-zinc-400",
+  "border-[#333] text-zinc-400",
+  "border-[#333] text-zinc-400",
+  "border-[#333] text-zinc-400",
 ];
 
 function projectColor(name: string): string {
@@ -262,19 +257,20 @@ function smartSelect(items: FeedItem[], max: number): FeedItem[] {
 
 /** Icon for briefing item types. */
 function briefingTypeIcon(type: string) {
+  const cls = "w-4 h-4 text-zinc-500";
   switch (type) {
     case "error":
-      return <AlertTriangle className="w-4 h-4 text-red-400" />;
+      return <AlertTriangle className={cls} />;
     case "pending_approval":
-      return <Shield className="w-4 h-4 text-amber-400" />;
+      return <Shield className={cls} />;
     case "schema_change":
-      return <Database className="w-4 h-4 text-sky-400" />;
+      return <Database className={cls} />;
     case "insight":
-      return <Lightbulb className="w-4 h-4 text-yellow-400" />;
+      return <Lightbulb className={cls} />;
     case "message":
-      return <Mail className="w-4 h-4 text-violet-400" />;
+      return <Mail className={cls} />;
     default:
-      return <Sparkles className="w-4 h-4 text-zinc-400" />;
+      return <Sparkles className={cls} />;
   }
 }
 
@@ -577,7 +573,7 @@ function QueueView({
           {summary && summary.total > 0 && (
             <Badge
               variant="outline"
-              className="text-[11px] py-0 px-1.5 bg-violet-500/10 border-violet-500/30 text-violet-400"
+              className="text-[11px] py-0 px-1.5 bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
             >
               {summary.total}
             </Badge>
@@ -597,7 +593,7 @@ function QueueView({
             size="icon"
             className={cn(
               "h-6 w-6 text-muted-foreground hover:text-zinc-300",
-              showShortcuts && "text-violet-400"
+              showShortcuts && "text-indigo-400"
             )}
             onClick={() => setShowShortcuts((v) => !v)}
             title="Keyboard shortcuts (?)"
@@ -611,7 +607,7 @@ function QueueView({
             size="icon"
             className={cn(
               "h-6 w-6 text-muted-foreground hover:text-zinc-300",
-              showFilter && "text-violet-400"
+              showFilter && "text-indigo-400"
             )}
             onClick={() => setShowFilter((v) => !v)}
           >
@@ -647,7 +643,7 @@ function QueueView({
           <Progress
             value={triagePercent}
             className="h-1 bg-zinc-800"
-            indicatorClassName="bg-violet-500/70"
+            indicatorClassName="bg-indigo-500/70"
           />
         </div>
       )}
@@ -705,7 +701,7 @@ function QueueView({
                 className={cn(
                   "text-[11px] px-2.5 py-1 rounded-full border transition-colors",
                   filterProject === ""
-                    ? "bg-violet-500/20 border-violet-500/40 text-violet-300"
+                    ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
                     : "border-zinc-700 text-muted-foreground hover:border-zinc-500"
                 )}
               >
@@ -720,7 +716,7 @@ function QueueView({
                   className={cn(
                     "text-[11px] px-2.5 py-1 rounded-full border transition-colors",
                     filterProject === name
-                      ? "bg-violet-500/20 border-violet-500/40 text-violet-300"
+                      ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
                       : "border-zinc-700 text-muted-foreground hover:border-zinc-500"
                   )}
                 >
@@ -750,7 +746,7 @@ function QueueView({
       {/* ---- Item list ---- */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-8 gap-2">
-          <Loader2 className="w-5 h-5 animate-spin text-violet-400" />
+          <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
           <span className="text-[11px] text-muted-foreground">Loading feed...</span>
         </div>
       ) : visibleItems.length === 0 ? (
@@ -857,19 +853,13 @@ function QueueCard({
     >
       <Card
         className={cn(
-          "border border-zinc-800/80 transition-all duration-200 cursor-pointer",
-          "border-l-[3px]",
-          // Default state
-          sla.bg,
-          sla.border,
+          "border border-[#1a1a1a] bg-[#141414] transition-all duration-200 cursor-pointer",
           // Hover
-          "hover:border-zinc-700",
+          "hover:border-[#333] hover:bg-[#1a1a1a]",
           // Active (being discussed)
-          isActive && "!border-l-violet-500 !bg-violet-500/10 opacity-60",
+          isActive && "border-indigo-500/50 bg-indigo-500/5 opacity-60",
           // Keyboard focused
-          isFocused &&
-            !isActive &&
-            "ring-1 ring-violet-500/50 bg-zinc-800/60"
+          isFocused && !isActive && "ring-1 ring-indigo-500/40 bg-[#1a1a1a]",
         )}
         onClick={() => onItemSelect?.(item)}
       >
@@ -877,8 +867,8 @@ function QueueCard({
           {/* Active discussing badge */}
           {isActive && (
             <div className="flex items-center gap-1.5 mb-2">
-              <MessageSquare className="w-3 h-3 text-violet-400" />
-              <span className="text-[11px] text-violet-400 font-medium">
+              <MessageSquare className="w-3 h-3 text-indigo-400" />
+              <span className="text-[11px] text-indigo-400 font-medium">
                 Discussing...
               </span>
             </div>
@@ -905,7 +895,7 @@ function QueueCard({
                     href={item.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-shrink-0 text-muted-foreground/50 hover:text-violet-400 transition-colors"
+                    className="flex-shrink-0 text-muted-foreground/50 hover:text-indigo-400 transition-colors"
                     onClick={(e) => e.stopPropagation()}
                     title="Open in source"
                   >
@@ -1044,19 +1034,13 @@ function BriefingCard({
     >
       <Card
         className={cn(
-          "border border-zinc-800/80 transition-all duration-200 cursor-pointer",
-          "border-l-[3px]",
-          // Default state
-          briefingBgTint(item.priority),
-          briefingBorderColor(item.priority),
+          "border border-[#1a1a1a] bg-[#141414] transition-all duration-200 cursor-pointer",
           // Hover
-          "hover:border-zinc-700",
-          // Active (being discussed)
-          isActive && "!border-l-violet-500 !bg-violet-500/10 opacity-60",
+          "hover:border-[#333] hover:bg-[#1a1a1a]",
+          // Active
+          isActive && "border-indigo-500/50 bg-indigo-500/5 opacity-60",
           // Keyboard focused
-          isFocused &&
-            !isActive &&
-            "ring-1 ring-violet-500/50 bg-zinc-800/60"
+          isFocused && !isActive && "ring-1 ring-indigo-500/40 bg-[#1a1a1a]",
         )}
         onClick={() => onItemSelect?.(item)}
       >
@@ -1064,8 +1048,8 @@ function BriefingCard({
           {/* Active discussing badge */}
           {isActive && (
             <div className="flex items-center gap-1.5 mb-2">
-              <MessageSquare className="w-3 h-3 text-violet-400" />
-              <span className="text-[11px] text-violet-400 font-medium">
+              <MessageSquare className="w-3 h-3 text-indigo-400" />
+              <span className="text-[11px] text-indigo-400 font-medium">
                 Discussing...
               </span>
             </div>
