@@ -21,9 +21,26 @@ RATE_WINDOW = 3600  # 1 hour in seconds
 
 
 class NudgeService:
-    """Delivers notifications to Slack, email, and (future) text/call."""
+    """Delivers notifications to Slack, email, and (future) text/call.
+
+    ROUTING RULES:
+    - Team members/devs → nudge directly via Slack/email
+    - Clients → NEVER nudge directly. Route to Steve's queue for review.
+    - All client-facing drafts require approval before sending.
+    """
 
     _instance = None
+
+    TEAM_EMAILS = {
+        "steve@peoplelikesoftware.com",
+        "tifuh@peoplelikesoftware.com",
+        "muhammad.ahmad.anwar@gmail.com",
+        "michael@peoplelikesoftware.com",
+        "nishantfreelance90@gmail.com",
+        "mani.rehman1010@gmail.com",
+    }
+
+    TEAM_NAMES = {"steve", "cedric", "tifuh", "muhammad", "ahmad", "michael", "nishant", "mani", "abdul"}
 
     def __new__(cls):
         if cls._instance is None:
@@ -35,8 +52,15 @@ class NudgeService:
         if self._initialized:
             return
         self._initialized = True
-        self._sent_timestamps: List[float] = []  # For rate limiting
+        self._sent_timestamps: List[float] = []
         self._sent_count = 0
+
+    def is_team_member(self, identifier: str) -> bool:
+        """Check if a person is a team member (can be nudged directly)."""
+        lower = identifier.lower().strip()
+        if lower in self.TEAM_EMAILS:
+            return True
+        return lower.split("@")[0].split(".")[0] in self.TEAM_NAMES
 
     def _is_rate_limited(self) -> bool:
         """Check if we've hit the rate limit."""
@@ -102,9 +126,15 @@ class NudgeService:
         # TODO: Integrate Twilio Voice
         return False
 
-    def deliver(self, notifications) -> Dict[str, int]:
+    def deliver(self, notifications, assigned_to: Optional[str] = None) -> Dict[str, int]:
         """
         Deliver a batch of pending notifications.
+
+        ROUTING:
+        - If the notification is about a team member's task → nudge the dev directly
+        - If the notification would reach a client → requires_approval=True (Steve reviews)
+        - Steve always gets nudged for HIGH+ items regardless
+
         Returns counts: {"sent": N, "skipped": N, "failed": N}
         """
         from services.notification_engine import PendingNotification, get_notification_engine
