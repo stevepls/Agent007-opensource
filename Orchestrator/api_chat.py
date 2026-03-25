@@ -738,6 +738,66 @@ def _make_structured_data(tool_name: str, result: Dict[str, Any]) -> Optional[Di
     }
 
 
+def _make_view_update(tool_name: str, tool_args: Dict[str, Any], result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Emit a view directive when a tool modifies queue state.
+
+    The dashboard uses these to:
+    - Dismiss items from the queue when they're resolved/updated
+    - Add new items when tasks are created
+    - Refresh the queue when bulk changes happen
+    """
+    if not isinstance(result, dict):
+        return None
+
+    # Tools that modify task state → dismiss from queue
+    dismiss_tools = {
+        "clickup_update_task",   # Status change, assignment, etc.
+        "clickup_add_comment",   # Comment added — item was addressed
+        "zendesk_add_comment",   # Ticket replied to
+        "zendesk_update_ticket", # Ticket status changed
+    }
+
+    # Tools that create new items → signal queue refresh
+    create_tools = {
+        "clickup_create_task",
+        "zendesk_create_ticket",
+    }
+
+    # Tools that send messages → item was acted on
+    send_tools = {
+        "slack_post_message",
+        "slack_send_dm",
+        "gmail_send_message",
+    }
+
+    if tool_name in dismiss_tools:
+        task_id = tool_args.get("task_id") or tool_args.get("ticket_id") or ""
+        source = "clickup" if "clickup" in tool_name else "zendesk"
+        return {
+            "type": "view",
+            "action": "dismiss_item",
+            "item_id": f"{source}-{task_id}",
+            "reason": f"{tool_name} executed — item updated",
+        }
+
+    if tool_name in create_tools:
+        return {
+            "type": "view",
+            "action": "refresh_queue",
+            "reason": f"New item created via {tool_name}",
+        }
+
+    if tool_name in send_tools:
+        return {
+            "type": "view",
+            "action": "item_acted",
+            "reason": f"Message sent via {tool_name}",
+        }
+
+    return None
+
+
 def _make_status_card(tool_name: str, result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Generate a dashboard status card from a tool result."""
     if not isinstance(result, dict) or "error" in result:
@@ -1248,6 +1308,11 @@ When the user asks you to brief them, starts a new conversation, or says "what's
                     if status_card:
                         done_event["status_card"] = status_card
                     yield "PROGRESS:" + json.dumps(done_event) + "\n"
+
+                    # Emit view directives when tools modify queue state
+                    view_update = _make_view_update(tool_name, tool_input, tool_result)
+                    if view_update:
+                        yield "PROGRESS:" + json.dumps(view_update) + "\n"
 
                     # Emit structured data for dashboard table rendering
                     structured = _make_structured_data(tool_name, tool_result)

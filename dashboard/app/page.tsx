@@ -243,10 +243,23 @@ export default function Dashboard() {
         case "structured_data":
           setStructuredBlocks((prev) => [...prev, event as unknown as StructuredData]);
           break;
-        case "view":
-          // Adaptive view protocol — Orchestrator sends a ViewDirective
-          setViewDirective(event as unknown as ViewDirective);
+        case "view": {
+          const viewEvent = event as any;
+          if (viewEvent.action === "dismiss_item" && viewEvent.item_id) {
+            // Tool updated/addressed this item — dismiss from queue
+            setDismissedQueueIds(prev => {
+              const next = new Set(prev);
+              next.add(viewEvent.item_id);
+              return next;
+            });
+          } else if (viewEvent.action === "refresh_queue") {
+            // New item created — queue will refresh on next poll
+          } else if (viewEvent.mode) {
+            // Full ViewDirective
+            setViewDirective(viewEvent as unknown as ViewDirective);
+          }
           break;
+        }
       }
     }
   }, [data]);
