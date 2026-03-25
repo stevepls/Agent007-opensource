@@ -282,8 +282,11 @@ class GmailClient:
         Returns draft info including ID.
         """
         self._ensure_authenticated()
-        
-        message = MIMEMultipart()
+
+        # Detect HTML content
+        is_html = '<html' in body.lower() or '<div' in body.lower() or '<p>' in body.lower()
+
+        message = MIMEMultipart('alternative') if is_html else MIMEMultipart()
         message['to'] = to
         message['subject'] = subject
         if cc:
@@ -292,8 +295,14 @@ class GmailClient:
             message['bcc'] = ', '.join(bcc)
         if reply_to:
             message['In-Reply-To'] = reply_to
-        
-        message.attach(MIMEText(body, 'plain'))
+
+        if is_html:
+            import re
+            plain_fallback = re.sub(r'<[^>]+>', '', body).strip()
+            message.attach(MIMEText(plain_fallback, 'plain'))
+            message.attach(MIMEText(body, 'html'))
+        else:
+            message.attach(MIMEText(body, 'plain'))
         
         raw = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
         
@@ -315,22 +324,34 @@ class GmailClient:
         body: str,
         cc: List[str] = None,
         bcc: List[str] = None,
+        html: bool = False,
     ) -> Dict[str, Any]:
         """
         Actually send an email.
         NOTE: This should only be called by the message queue, not directly by agents.
+
+        Args:
+            html: If True, body is treated as HTML. If False, plain text.
+                  When html=True, a plain text fallback is auto-generated.
         """
         self._ensure_authenticated()
-        
-        message = MIMEMultipart()
+
+        message = MIMEMultipart('alternative')
         message['to'] = to
         message['subject'] = subject
         if cc:
             message['cc'] = ', '.join(cc)
         if bcc:
             message['bcc'] = ', '.join(bcc)
-        
-        message.attach(MIMEText(body, 'plain'))
+
+        if html:
+            # Multipart/alternative: plain text fallback + HTML
+            import re
+            plain_fallback = re.sub(r'<[^>]+>', '', body).strip()
+            message.attach(MIMEText(plain_fallback, 'plain'))
+            message.attach(MIMEText(body, 'html'))
+        else:
+            message.attach(MIMEText(body, 'plain'))
         
         raw = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
         
@@ -372,8 +393,16 @@ class GmailClient:
         reply_body = body
         if include_original:
             reply_body += f"\n\n---\nOn {original.date}, {original.from_email} wrote:\n{original.body}"
-        
-        message.attach(MIMEText(reply_body, 'plain'))
+
+        # Detect HTML content
+        is_html = '<html' in reply_body.lower() or '<div' in reply_body.lower() or '<p>' in reply_body.lower()
+        if is_html:
+            import re
+            plain_fallback = re.sub(r'<[^>]+>', '', reply_body).strip()
+            message.attach(MIMEText(plain_fallback, 'plain'))
+            message.attach(MIMEText(reply_body, 'html'))
+        else:
+            message.attach(MIMEText(reply_body, 'plain'))
         
         raw = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
         
