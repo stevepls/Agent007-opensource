@@ -28,23 +28,42 @@ idempotency, and have full auditability of every payment workflow execution.
                                   │  (thin orchestrator) │
                                   └────────┬─────────┘
                                            │
-                              ┌────────────┼────────────┐
-                              │                         │
-                     ┌────────▼────────┐     ┌──────────▼──────────┐
-                     │ Magento Charge  │     │ Magento Notification │
-                     │    Endpoint     │     │      Endpoint        │
-                     │ (Authorize.net) │     │  (templates + SMTP)  │
-                     └────────┬────────┘     └──────────┬──────────┘
-                              │                         │
-                       ┌──────▼──────┐           ┌──────▼──────┐
-                       │  MySQL      │           │  SMTP       │
-                       │  (Magento)  │           │  (Magento)  │
-                       └─────────────┘           └─────────────┘
+                    ┌──────────────────────┼──────────────────────┐
+                    │                      │                      │
+          ┌─────────▼──────────┐ ┌─────────▼──────────┐ ┌────────▼─────────┐
+          │ Cron Trigger API   │ │ Notification API   │ │ MySQL (read-only)│
+          │ (existing)         │ │ (existing)         │ │ eligibility check│
+          │ RecurringCharge    │ │ NotificationService│ │                  │
+          │ → USAePay REST/SOAP│ │ → TransportBuilder │ │                  │
+          └────────────────────┘ └────────────────────┘ └──────────────────┘
 ```
 
 The Temporal worker is a **thin orchestrator**. It decides *when* and *whether*
-to act. Magento handles all downstream execution: payment processing
-(Authorize.net), notification rendering (templates), and email delivery (SMTP).
+to act. All charge execution, duplicate prevention, and email rendering stays
+in the existing `ForgeLabs\RecurringCharge` module. The payment gateway is
+**USAePay** (REST for CC tokens, SOAP for ACH/ePay-imported plans).
+
+### Code Reuse from `ForgeLabs\RecurringCharge`
+
+The Temporal worker does **not** reimplement charge or notification logic.
+It calls the existing Magento REST APIs:
+
+| What Temporal does | What Magento does (existing) |
+|---|---|
+| Decides it's time to charge | `RecurringCharge::execute()` — eligibility, USAePay call, atomic DB update, confirmation email |
+| Decides it's time to retry | `RetryRecurringCharge::execute()` — reload payment date, validate, charge, handle response |
+| Sends a notification | `NotificationService::send()` — template lookup, TransportBuilder, BCC finance team |
+| Checks eligibility | Direct SQL read of `collegewise_payment_plan` + `collegewise_payment_dates` |
+
+### Existing Magento APIs (already deployed)
+
+| Endpoint | Class | Worker uses |
+|---|---|---|
+| `POST /V1/recurring-charge/cron/trigger/recurring-charge` | `CronManagerInterface::triggerRecurringCharge` | Trigger charge |
+| `POST /V1/recurring-charge/cron/trigger/retry-charge` | `CronManagerInterface::triggerRetryCharge` | Trigger retry |
+| `POST /V1/recurring-charge/send-notification` | `NotificationInterface::send` | Send emails |
+| `GET /V1/recurring-charge/cron/preview/recurring-charge` | `CronManagerInterface::previewRecurringCharge` | Shadow mode comparison |
+| `GET /V1/recurring-charge/payment-plan/:id` | `PaymentPlanManagerInterface::getPaymentPlan` | Plan details |
 
 ---
 
@@ -112,287 +131,116 @@ All intervals are configurable per workflow invocation.
 
 | Layer | Responsibility |
 |---|---|
-| **Temporal Worker** | Orchestration: eligibility, scheduling, retries, deciding *what* to notify |
-| **Magento** | Everything else: payment processing (Authorize.net), notifications (templates + SMTP), system of record |
+| **Temporal Worker** | Orchestration: eligibility reads, scheduling, retry timing, notification sequencing |
+| **ForgeLabs\RecurringCharge** | Everything else: USAePay charges, duplicate prevention, atomic DB updates, email rendering, plan management |
 | **Temporal Server** | Durability: workflow state, replay, event history |
 
-### Magento Endpoints Required
+### Existing Notification Types (in NotificationService)
 
-The worker calls two Magento REST API endpoints:
-
-| Endpoint | Purpose |
-|---|---|
-| `POST /rest/V1/collegewise/payment-plans/{id}/charge` | Process a charge. Magento calls Authorize.net, returns transaction result. Accepts `X-Idempotency-Key` header to reject duplicates. |
-| `POST /rest/V1/collegewise/notifications` | Send a typed notification. Magento maps the notification type to a template and handles rendering + SMTP delivery. |
-
-### Notification Types
-
-| Type | When sent | Template data |
+| Type | When sent | Notes |
 |---|---|---|
-| `payment_reminder` | 7, 3, 1 days before charge | `customer_name`, `amount`, `currency`, `charge_date`, `days_before` |
-| `payment_receipt` | After successful charge | `customer_name`, `amount`, `currency`, `transaction_id`, `charge_date` |
-| `payment_failed_retry` | After failed charge (more retries left) | `customer_name`, `amount`, `currency`, `charge_date`, `error`, `next_retry_days`, `attempt_number` |
-| `payment_failed_final` | After all retries exhausted | `customer_name`, `amount`, `currency`, `charge_date`, `error`, `total_attempts` |
+| `initial_failure` | Immediately after charge failure | Uses configurable template ID, BCC finance team |
+| `reminder_5day` | 5 days after failure | Template ID `5`, includes card update link |
+| `reminder_16day` | 16 days after failure | Template ID `3`, includes card update link |
+| `update_card` | On demand | Sends card update email with tokenized link |
 
-Marketing can update email copy and templates in Magento admin without
-redeploying the worker.
+### Existing Email Templates
+
+| Template | File | Module |
+|---|---|---|
+| Payment confirmation | `payment_confirmation.html` | `ForgeLabs_RecurringCharge` |
+| Duplicate payment alert | `duplicate_payment_notification.html` | `ForgeLabs_RecurringCharge` |
+| Upcoming charge | `upcomming_charge.html` | `Mangoit_ChargeNotification` |
+| Expired card (admin) | `expiredcc.html` | `Mangoit_ExpiredCreditCardEmails` |
+
+Marketing can update email copy in **Marketing > Email Templates** in Magento admin.
 
 ---
 
-## Magento Requirements
+## Existing Magento Module: `ForgeLabs\RecurringCharge`
 
-Everything below needs to be built in the Magento repo (`collegewise1/cw-magento`)
-before the Temporal integration goes live. The worker is ready; Magento is the
-blocker.
+The Temporal integration reuses the existing module — **no new Magento module is needed**.
+The charge, retry, notification, and duplicate-prevention logic already exists.
 
-### 1. Custom Module: `Collegewise_PaymentWorkflow`
+### What Already Exists (no changes needed)
 
-A new Magento 2 module to house the API endpoints, idempotency logic, and
-notification dispatch.
-
-```
-app/code/Collegewise/PaymentWorkflow/
-├── registration.php
-├── etc/
-│   ├── module.xml
-│   ├── di.xml
-│   ├── webapi.xml                    ← REST route definitions
-│   └── email_templates.xml           ← template registration
-├── Api/
-│   ├── ChargeManagementInterface.php
-│   └── NotificationManagementInterface.php
-├── Model/
-│   ├── ChargeManagement.php          ← charge endpoint logic
-│   ├── NotificationManagement.php    ← notification endpoint logic
-│   └── IdempotencyLog.php            ← idempotency key storage
-├── Setup/
-│   └── db_schema.xml                 ← new tables
-└── view/
-    └── frontend/
-        └── email/                    ← 4 notification templates
-```
-
-### 2. REST API: Charge Endpoint
-
-**Route:** `POST /rest/V1/collegewise/payment-plans/:id/charge`
-
-**`webapi.xml`:**
-```xml
-<route url="/V1/collegewise/payment-plans/:id/charge" method="POST">
-    <service class="Collegewise\PaymentWorkflow\Api\ChargeManagementInterface"
-             method="execute"/>
-    <resources>
-        <resource ref="Collegewise_PaymentWorkflow::charge"/>
-    </resources>
-</route>
-```
-
-**Request:**
-```json
-{
-    "chargeDate": "2026-04-01",
-    "idempotencyKey": "abc123..."
-}
-```
-Plus header: `X-Idempotency-Key: abc123...`
-
-**Response (success):**
-```json
-{
-    "success": true,
-    "transaction_id": "txn_12345",
-    "auth_code": "AUTH01",
-    "amount": 299.00
-}
-```
-
-**Response (failure — card declined):**
-```json
-{
-    "success": false,
-    "error_code": "card_declined",
-    "error_message": "Insufficient funds",
-    "amount": 299.00
-}
-```
-
-**Implementation notes:**
-- Look up the payment plan by `id`, load the stored Authorize.net payment profile
-- Call Authorize.net `createTransactionRequest` (Customer Profile Transaction)
-- **Before processing**: check `idempotency_log` table for the key. If found,
-  return the stored result instead of charging again
-- **After processing**: insert the key + result into `idempotency_log`
-- Return the full result for the worker to record
-
-### 3. REST API: Notification Endpoint
-
-**Route:** `POST /rest/V1/collegewise/notifications`
-
-**`webapi.xml`:**
-```xml
-<route url="/V1/collegewise/notifications" method="POST">
-    <service class="Collegewise\PaymentWorkflow\Api\NotificationManagementInterface"
-             method="send"/>
-    <resources>
-        <resource ref="Collegewise_PaymentWorkflow::notification"/>
-    </resources>
-</route>
-```
-
-**Request:**
-```json
-{
-    "type": "payment_reminder",
-    "payment_plan_id": 42,
-    "order_id": 1001,
-    "customer_id": 55,
-    "customer_email": "jane@example.com",
-    "data": {
-        "customer_name": "Jane Doe",
-        "amount": "299.00",
-        "currency": "USD",
-        "charge_date": "2026-04-01",
-        "days_before": 7
-    }
-}
-```
-
-**Response:**
-```json
-{
-    "success": true,
-    "notification_id": "ntf_67890"
-}
-```
-
-**Implementation notes:**
-- Map `type` to a Magento transactional email template ID
-- Load the customer, populate template variables from `data`
-- Send via Magento's `TransportBuilder` (uses the store's configured SMTP)
-- Log the notification in a `notification_log` table for audit
-
-### 4. Database Schema Changes (`db_schema.xml`)
-
-**New table: `collegewise_idempotency_log`**
-
-| Column | Type | Notes |
+| Component | Location | Notes |
 |---|---|---|
-| `id` | int (PK, auto) | |
-| `idempotency_key` | varchar(128), unique | SHA-256 hash from worker |
-| `payment_plan_id` | int | FK to `payment_plans` |
-| `charge_date` | date | |
-| `result_json` | text | Full charge response stored as JSON |
-| `created_at` | timestamp | |
+| Charge execution | `Cron/RecurringCharge.php` | USAePay REST (CC) + SOAP (ACH/ePay) |
+| Retry logic | `Cron/RetryRecurringCharge.php` | Configurable intervals, max attempts, plan suspension |
+| Notification API | `Model/NotificationService.php` | `initial_failure`, `reminder_5day`, `reminder_16day`, `update_card` |
+| Cron trigger API | `Model/CronManager.php` | `POST /V1/recurring-charge/cron/trigger/*` |
+| Cron preview API | `Model/CronManager.php` | `GET /V1/recurring-charge/cron/preview/*` |
+| Duplicate prevention | `Helper/RecurringChargeHelper.php` | `isDuplicateTransaction()`, `checkEpayForDuplicateCharge()`, advisory locks |
+| Atomic DB updates | `Cron/RecurringCharge.php` | `FOR UPDATE` row locking, transaction isolation |
+| Email templates | `view/frontend/email/` | `payment_confirmation.html`, `duplicate_payment_notification.html` |
+| Activity log | `Api/ActivityLogInterface.php` | Full audit trail of all charge/plan actions |
+| Diagnostics API | `Api/DiagnosticsInterface.php` | Unpaid by date, balance mismatch, missed charges |
 
-When the charge endpoint receives a request, it first queries this table.
-If a row exists for the key, it returns `result_json` without calling
-Authorize.net again. This is the server-side double-charge guard.
+### Database Tables (already deployed)
 
-**New table: `collegewise_notification_log`** (optional but recommended)
+**`collegewise_payment_plan`** (via `Mangoit/PaymentMethod` + `ForgeLabs/RecurringCharge` extensions):
 
-| Column | Type | Notes |
+| Column | Type | Used by worker |
 |---|---|---|
-| `id` | int (PK, auto) | |
-| `notification_id` | varchar(64), unique | Returned to worker |
-| `type` | varchar(32) | e.g. `payment_reminder` |
-| `payment_plan_id` | int | |
-| `customer_id` | int | |
-| `customer_email` | varchar(255) | |
-| `data_json` | text | Template data snapshot |
-| `sent_at` | timestamp | |
-| `status` | varchar(16) | `sent`, `failed` |
-| `error` | text, nullable | SMTP error if failed |
-
-**Existing table: `payment_plans`** — verify schema matches what the worker queries:
-
-| Column | Type | Worker expects |
-|---|---|---|
-| `id` | int (PK) | `WHERE id = ?` |
+| `id` | int (PK) | Eligibility lookup |
 | `order_id` | int | Read |
 | `customer_id` | int | Read |
 | `customer_email` | varchar | Read |
 | `customer_name` | varchar | Read |
-| `amount` | decimal | Read |
-| `currency` | varchar (default `USD`) | Read |
-| `frequency` | enum(`monthly`, `quarterly`, `annual`) | Read + used to advance date |
-| `next_payment_date` | date | `WHERE next_payment_date <= ?`, updated on success |
-| `status` | enum(`active`, `paused`, `cancelled`, `completed`) | `WHERE status = 'active'` |
+| `amount_of_additional_payment` | decimal | Charge amount |
+| `number_of_additional_payment` | int | Installments remaining |
+| `next_payment_date` | date | Eligibility filter |
+| `plan_status` | varchar | Must not be suspended/expired/canceled |
+| `recurring_mage_managed` | boolean | Must be 1 |
+| `payment_method_type` | varchar | `cc` or `ach` |
+| `customer_cc_token` | varchar | Used by charge logic (not worker) |
+| `amount_captured` | decimal | Read for validation |
+| `amount_outstanding` | decimal | Read for validation |
 
-**Existing table: `payment_dates`** — verify schema matches what the worker inserts:
+**`collegewise_payment_dates`** (via `Mangoit/ChargeNotification` + `ForgeLabs/RecurringCharge` extensions):
 
-| Column | Type | Worker writes |
+| Column | Type | Used by worker |
 |---|---|---|
-| `payment_plan_id` | int | Insert |
-| `charge_date` | date | Insert (composite unique with plan ID) |
-| `transaction_id` | varchar, nullable | Insert/update |
-| `success` | tinyint | Insert/update |
-| `amount` | decimal | Insert |
-| `error_message` | text, nullable | Insert/update |
-| `created_at` | timestamp | `NOW()` |
+| `entity_id` | int (PK) | Row identifier |
+| `payment_plan_id` | int | FK to payment plan |
+| `charge_date` | date | Eligibility filter |
+| `amount_due` | decimal | Amount to charge |
+| `amount_charged` | decimal | Running total |
+| `payment_status` | varchar | `UNPAID`, `PARTIALLY_PAID`, `PAID` |
+| `retry_count` | int | Retry tracking |
+| `failed_at` | date | Last failure date |
+| `failure_reason` | text | Error details |
+| `last_retry` | timestamp | Last retry date |
+| `five_days_email_sent` | smallint | Notification tracking |
+| `sixteen_days_email_sent` | smallint | Notification tracking |
+| `upcoming_charge_email_sent` | smallint | Notification tracking |
+| `failed_payment_email_sent` | smallint | Notification tracking |
 
-### 5. Email Templates (4 required)
+### What's New (minimal Magento-side work)
 
-Register in `email_templates.xml` and create HTML templates under
-`view/frontend/email/`:
-
-| Template ID | File | Subject line (example) |
+| Item | Effort | Notes |
 |---|---|---|
-| `collegewise_payment_reminder` | `payment_reminder.html` | "Your payment of {{var amount}} is due on {{var charge_date}}" |
-| `collegewise_payment_receipt` | `payment_receipt.html` | "Payment received — {{var amount}}" |
-| `collegewise_payment_failed_retry` | `payment_failed_retry.html` | "Payment failed — we'll retry in {{var next_retry_days}} days" |
-| `collegewise_payment_failed_final` | `payment_failed_final.html` | "Action required: payment failed after {{var total_attempts}} attempts" |
-
-All templates should be editable from **Marketing > Email Templates** in
-Magento admin so copy changes don't require a code deploy.
-
-### 6. Magento Integration Token
-
-Create a Magento 2 Integration (System > Integrations) for the Temporal worker:
-
-- **Name:** `Temporal Worker`
-- **Resource Access:** Custom — grant only:
-  - `Collegewise_PaymentWorkflow::charge`
-  - `Collegewise_PaymentWorkflow::notification`
-- The generated token goes into `CW_MAGENTO_API_TOKEN` env var for the worker
-
-### 7. Cron Trigger (Phase 2)
-
-The existing Magento cron that processes recurring payments needs to be modified
-to start Temporal workflows instead of charging directly:
-
-**Before (current):**
-```
-cron runs → load eligible plans → call Authorize.net → send email → update DB
-```
-
-**After:**
-```
-cron runs → load eligible plans → for each plan, start RecurringPaymentCycle
-            workflow via Temporal HTTP API or SDK → done (Temporal handles the rest)
-```
-
-The simplest approach is an HTTP call from PHP to start each workflow:
-```
-POST http://temporal-server:7233/api/v1/namespaces/collegewise/workflows
-```
-
-Or use the Temporal PHP SDK (`temporal/sdk`) if deeper integration is preferred.
+| Integration token for Temporal worker | 5 min | System > Integrations > new token scoped to `Mangoit_Collegewise::index` |
+| (Optional) Per-plan charge API | Medium | Extract single-plan charge from `RecurringCharge::execute()` into a new API route. Current workaround: trigger cron which processes all eligible plans. |
+| (Optional) `collegewise_idempotency_log` table | Low | Additional server-side idempotency layer. Current duplicate prevention via `isDuplicateTransaction()` is already effective. |
 
 ### Magento Checklist
 
-- [ ] Create `Collegewise_PaymentWorkflow` module skeleton
-- [ ] Implement charge endpoint with Authorize.net CIM call
-- [ ] Add `collegewise_idempotency_log` table and duplicate-key guard
-- [ ] Implement notification endpoint with template dispatch
-- [ ] Add `collegewise_notification_log` table
-- [ ] Create 4 email templates (reminder, receipt, retry, final)
-- [ ] Register templates in `email_templates.xml`
-- [ ] Verify `payment_plans` and `payment_dates` table schemas match worker expectations
-- [ ] Create Integration token with scoped ACL
-- [ ] Test charge endpoint returns correct `ChargeResult` shape
-- [ ] Test notification endpoint sends email and returns `NotificationResult` shape
-- [ ] Test idempotency: second call with same key returns stored result, no duplicate charge
-- [ ] (Phase 2) Modify cron to trigger Temporal workflows instead of charging directly
+- [ ] Create Integration token for Temporal worker (scoped ACL)
+- [ ] Test cron trigger API returns expected response shape
+- [ ] Test notification API for each type (`initial_failure`, `reminder_5day`, `reminder_16day`, `update_card`)
+- [ ] (Phase 2) Add per-plan charge endpoint to allow Temporal to charge a single plan
+- [ ] (Phase 2) Disable charge/retry crons once Temporal is orchestrating
+- [ ] (Optional) Add `collegewise_idempotency_log` table for Temporal's idempotency keys
+
+### Data Migration
+
+**No data migration is needed.** The existing tables (`collegewise_payment_plan`,
+`collegewise_payment_dates`, `collegewise_recurring_charge_log`) are used as-is.
+The Temporal worker reads them for eligibility and calls existing APIs for
+all mutations. The worker's `database.ts` queries have been aligned with the
+actual schema.
 
 ---
 
@@ -438,14 +286,14 @@ docker-compose.yml
 
 ## Phased Rollout
 
-### Phase 1: Infrastructure + Standalone Notifications (low risk)
+### Phase 1: Infrastructure + Shadow Mode (low risk)
 
 1. Stand up Temporal server + UI + worker in Docker Compose
-2. Build the two Magento API endpoints (charge + notifications)
-3. Deploy `sendNotificationWorkflow` — decouple ad-hoc notifications from Magento request cycle
-4. Magento triggers notification workflows instead of sending inline
-5. Resolves SMTP timeout issue (ticket `868d1drz4`)
-6. **Validates the full stack before touching payments**
+2. Create Magento Integration token for the worker
+3. Deploy `recurringPaymentCycle` workflow in **dry-run mode**
+4. Temporal runs alongside existing crons — compares results, charges nothing
+5. Use existing `preview` APIs to validate Temporal's eligibility decisions match cron's
+6. **Validates the full stack without touching production charges**
 
 ### Phase 2: Unified Payment Cycle (critical path)
 
@@ -475,8 +323,8 @@ docker-compose.yml
 | Temporal Worker | **TypeScript (Node.js)** | `@temporalio/worker` + `@temporalio/workflow` |
 | Temporal Persistence | MySQL 8 (separate container) | Dedicated schema, not shared with Magento |
 | Magento App | PHP / Magento 2 | System of record — owns charges, notifications, templates |
-| Payment Gateway | Authorize.net | Called by Magento, not by the worker |
-| Notifications | Magento notification API | Templates + SMTP owned by Magento; worker sends typed events |
+| Payment Gateway | USAePay (REST + SOAP) | Called by Magento `RecurringCharge`, not by the worker |
+| Notifications | Existing `NotificationService` API | Templates + SMTP owned by Magento; worker calls existing endpoint |
 | Infrastructure | Docker Compose on EC2 | EBS-backed volumes for persistence |
 | Observability | Temporal UI + container logs | Optional: Grafana + Loki + Promtail |
 
@@ -486,43 +334,98 @@ docker-compose.yml
 - Closer to the existing Node.js tooling in the org
 - Easier to maintain than a PHP Temporal worker
 - Strong typing for payment/financial logic
-- Calls Magento REST API for both charges and notifications — worker is a thin orchestrator
+- Calls existing Magento REST APIs — worker is a thin orchestrator
+
+---
+
+## Backwards Compatibility
+
+The existing cron jobs continue to work unchanged during the transition.
+Temporal adds orchestration *around* the same charge/notification logic.
+
+### Existing Crons (from `crontab.xml`)
+
+| Cron | Schedule | Temporal replaces? |
+|---|---|---|
+| `collegewise_recurring_charge` | 5:00 AM daily | Phase 2: Temporal triggers instead |
+| `collegewise_retry_recurring_charge` | 5:00 AM daily | Phase 2: Temporal handles retry schedule |
+| `collegewise_failed_payments_notifications` | Every 10 min | Phase 2: Temporal sends failure notifications |
+| `collegewise_upcoming_charge_notifications` | 8:00 AM daily | Phase 2: Temporal sends reminders |
+| `collegewise_expired_cc_notifications` | 8:00 AM daily | **Keeps running** (outside scope) |
+| `collegewise_expiring_cc_notifications` | 8:00 AM daily | **Keeps running** (outside scope) |
+
+### Cutover Plan
+
+**Phase 1 (shadow):** Both crons and Temporal run. Temporal is in dry-run mode.
+No production impact.
+
+**Phase 2 (cutover):** Comment out charge/retry/notification crons in `crontab.xml`.
+Temporal workflows take over orchestration but still call the same underlying
+`RecurringCharge::execute()` and `NotificationService::send()` logic.
+
+**Rollback:** Uncomment crons in `crontab.xml`. Temporal workflows can be
+terminated via Temporal UI. No data migration to revert.
+
+---
+
+## Data Migration
+
+**No data migration is needed.**
+
+- The worker reads `collegewise_payment_plan` and `collegewise_payment_dates` as-is
+- All mutations go through existing Magento APIs which update the same tables
+- Temporal persistence uses its own dedicated MySQL database (separate container)
+- The `collegewise_recurring_charge_log` table continues to be written by the PHP code
+- Temporal adds its own event history (stored in Temporal's MySQL) for workflow auditability
 
 ---
 
 ## File Structure
 
+The Temporal infrastructure lives in the **cw-magento repo** at `infra/temporal/`,
+alongside the existing Magento application code it integrates with.
+
 ```
-infra/collegewise-temporal/
-├── docker-compose.yml
-├── .env.example
-├── README.md
-├── temporal-worker/
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── vitest.config.ts
-│   ├── Dockerfile
-│   ├── src/
-│   │   ├── worker.ts                    # Worker bootstrap
-│   │   ├── client.ts                    # CLI client for triggering workflows
-│   │   ├── workflows/
-│   │   │   ├── index.ts                 # Workflow exports
-│   │   │   ├── payment-cycle.ts         # RecurringPaymentCycle workflow
-│   │   │   └── send-email.ts            # Standalone SendNotification workflow
-│   │   ├── activities/
-│   │   │   ├── index.ts                 # Activity exports
-│   │   │   ├── payment.ts              # Magento charge endpoint call
-│   │   │   ├── database.ts             # MySQL eligibility + result recording
-│   │   │   └── notification.ts         # Magento notification endpoint call
-│   │   └── shared/
-│   │       ├── types.ts                 # PaymentPlan, ChargeResult, NotificationType, etc.
-│   │       └── idempotency.ts           # Deterministic charge key generation
-│   └── tests/
-│       ├── idempotency.test.ts          # Idempotency key unit tests
-│       ├── payment.test.ts              # Magento charge activity tests
-│       ├── notification.test.ts         # Magento notification activity tests
-│       ├── payment-cycle.test.ts        # Full payment cycle workflow tests
-│       └── workflows.test.ts            # Standalone notification workflow tests
+collegewise1/cw-magento/
+├── app/code/ForgeLabs/RecurringCharge/   # Existing — charge, retry, notification logic
+│   ├── Cron/RecurringCharge.php          # Daily charge cron (USAePay)
+│   ├── Cron/RetryRecurringCharge.php     # Retry cron with configurable intervals
+│   ├── Cron/PaymentFailedNotification.php # Failed payment notification cron
+│   ├── Model/NotificationService.php      # REST notification API
+│   ├── Model/CronManager.php              # REST cron trigger/preview API
+│   ├── Helper/RecurringChargeHelper.php   # Duplicate prevention, advisory locks
+│   └── etc/webapi.xml                     # Existing REST routes
+│
+└── infra/temporal/                        # NEW — Temporal orchestration layer
+    ├── docker-compose.yml
+    ├── .env.example
+    ├── README.md
+    └── temporal-worker/
+        ├── package.json
+        ├── tsconfig.json
+        ├── vitest.config.ts
+        ├── Dockerfile
+        ├── src/
+        │   ├── worker.ts                  # Worker bootstrap
+        │   ├── client.ts                  # CLI client for triggering workflows
+        │   ├── workflows/
+        │   │   ├── index.ts               # Workflow exports
+        │   │   ├── payment-cycle.ts       # RecurringPaymentCycle workflow
+        │   │   └── send-email.ts          # Standalone notification workflow
+        │   ├── activities/
+        │   │   ├── index.ts               # Activity exports
+        │   │   ├── payment.ts             # Calls existing cron trigger API
+        │   │   ├── database.ts            # Reads collegewise_payment_plan / _dates
+        │   │   └── notification.ts        # Calls existing NotificationService API
+        │   └── shared/
+        │       ├── types.ts               # Aligned with actual DB schema
+        │       └── idempotency.ts         # Deterministic charge key generation
+        └── tests/
+            ├── idempotency.test.ts
+            ├── payment.test.ts
+            ├── notification.test.ts
+            ├── payment-cycle.test.ts
+            └── workflows.test.ts
 ```
 
 ---
