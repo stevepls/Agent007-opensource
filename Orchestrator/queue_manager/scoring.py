@@ -14,7 +14,7 @@ import math
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-from queue.models import QueueItem, Severity, AckState, ScoreBreakdown
+from queue_manager.models import QueueItem, Severity, AckState, ScoreBreakdown
 
 
 # ── Weight Constants ──────────────────────────────────────────

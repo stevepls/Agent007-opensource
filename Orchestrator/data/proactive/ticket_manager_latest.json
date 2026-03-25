@@ -1,0 +1,9 @@
+{
+  "agent": "ticket_manager",
+  "timestamp": "2026-03-25T05:36:56.829547+00:00",
+  "items_processed": 0,
+  "items_found": 0,
+  "summary": "No recent tickets to scan",
+  "details": [],
+  "error": null
+}

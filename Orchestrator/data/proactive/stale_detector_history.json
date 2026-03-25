@@ -1,0 +1,110 @@
+[
+  {
+    "agent": "stale_detector",
+    "timestamp": "2026-03-24T23:02:54.907712+00:00",
+    "items_processed": 129,
+    "items_found": 0,
+    "summary": "No stale items",
+    "details": [],
+    "error": null
+  },
+  {
+    "agent": "stale_detector",
+    "timestamp": "2026-03-25T00:03:29.948671+00:00",
+    "items_processed": 129,
+    "items_found": 0,
+    "summary": "No stale items",
+    "details": [],
+    "error": null
+  },
+  {
+    "agent": "stale_detector",
+    "timestamp": "2026-03-25T00:34:02.059794+00:00",
+    "items_processed": 129,
+    "items_found": 0,
+    "summary": "No stale items",
+    "details": [],
+    "error": null
+  },
+  {
+    "agent": "stale_detector",
+    "timestamp": "2026-03-25T00:38:47.656051+00:00",
+    "items_processed": 129,
+    "items_found": 0,
+    "summary": "No stale items",
+    "details": [],
+    "error": null
+  },
+  {
+    "agent": "stale_detector",
+    "timestamp": "2026-03-25T00:43:42.838197+00:00",
+    "items_processed": 129,
+    "items_found": 0,
+    "summary": "No stale items",
+    "details": [],
+    "error": null
+  },
+  {
+    "agent": "stale_detector",
+    "timestamp": "2026-03-25T01:41:22.777874+00:00",
+    "items_processed": 129,
+    "items_found": 0,
+    "summary": "No stale items",
+    "details": [],
+    "error": null
+  },
+  {
+    "agent": "stale_detector",
+    "timestamp": "2026-03-25T01:50:51.417349+00:00",
+    "items_processed": 129,
+    "items_found": 0,
+    "summary": "No stale items",
+    "details": [],
+    "error": null
+  },
+  {
+    "agent": "stale_detector",
+    "timestamp": "2026-03-25T02:40:40.905706+00:00",
+    "items_processed": 129,
+    "items_found": 0,
+    "summary": "No stale items",
+    "details": [],
+    "error": null
+  },
+  {
+    "agent": "stale_detector",
+    "timestamp": "2026-03-25T02:43:11.545839+00:00",
+    "items_processed": 129,
+    "items_found": 0,
+    "summary": "No stale items",
+    "details": [],
+    "error": null
+  },
+  {
+    "agent": "stale_detector",
+    "timestamp": "2026-03-25T03:02:30.715787+00:00",
+    "items_processed": 129,
+    "items_found": 0,
+    "summary": "No stale items",
+    "details": [],
+    "error": null
+  },
+  {
+    "agent": "stale_detector",
+    "timestamp": "2026-03-25T04:02:38.775830+00:00",
+    "items_processed": 129,
+    "items_found": 0,
+    "summary": "No stale items",
+    "details": [],
+    "error": null
+  },
+  {
+    "agent": "stale_detector",
+    "timestamp": "2026-03-25T05:03:25.769114+00:00",
+    "items_processed": 129,
+    "items_found": 0,
+    "summary": "No stale items",
+    "details": [],
+    "error": null
+  }
+]

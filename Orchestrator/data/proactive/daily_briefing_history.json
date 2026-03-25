@@ -1,0 +1,349 @@
+[
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-24T21:00:21.310882+00:00",
+    "items_processed": 0,
+    "items_found": 0,
+    "summary": "Job crashed: 'dict' object has no attribute 'agent'",
+    "details": [],
+    "error": "'dict' object has no attribute 'agent'"
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-24T21:03:17.183490+00:00",
+    "items_processed": 0,
+    "items_found": 0,
+    "summary": "Job crashed: 'dict' object has no attribute 'agent'",
+    "details": [],
+    "error": "'dict' object has no attribute 'agent'"
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-24T21:25:38.635245+00:00",
+    "items_processed": 0,
+    "items_found": 0,
+    "summary": "Job crashed: 'dict' object has no attribute 'agent'",
+    "details": [],
+    "error": "'dict' object has no attribute 'agent'"
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-24T21:36:50.394548+00:00",
+    "items_processed": 0,
+    "items_found": 0,
+    "summary": "Job crashed: 'dict' object has no attribute 'agent'",
+    "details": [],
+    "error": "'dict' object has no attribute 'agent'"
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-24T22:07:30.911706+00:00",
+    "items_processed": 0,
+    "items_found": 0,
+    "summary": "Job crashed: 'dict' object has no attribute 'agent'",
+    "details": [],
+    "error": "'dict' object has no attribute 'agent'"
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-24T22:14:43.283498+00:00",
+    "items_processed": 0,
+    "items_found": 0,
+    "summary": "Job crashed: 'dict' object has no attribute 'agent'",
+    "details": [],
+    "error": "'dict' object has no attribute 'agent'"
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-24T22:17:24.177928+00:00",
+    "items_processed": 0,
+    "items_found": 0,
+    "summary": "Job crashed: 'dict' object has no attribute 'agent'",
+    "details": [],
+    "error": "'dict' object has no attribute 'agent'"
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-24T22:21:18.463899+00:00",
+    "items_processed": 0,
+    "items_found": 0,
+    "summary": "Job crashed: 'dict' object has no attribute 'agent'",
+    "details": [],
+    "error": "'dict' object has no attribute 'agent'"
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-24T22:25:34.543629+00:00",
+    "items_processed": 0,
+    "items_found": 0,
+    "summary": "Job crashed: 'dict' object has no attribute 'agent'",
+    "details": [],
+    "error": "'dict' object has no attribute 'agent'"
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-24T22:40:30.423505+00:00",
+    "items_processed": 0,
+    "items_found": 158,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 12 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=da11f506"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-24T23:02:54.578884+00:00",
+    "items_processed": 0,
+    "items_found": 157,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 11 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=9fecd57a"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-24T23:32:46.564741+00:00",
+    "items_processed": 0,
+    "items_found": 157,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 11 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=409ea50b"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T00:03:29.624652+00:00",
+    "items_processed": 0,
+    "items_found": 157,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 11 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=146af0ea"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T00:34:01.735426+00:00",
+    "items_processed": 0,
+    "items_found": 157,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 11 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=779c8657"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T00:38:47.330783+00:00",
+    "items_processed": 0,
+    "items_found": 157,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 11 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=ab6d84cb"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T00:43:42.512208+00:00",
+    "items_processed": 0,
+    "items_found": 157,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 11 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=189e7d87"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T01:14:30.939348+00:00",
+    "items_processed": 0,
+    "items_found": 157,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 11 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=1fa9f1a4"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T01:41:22.430410+00:00",
+    "items_processed": 0,
+    "items_found": 157,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 11 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=79c0ffe2"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T01:50:51.091842+00:00",
+    "items_processed": 0,
+    "items_found": 157,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 11 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=ec68a220"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T02:21:40.500048+00:00",
+    "items_processed": 0,
+    "items_found": 157,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 11 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=c5aa9d65"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T02:40:40.584866+00:00",
+    "items_processed": 0,
+    "items_found": 157,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 11 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=8529499d"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T02:43:11.224645+00:00",
+    "items_processed": 0,
+    "items_found": 158,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 12 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=f5071579"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T03:02:30.379999+00:00",
+    "items_processed": 0,
+    "items_found": 158,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 12 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=9cb81890"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T03:33:27.811895+00:00",
+    "items_processed": 0,
+    "items_found": 159,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 13 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=7f95cd77"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T04:04:21.239178+00:00",
+    "items_processed": 0,
+    "items_found": 159,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 13 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=51ae582b"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T04:35:09.595737+00:00",
+    "items_processed": 0,
+    "items_found": 159,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 13 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=453621c7"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T05:05:03.389957+00:00",
+    "items_processed": 0,
+    "items_found": 159,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 13 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=575cd481"
+    ],
+    "error": null
+  },
+  {
+    "agent": "daily_briefing",
+    "timestamp": "2026-03-25T05:35:55.341277+00:00",
+    "items_processed": 0,
+    "items_found": 159,
+    "summary": "",
+    "details": [
+      "Briefing engine returned 13 items",
+      "Queue: 129 items, 0 breaching/approaching",
+      "Business advisor returned 17 advisories",
+      "Queued Slack DM id=5d58dad8"
+    ],
+    "error": null
+  }
+]

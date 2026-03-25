@@ -1,0 +1,66 @@
+{
+  "clients": {
+    "AP Driving": {
+      "health_score": 75.0,
+      "last_health_check": "2026-03-25T05:02:12.551323+00:00"
+    },
+    "Office Design Group": {
+      "health_score": 64.5,
+      "last_health_check": "2026-03-25T05:02:12.551323+00:00",
+      "last_outreach": "2026-03-25T03:02:37.358859+00:00",
+      "last_outreach_type": "comms_gap",
+      "outreach_count_7d": 1
+    },
+    "Maine Lobster": {
+      "health_score": 75.0,
+      "last_health_check": "2026-03-25T05:02:12.551323+00:00"
+    },
+    "Lake County Pipe": {
+      "health_score": 66.0,
+      "last_health_check": "2026-03-25T05:02:12.551323+00:00"
+    },
+    "ForgeLab/Collegewise": {
+      "health_score": 75.0,
+      "last_health_check": "2026-03-25T05:02:12.551323+00:00"
+    },
+    "Waynes Aircraft": {
+      "health_score": 90.0,
+      "last_health_check": "2026-03-25T05:02:12.551323+00:00"
+    },
+    "Cabinet Saver": {
+      "health_score": 55.0,
+      "last_health_check": "2026-03-25T05:02:12.551323+00:00",
+      "last_outreach": "2026-03-25T02:40:46.661291+00:00",
+      "last_outreach_type": "comms_gap",
+      "outreach_count_7d": 1
+    },
+    "Phyto/PDX Aromatics": {
+      "health_score": 75.0,
+      "last_health_check": "2026-03-25T05:02:12.551323+00:00"
+    },
+    "Nemesis": {
+      "health_score": 75.0,
+      "last_health_check": "2026-03-25T05:02:12.551323+00:00"
+    },
+    "CYS-001": {
+      "health_score": 90.0,
+      "last_health_check": "2026-03-25T05:02:12.551323+00:00"
+    }
+  },
+  "sent_log": [
+    {
+      "client": "Cabinet Saver",
+      "type": "comms_gap",
+      "channel": "email",
+      "timestamp": "2026-03-25T02:40:46.661291+00:00",
+      "message_id": "5bf384a6"
+    },
+    {
+      "client": "Office Design Group",
+      "type": "comms_gap",
+      "channel": "email",
+      "timestamp": "2026-03-25T03:02:37.358859+00:00",
+      "message_id": "5c811190"
+    }
+  ]
+}

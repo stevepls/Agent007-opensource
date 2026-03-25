@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
-from queue.models import QueueItem
+from queue_manager.models import QueueItem
 
 
 @dataclass
@@ -66,5 +66,5 @@ class QueueSnapshot:
 
     def unacked(self) -> List[QueueItem]:
         """Get all unacknowledged items."""
-        from queue.models import AckState
+        from queue_manager.models import AckState
         return [i for i in self.items if i.ack_state == AckState.UNACKED]

@@ -1,0 +1,9 @@
+{
+  "agent": "pr_scanner",
+  "timestamp": "2026-03-25T05:36:56.830511+00:00",
+  "items_processed": 1,
+  "items_found": 0,
+  "summary": "0 open PRs across 1 repos",
+  "details": [],
+  "error": null
+}

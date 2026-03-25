@@ -1,0 +1,502 @@
+[
+  {
+    "agent": "time_gap_detector",
+    "timestamp": "2026-03-24T23:02:54.908457+00:00",
+    "items_processed": 5,
+    "items_found": 5,
+    "summary": "5 days with <6h logged (30.0h total gap)",
+    "details": [
+      {
+        "date": "2026-03-23",
+        "day_name": "Monday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-20",
+        "day_name": "Friday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-19",
+        "day_name": "Thursday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-18",
+        "day_name": "Wednesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-17",
+        "day_name": "Tuesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "time_gap_detector",
+    "timestamp": "2026-03-25T00:34:02.060577+00:00",
+    "items_processed": 5,
+    "items_found": 5,
+    "summary": "5 days with <6h logged (30.0h total gap)",
+    "details": [
+      {
+        "date": "2026-03-24",
+        "day_name": "Tuesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-23",
+        "day_name": "Monday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-20",
+        "day_name": "Friday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-19",
+        "day_name": "Thursday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-18",
+        "day_name": "Wednesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "time_gap_detector",
+    "timestamp": "2026-03-25T00:38:47.656836+00:00",
+    "items_processed": 5,
+    "items_found": 5,
+    "summary": "5 days with <6h logged (30.0h total gap)",
+    "details": [
+      {
+        "date": "2026-03-24",
+        "day_name": "Tuesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-23",
+        "day_name": "Monday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-20",
+        "day_name": "Friday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-19",
+        "day_name": "Thursday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-18",
+        "day_name": "Wednesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "time_gap_detector",
+    "timestamp": "2026-03-25T00:43:42.838991+00:00",
+    "items_processed": 5,
+    "items_found": 5,
+    "summary": "5 days with <6h logged (30.0h total gap)",
+    "details": [
+      {
+        "date": "2026-03-24",
+        "day_name": "Tuesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-23",
+        "day_name": "Monday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-20",
+        "day_name": "Friday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-19",
+        "day_name": "Thursday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-18",
+        "day_name": "Wednesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "time_gap_detector",
+    "timestamp": "2026-03-25T01:41:22.778740+00:00",
+    "items_processed": 5,
+    "items_found": 5,
+    "summary": "5 days with <6h logged (30.0h total gap)",
+    "details": [
+      {
+        "date": "2026-03-24",
+        "day_name": "Tuesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-23",
+        "day_name": "Monday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-20",
+        "day_name": "Friday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-19",
+        "day_name": "Thursday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-18",
+        "day_name": "Wednesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "time_gap_detector",
+    "timestamp": "2026-03-25T01:50:51.418198+00:00",
+    "items_processed": 5,
+    "items_found": 5,
+    "summary": "5 days with <6h logged (30.0h total gap)",
+    "details": [
+      {
+        "date": "2026-03-24",
+        "day_name": "Tuesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-23",
+        "day_name": "Monday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-20",
+        "day_name": "Friday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-19",
+        "day_name": "Thursday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-18",
+        "day_name": "Wednesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "time_gap_detector",
+    "timestamp": "2026-03-25T02:40:40.906544+00:00",
+    "items_processed": 5,
+    "items_found": 5,
+    "summary": "5 days with <6h logged (30.0h total gap)",
+    "details": [
+      {
+        "date": "2026-03-24",
+        "day_name": "Tuesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-23",
+        "day_name": "Monday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-20",
+        "day_name": "Friday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-19",
+        "day_name": "Thursday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-18",
+        "day_name": "Wednesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "time_gap_detector",
+    "timestamp": "2026-03-25T02:43:11.546675+00:00",
+    "items_processed": 5,
+    "items_found": 5,
+    "summary": "5 days with <6h logged (30.0h total gap)",
+    "details": [
+      {
+        "date": "2026-03-24",
+        "day_name": "Tuesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-23",
+        "day_name": "Monday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-20",
+        "day_name": "Friday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-19",
+        "day_name": "Thursday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-18",
+        "day_name": "Wednesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "time_gap_detector",
+    "timestamp": "2026-03-25T03:02:30.716711+00:00",
+    "items_processed": 5,
+    "items_found": 5,
+    "summary": "5 days with <6h logged (30.0h total gap)",
+    "details": [
+      {
+        "date": "2026-03-24",
+        "day_name": "Tuesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-23",
+        "day_name": "Monday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-20",
+        "day_name": "Friday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-19",
+        "day_name": "Thursday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-18",
+        "day_name": "Wednesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "time_gap_detector",
+    "timestamp": "2026-03-25T05:02:12.549341+00:00",
+    "items_processed": 5,
+    "items_found": 5,
+    "summary": "5 days with <6h logged (30.0h total gap)",
+    "details": [
+      {
+        "date": "2026-03-24",
+        "day_name": "Tuesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-23",
+        "day_name": "Monday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-20",
+        "day_name": "Friday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-19",
+        "day_name": "Thursday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      },
+      {
+        "date": "2026-03-18",
+        "day_name": "Wednesday",
+        "hours_logged": 0,
+        "expected": 6,
+        "gap": 6,
+        "entries_count": 0
+      }
+    ],
+    "error": null
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "agent": "daily_briefing",
+  "timestamp": "2026-03-25T05:35:55.341277+00:00",
+  "items_processed": 0,
+  "items_found": 159,
+  "summary": "",
+  "details": [
+    "Briefing engine returned 13 items",
+    "Queue: 129 items, 0 breaching/approaching",
+    "Business advisor returned 17 advisories",
+    "Queued Slack DM id=5d58dad8"
+  ],
+  "error": null
+}

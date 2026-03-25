@@ -1,0 +1,326 @@
+[
+  {
+    "agent": "comms_gap_detector",
+    "timestamp": "2026-03-24T23:03:01.795886+00:00",
+    "items_processed": 10,
+    "items_found": 3,
+    "summary": "3 projects with communication gaps",
+    "details": [
+      {
+        "project": "Waynes Aircraft",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "CYS-001",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "Cabinet Saver",
+        "sla_tier": "bronze",
+        "days_silent": 13,
+        "threshold": 10,
+        "last_email_days": 13,
+        "last_slack_days": null
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "comms_gap_detector",
+    "timestamp": "2026-03-25T00:34:07.859284+00:00",
+    "items_processed": 10,
+    "items_found": 3,
+    "summary": "3 projects with communication gaps",
+    "details": [
+      {
+        "project": "Waynes Aircraft",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "CYS-001",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "Cabinet Saver",
+        "sla_tier": "bronze",
+        "days_silent": 13,
+        "threshold": 10,
+        "last_email_days": 13,
+        "last_slack_days": null
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "comms_gap_detector",
+    "timestamp": "2026-03-25T00:38:53.166503+00:00",
+    "items_processed": 10,
+    "items_found": 3,
+    "summary": "3 projects with communication gaps",
+    "details": [
+      {
+        "project": "Waynes Aircraft",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "CYS-001",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "Cabinet Saver",
+        "sla_tier": "bronze",
+        "days_silent": 13,
+        "threshold": 10,
+        "last_email_days": 13,
+        "last_slack_days": null
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "comms_gap_detector",
+    "timestamp": "2026-03-25T00:43:48.169138+00:00",
+    "items_processed": 10,
+    "items_found": 3,
+    "summary": "3 projects with communication gaps",
+    "details": [
+      {
+        "project": "Waynes Aircraft",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "CYS-001",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "Cabinet Saver",
+        "sla_tier": "bronze",
+        "days_silent": 13,
+        "threshold": 10,
+        "last_email_days": 13,
+        "last_slack_days": null
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "comms_gap_detector",
+    "timestamp": "2026-03-25T01:41:27.935882+00:00",
+    "items_processed": 10,
+    "items_found": 3,
+    "summary": "3 projects with communication gaps",
+    "details": [
+      {
+        "project": "Waynes Aircraft",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "CYS-001",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "Cabinet Saver",
+        "sla_tier": "bronze",
+        "days_silent": 13,
+        "threshold": 10,
+        "last_email_days": 13,
+        "last_slack_days": null
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "comms_gap_detector",
+    "timestamp": "2026-03-25T01:50:56.313277+00:00",
+    "items_processed": 10,
+    "items_found": 3,
+    "summary": "3 projects with communication gaps",
+    "details": [
+      {
+        "project": "Waynes Aircraft",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "CYS-001",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "Cabinet Saver",
+        "sla_tier": "bronze",
+        "days_silent": 13,
+        "threshold": 10,
+        "last_email_days": 13,
+        "last_slack_days": null
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "comms_gap_detector",
+    "timestamp": "2026-03-25T02:40:45.905854+00:00",
+    "items_processed": 10,
+    "items_found": 3,
+    "summary": "3 projects with communication gaps",
+    "details": [
+      {
+        "project": "Waynes Aircraft",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "CYS-001",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "Cabinet Saver",
+        "sla_tier": "bronze",
+        "days_silent": 13,
+        "threshold": 10,
+        "last_email_days": 13,
+        "last_slack_days": null
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "comms_gap_detector",
+    "timestamp": "2026-03-25T02:43:16.506517+00:00",
+    "items_processed": 10,
+    "items_found": 3,
+    "summary": "3 projects with communication gaps",
+    "details": [
+      {
+        "project": "Waynes Aircraft",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "CYS-001",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "Cabinet Saver",
+        "sla_tier": "bronze",
+        "days_silent": 13,
+        "threshold": 10,
+        "last_email_days": 13,
+        "last_slack_days": null
+      }
+    ],
+    "error": null
+  },
+  {
+    "agent": "comms_gap_detector",
+    "timestamp": "2026-03-25T03:02:36.475634+00:00",
+    "items_processed": 10,
+    "items_found": 3,
+    "summary": "3 projects with communication gaps",
+    "details": [
+      {
+        "project": "Waynes Aircraft",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "CYS-001",
+        "sla_tier": "silver",
+        "days_silent": null,
+        "threshold": 5,
+        "last_email_days": null,
+        "last_slack_days": null,
+        "note": "No communication records found"
+      },
+      {
+        "project": "Cabinet Saver",
+        "sla_tier": "bronze",
+        "days_silent": 13,
+        "threshold": 10,
+        "last_email_days": 13,
+        "last_slack_days": null
+      }
+    ],
+    "error": null
+  }
+]

@@ -1,0 +1,1318 @@
+[
+  {
+    "agent": "cx_agent",
+    "timestamp": "2026-03-25T02:40:46.487013+00:00",
+    "items_processed": 10,
+    "items_found": 1,
+    "summary": "10 clients checked; 1 messages queued for review",
+    "details": {
+      "decisions": [
+        "AP Driving: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Office Design Group: health=65.0, comms=5d ago, trigger=none, action=skip",
+        "Maine Lobster: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Lake County Pipe: health=66.5, comms=5d ago, trigger=none, action=skip",
+        "ForgeLab/Collegewise: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Waynes Aircraft: health=90.0, comms=unknown, trigger=none, action=skip",
+        "Cabinet Saver: health=55.0, comms=14d ago, trigger=comms_gap, action=queued (msg 5bf384a6)",
+        "Phyto/PDX Aromatics: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Nemesis: health=75.0, comms=1d ago, trigger=none, action=skip",
+        "CYS-001: health=90.0, comms=unknown, trigger=none, action=skip"
+      ],
+      "queued_messages": [
+        {
+          "client": "Cabinet Saver",
+          "trigger": "comms_gap",
+          "action": "Draft check-in",
+          "channel": "email",
+          "message_id": "5bf384a6"
+        }
+      ],
+      "client_health": {
+        "AP Driving": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.33,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.07172057890046296,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 6,
+          "last_comms_days": 0.1
+        },
+        "Office Design Group": {
+          "health_score": 65.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.0,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 4.994625676203704,
+              "score": 50.1
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 3,
+          "last_comms_days": 5.0
+        },
+        "Maine Lobster": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.35,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.27437104947916663,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 20,
+          "last_comms_days": 0.3
+        },
+        "Lake County Pipe": {
+          "health_score": 66.5,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.28,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 4.706002996701389,
+              "score": 57.3
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 18,
+          "last_comms_days": 4.7
+        },
+        "ForgeLab/Collegewise": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.15,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.34541272166666664,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 20,
+          "last_comms_days": 0.3
+        },
+        "Waynes Aircraft": {
+          "health_score": 90.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 1.0,
+              "score": 100.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": null,
+              "score": 50.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0,
+              "score": 100.0
+            }
+          },
+          "item_count": 0,
+          "last_comms_days": null
+        },
+        "Cabinet Saver": {
+          "health_score": 55.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.19,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 13.646338652071758,
+              "score": 0.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 16,
+          "last_comms_days": 13.6
+        },
+        "Phyto/PDX Aromatics": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.3,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.051188209930555555,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 10,
+          "last_comms_days": 0.1
+        },
+        "Nemesis": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.25,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.6419289538773147,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 20,
+          "last_comms_days": 0.6
+        },
+        "CYS-001": {
+          "health_score": 90.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 1.0,
+              "score": 100.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": null,
+              "score": 50.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0,
+              "score": 100.0
+            }
+          },
+          "item_count": 0,
+          "last_comms_days": null
+        }
+      }
+    },
+    "error": null
+  },
+  {
+    "agent": "cx_agent",
+    "timestamp": "2026-03-25T02:43:17.105954+00:00",
+    "items_processed": 10,
+    "items_found": 0,
+    "summary": "10 clients checked; no actions needed",
+    "details": {
+      "decisions": [
+        "AP Driving: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Office Design Group: health=65.0, comms=5d ago, trigger=none, action=skip",
+        "Maine Lobster: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Lake County Pipe: health=66.5, comms=5d ago, trigger=none, action=skip",
+        "ForgeLab/Collegewise: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Waynes Aircraft: health=90.0, comms=unknown, trigger=none, action=skip",
+        "Cabinet Saver: health=55.0, comms=14d ago, action=skip (rate-limited or suppressed)",
+        "Phyto/PDX Aromatics: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Nemesis: health=75.0, comms=1d ago, trigger=none, action=skip",
+        "CYS-001: health=90.0, comms=unknown, trigger=none, action=skip"
+      ],
+      "queued_messages": [],
+      "client_health": {
+        "AP Driving": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.33,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.0734637247337963,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 6,
+          "last_comms_days": 0.1
+        },
+        "Office Design Group": {
+          "health_score": 65.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.0,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 4.996368821469908,
+              "score": 50.1
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 3,
+          "last_comms_days": 5.0
+        },
+        "Maine Lobster": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.35,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.27611419436342594,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 20,
+          "last_comms_days": 0.3
+        },
+        "Lake County Pipe": {
+          "health_score": 66.5,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.28,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 4.70774614125,
+              "score": 57.3
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 18,
+          "last_comms_days": 4.7
+        },
+        "ForgeLab/Collegewise": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.15,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.3471558657175926,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 20,
+          "last_comms_days": 0.3
+        },
+        "Waynes Aircraft": {
+          "health_score": 90.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 1.0,
+              "score": 100.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": null,
+              "score": 50.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0,
+              "score": 100.0
+            }
+          },
+          "item_count": 0,
+          "last_comms_days": null
+        },
+        "Cabinet Saver": {
+          "health_score": 55.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.19,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 13.648081795462963,
+              "score": 0.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 16,
+          "last_comms_days": 13.6
+        },
+        "Phyto/PDX Aromatics": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.3,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.052931335405092594,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 10,
+          "last_comms_days": 0.1
+        },
+        "Nemesis": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.25,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.6436720783564815,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 20,
+          "last_comms_days": 0.6
+        },
+        "CYS-001": {
+          "health_score": 90.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 1.0,
+              "score": 100.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": null,
+              "score": 50.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0,
+              "score": 100.0
+            }
+          },
+          "item_count": 0,
+          "last_comms_days": null
+        }
+      }
+    },
+    "error": null
+  },
+  {
+    "agent": "cx_agent",
+    "timestamp": "2026-03-25T03:02:37.195969+00:00",
+    "items_processed": 10,
+    "items_found": 1,
+    "summary": "10 clients checked; 1 messages queued for review",
+    "details": {
+      "decisions": [
+        "AP Driving: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Office Design Group: health=65.0, comms=5d ago, trigger=comms_gap, action=queued (msg 5c811190)",
+        "Maine Lobster: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Lake County Pipe: health=66.4, comms=5d ago, trigger=none, action=skip",
+        "ForgeLab/Collegewise: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Waynes Aircraft: health=90.0, comms=unknown, trigger=none, action=skip",
+        "Cabinet Saver: health=55.0, comms=14d ago, action=skip (rate-limited or suppressed)",
+        "Phyto/PDX Aromatics: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Nemesis: health=75.0, comms=1d ago, trigger=none, action=skip",
+        "CYS-001: health=90.0, comms=unknown, trigger=none, action=skip"
+      ],
+      "queued_messages": [
+        {
+          "client": "Office Design Group",
+          "trigger": "comms_gap",
+          "action": "Draft check-in",
+          "channel": "email",
+          "message_id": "5c811190"
+        }
+      ],
+      "client_health": {
+        "AP Driving": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.33,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.08689070451388889,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 6,
+          "last_comms_days": 0.1
+        },
+        "Office Design Group": {
+          "health_score": 65.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.0,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 5.009795801273149,
+              "score": 49.8
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 3,
+          "last_comms_days": 5.0
+        },
+        "Maine Lobster": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.35,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.28954119099537035,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 20,
+          "last_comms_days": 0.3
+        },
+        "Lake County Pipe": {
+          "health_score": 66.4,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.28,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 4.721173138692129,
+              "score": 57.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 18,
+          "last_comms_days": 4.7
+        },
+        "ForgeLab/Collegewise": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.15,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.36058286332175926,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 20,
+          "last_comms_days": 0.4
+        },
+        "Waynes Aircraft": {
+          "health_score": 90.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 1.0,
+              "score": 100.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": null,
+              "score": 50.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0,
+              "score": 100.0
+            }
+          },
+          "item_count": 0,
+          "last_comms_days": null
+        },
+        "Cabinet Saver": {
+          "health_score": 55.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.19,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 13.661508793125002,
+              "score": 0.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 16,
+          "last_comms_days": 13.7
+        },
+        "Phyto/PDX Aromatics": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.3,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.06635833238425926,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 10,
+          "last_comms_days": 0.1
+        },
+        "Nemesis": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.25,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.6570990754282408,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 20,
+          "last_comms_days": 0.7
+        },
+        "CYS-001": {
+          "health_score": 90.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 1.0,
+              "score": 100.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": null,
+              "score": 50.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0,
+              "score": 100.0
+            }
+          },
+          "item_count": 0,
+          "last_comms_days": null
+        }
+      }
+    },
+    "error": null
+  },
+  {
+    "agent": "cx_agent",
+    "timestamp": "2026-03-25T05:02:12.551323+00:00",
+    "items_processed": 10,
+    "items_found": 0,
+    "summary": "10 clients checked; no actions needed",
+    "details": {
+      "decisions": [
+        "AP Driving: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Office Design Group: health=64.5, comms=5d ago, action=skip (rate-limited or suppressed)",
+        "Maine Lobster: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Lake County Pipe: health=66.0, comms=5d ago, trigger=none, action=skip",
+        "ForgeLab/Collegewise: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Waynes Aircraft: health=90.0, comms=unknown, trigger=none, action=skip",
+        "Cabinet Saver: health=55.0, comms=14d ago, action=skip (rate-limited or suppressed)",
+        "Phyto/PDX Aromatics: health=75.0, comms=0d ago, trigger=none, action=skip",
+        "Nemesis: health=75.0, comms=1d ago, trigger=none, action=skip",
+        "CYS-001: health=90.0, comms=unknown, trigger=none, action=skip"
+      ],
+      "queued_messages": [],
+      "client_health": {
+        "AP Driving": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.33,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.05630674210648148,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 6,
+          "last_comms_days": 0.1
+        },
+        "Office Design Group": {
+          "health_score": 64.5,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.0,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 5.092935575104167,
+              "score": 47.7
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 3,
+          "last_comms_days": 5.1
+        },
+        "Maine Lobster": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.35,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.3726873248611111,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 20,
+          "last_comms_days": 0.4
+        },
+        "Lake County Pipe": {
+          "health_score": 66.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.28,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 4.804326379479167,
+              "score": 54.9
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 18,
+          "last_comms_days": 4.8
+        },
+        "ForgeLab/Collegewise": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.15,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.44374340336805557,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 20,
+          "last_comms_days": 0.4
+        },
+        "Waynes Aircraft": {
+          "health_score": 90.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 1.0,
+              "score": 100.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": null,
+              "score": 50.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0,
+              "score": 100.0
+            }
+          },
+          "item_count": 0,
+          "last_comms_days": null
+        },
+        "Cabinet Saver": {
+          "health_score": 55.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.19,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 13.744679798310186,
+              "score": 0.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 16,
+          "last_comms_days": 13.7
+        },
+        "Phyto/PDX Aromatics": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.3,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.1495370734837963,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 10,
+          "last_comms_days": 0.1
+        },
+        "Nemesis": {
+          "health_score": 75.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 0.25,
+              "score": 0.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": 0.7402842842476852,
+              "score": 100.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0.0,
+              "score": 100.0
+            }
+          },
+          "item_count": 20,
+          "last_comms_days": 0.7
+        },
+        "CYS-001": {
+          "health_score": 90.0,
+          "breakdown": {
+            "task_completion_rate": {
+              "value": 1.0,
+              "score": 100.0
+            },
+            "overdue_ratio": {
+              "value": 0.0,
+              "overdue": 0,
+              "score": 100.0
+            },
+            "comms_freshness": {
+              "days": null,
+              "score": 50.0
+            },
+            "sla_compliance": {
+              "compliance": 1.0,
+              "breaching": 0,
+              "approaching": 0,
+              "score": 100.0
+            },
+            "open_ticket_age": {
+              "avg_days": 0,
+              "score": 100.0
+            }
+          },
+          "item_count": 0,
+          "last_comms_days": null
+        }
+      }
+    },
+    "error": null
+  }
+]

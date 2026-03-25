@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
-from queue.models import QueueItem
+from queue_manager.models import QueueItem
 
 
 @dataclass

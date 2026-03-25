@@ -24,16 +24,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Callable
 
-from queue.models import QueueItem, Severity, SourceType, AckState, NotificationState
-from queue.scoring import compute_score, compute_severity
-from queue.policies import (
+from queue_manager.models import QueueItem, Severity, SourceType, AckState, NotificationState
+from queue_manager.scoring import compute_score, compute_severity
+from queue_manager.policies import (
     PriorityPolicy,
     PromotionPolicy,
     is_working_hours,
     is_quiet_hours,
 )
-from queue.snapshots import QueueSnapshot
-from queue.promotions import PromotionEvent, create_promotion_event
+from queue_manager.snapshots import QueueSnapshot
+from queue_manager.promotions import PromotionEvent, create_promotion_event
 
 logger = logging.getLogger("queue_manager")
 

@@ -1,0 +1,36 @@
+{
+  "agent": "comms_gap_detector",
+  "timestamp": "2026-03-25T03:02:36.475634+00:00",
+  "items_processed": 10,
+  "items_found": 3,
+  "summary": "3 projects with communication gaps",
+  "details": [
+    {
+      "project": "Waynes Aircraft",
+      "sla_tier": "silver",
+      "days_silent": null,
+      "threshold": 5,
+      "last_email_days": null,
+      "last_slack_days": null,
+      "note": "No communication records found"
+    },
+    {
+      "project": "CYS-001",
+      "sla_tier": "silver",
+      "days_silent": null,
+      "threshold": 5,
+      "last_email_days": null,
+      "last_slack_days": null,
+      "note": "No communication records found"
+    },
+    {
+      "project": "Cabinet Saver",
+      "sla_tier": "bronze",
+      "days_silent": 13,
+      "threshold": 10,
+      "last_email_days": 13,
+      "last_slack_days": null
+    }
+  ],
+  "error": null
+}

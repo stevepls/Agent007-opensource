@@ -8,7 +8,7 @@ No LLM, no agents. Just rules.
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
-from queue.models import QueueItem, Severity, AckState
+from queue_manager.models import QueueItem, Severity, AckState
 
 
 # ── Working Hours ─────────────────────────────────────────────
