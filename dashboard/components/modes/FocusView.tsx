@@ -106,6 +106,9 @@ export function FocusView({ entity, chatSlot, onBack, onAction }: FocusViewProps
   const [chatVisible, setChatVisible] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [snoozeMode, setSnoozeMode] = useState(false);
+  const [branchMode, setBranchMode] = useState(false);
+  const [branchName, setBranchName] = useState("");
   const [comments, setComments] = useState<CommentData[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
 
@@ -226,14 +229,16 @@ export function FocusView({ entity, chatSlot, onBack, onAction }: FocusViewProps
             <span className="hidden sm:inline">Break down</span>
             <span className="sm:hidden">Split</span>
           </Button>
-          <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs gap-1.5 border-[#333] text-zinc-300"
-            onClick={() => fire("branch")}>
+          <Button variant="outline" size="sm"
+            className={cn("h-8 sm:h-9 text-xs gap-1.5 border-[#333]", branchMode ? "text-indigo-400 border-indigo-500/30" : "text-zinc-300")}
+            onClick={() => { setBranchMode(!branchMode); setSnoozeMode(false); setCommentMode(false); }}>
             <GitBranch className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Create branch</span>
             <span className="sm:hidden">Branch</span>
           </Button>
-          <Button variant="outline" size="sm" className="h-8 sm:h-9 text-xs gap-1.5 border-[#333] text-zinc-300"
-            onClick={() => fire("snooze")}>
+          <Button variant="outline" size="sm"
+            className={cn("h-8 sm:h-9 text-xs gap-1.5 border-[#333]", snoozeMode ? "text-indigo-400 border-indigo-500/30" : "text-zinc-300")}
+            onClick={() => { setSnoozeMode(!snoozeMode); setBranchMode(false); setCommentMode(false); }}>
             <Pause className="w-3.5 h-3.5" />
             Snooze
           </Button>
@@ -287,6 +292,74 @@ export function FocusView({ entity, chatSlot, onBack, onAction }: FocusViewProps
                 Cancel
               </Button>
               <span className="text-xs text-muted-foreground ml-auto">Enter to post · Shift+Enter for newline · Esc to cancel</span>
+            </div>
+          </div>
+        )}
+
+        {/* Inline snooze picker */}
+        {snoozeMode && (
+          <div className="px-3 sm:px-5 pb-4">
+            <p className="text-xs text-muted-foreground mb-2">Snooze for:</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                { label: "1 hour", value: "1h" },
+                { label: "4 hours", value: "4h" },
+                { label: "Tomorrow", value: "tomorrow" },
+                { label: "Next week", value: "next_week" },
+              ].map((opt) => (
+                <Button key={opt.value} variant="outline" size="sm"
+                  className="h-8 text-xs border-[#333] text-zinc-300 hover:text-indigo-400 hover:border-indigo-500/30"
+                  onClick={() => {
+                    onAction?.(`snooze:${opt.value}`, entity);
+                    setSnoozeMode(false);
+                  }}>
+                  {opt.label}
+                </Button>
+              ))}
+              <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground"
+                onClick={() => setSnoozeMode(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Inline branch creator */}
+        {branchMode && (
+          <div className="px-3 sm:px-5 pb-4">
+            <p className="text-xs text-muted-foreground mb-2">Branch name:</p>
+            <div className="flex gap-2">
+              <input
+                value={branchName}
+                onChange={(e) => setBranchName(e.target.value)}
+                placeholder={`feature/${d.source_id || entity.id}`}
+                autoFocus
+                className="flex-1 text-sm bg-[#141414] border border-[#262626] rounded-lg px-3 py-2 text-foreground font-mono placeholder:text-[#525252] focus:border-indigo-500/50 outline-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    onAction?.(`create_branch:${branchName.trim() || `feature/${d.source_id || entity.id}`}`, entity);
+                    setBranchName("");
+                    setBranchMode(false);
+                  }
+                  if (e.key === "Escape") { setBranchMode(false); setBranchName(""); }
+                }}
+              />
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <Button size="sm" className="h-7 text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white"
+                onClick={() => {
+                  onAction?.(`create_branch:${branchName.trim() || `feature/${d.source_id || entity.id}`}`, entity);
+                  setBranchName("");
+                  setBranchMode(false);
+                }}>
+                <GitBranch className="w-3 h-3" />
+                Create
+              </Button>
+              <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground"
+                onClick={() => { setBranchMode(false); setBranchName(""); }}>
+                Cancel
+              </Button>
+              <span className="text-xs text-muted-foreground ml-auto">Enter to create · Esc to cancel</span>
             </div>
           </div>
         )}

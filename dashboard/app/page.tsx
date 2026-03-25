@@ -859,10 +859,26 @@ export default function Dashboard() {
                 onAction={(action, entity) => {
                   const d = entity.data;
 
-                  // Handle inline comment with actual text
+                  // Handle inline actions with parameters
                   if (action.startsWith("add_comment:")) {
                     const text = action.slice("add_comment:".length);
                     const prompt = `Add this comment to ${entity.source?.system} ${d.source_id} ("${d.title}"):\n\n${text}`;
+                    setInput(prompt);
+                    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+                    setTimeout(() => handleSubmit(fakeEvent), 100);
+                    return;
+                  }
+                  if (action.startsWith("snooze:")) {
+                    const duration = action.slice("snooze:".length);
+                    const prompt = `Snooze "${d.title}" (${entity.source?.system} ${d.source_id}) for ${duration}. Update the due date and add a comment noting it's been deferred.`;
+                    setInput(prompt);
+                    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+                    setTimeout(() => handleSubmit(fakeEvent), 100);
+                    return;
+                  }
+                  if (action.startsWith("create_branch:")) {
+                    const branch = action.slice("create_branch:".length);
+                    const prompt = `Create branch "${branch}" for "${d.title}" (${d.project_name}, ${entity.source?.system} ${d.source_id}) and push it to GitHub.`;
                     setInput(prompt);
                     const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
                     setTimeout(() => handleSubmit(fakeEvent), 100);
