@@ -34,7 +34,7 @@ export function ActionBar({ actions, onAction, className }: ActionBarProps) {
   if (actions.length === 0) return null;
 
   return (
-    <div className={cn("flex items-center gap-2 px-4 py-2 border-t border-[#262626] bg-[#0f0f0f]", className)}>
+    <div className={cn("flex items-center gap-2 px-3 lg:px-4 py-2 border-t border-[#262626] bg-[#0f0f0f] overflow-x-auto", className)}>
       {actions.map((action) => {
         const variant = action.style === "primary" ? "default"
           : action.style === "destructive" ? "destructive"
@@ -54,7 +54,7 @@ export function ActionBar({ actions, onAction, className }: ActionBarProps) {
           >
             {action.label}
             {action.key && (
-              <kbd className="text-[10px] px-1 py-0.5 rounded bg-black/20 font-mono ml-1">
+              <kbd className="hidden lg:inline text-[10px] px-1 py-0.5 rounded bg-black/20 font-mono ml-1">
                 {action.key.toUpperCase()}
               </kbd>
             )}
