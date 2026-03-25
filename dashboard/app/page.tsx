@@ -13,6 +13,8 @@ import { TaskQueue } from "@/components/TaskQueue";
 import { QueueView } from "@/components/QueueView";
 import { AgentStrip } from "@/components/AgentStrip";
 import { DynamicApproveDialog } from "@/components/DynamicApproveDialog";
+import { ViewRenderer } from "@/components/ViewRenderer";
+import { FocusView } from "@/components/modes/FocusView";
 import { Progress } from "@/components/ui/progress";
 import {
   type AgentUpdate,
@@ -22,6 +24,11 @@ import {
   type ProgressEvent,
   type StructuredData,
 } from "@/lib/utils";
+import {
+  type ViewDirective,
+  type ActionDefinition,
+  EMPTY_DIRECTIVE,
+} from "@/lib/viewProtocol";
 import { Menu, X, Zap, Plus, Trash2, PanelRightOpen, PanelRightClose, Settings } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -66,6 +73,9 @@ export default function Dashboard() {
   const [activeQueueItemId, setActiveQueueItemId] = useState<string | null>(null);
   const [dismissedQueueIds, setDismissedQueueIds] = useState<Set<string>>(new Set());
   const activeQueueItemRef = useRef<string | null>(null);
+
+  // Adaptive view protocol
+  const [viewDirective, setViewDirective] = useState<ViewDirective>(EMPTY_DIRECTIVE);
   type Provider = "auto" | "orchestrator" | "orchestrator-claude" | "orchestrator-openai" | "claude" | "openai";
   const [currentProvider, setCurrentProvider] = useState<string>("connecting");
   const [preferredProvider, setPreferredProvider] = useState<Provider>("auto");
@@ -245,6 +255,10 @@ export default function Dashboard() {
           break;
         case "structured_data":
           setStructuredBlocks((prev) => [...prev, event as unknown as StructuredData]);
+          break;
+        case "view":
+          // Adaptive view protocol — Orchestrator sends a ViewDirective
+          setViewDirective(event as unknown as ViewDirective);
           break;
       }
     }
@@ -502,6 +516,27 @@ export default function Dashboard() {
     setTimeout(() => handleSubmit(fakeEvent), 150);
   }, [setInput, handleSubmit]);
 
+  // Handle view protocol actions
+  const handleViewAction = useCallback((action: ActionDefinition) => {
+    if (action.tool) {
+      // Action mapped to a tool — send as chat prompt
+      const prompt = `Execute: ${action.label} (tool: ${action.tool}, args: ${JSON.stringify(action.args)})`;
+      setInput(prompt);
+      const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+      setTimeout(() => handleSubmit(fakeEvent), 100);
+    } else {
+      // No tool — treat label as a chat command
+      setInput(action.label);
+      const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+      setTimeout(() => handleSubmit(fakeEvent), 100);
+    }
+  }, [setInput, handleSubmit]);
+
+  // Reset view directive on new chat
+  const resetView = useCallback(() => {
+    setViewDirective(EMPTY_DIRECTIVE);
+  }, []);
+
   // Simulate real-time updates (demo)
   useEffect(() => {
     const interval = setInterval(() => {
@@ -661,69 +696,82 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      {/* Main Content - Chat */}
+      {/* Main Content — Adaptive View */}
       <main className="flex-1 flex flex-col min-w-0 h-full">
-        {/* Top bar with right panel toggle */}
-        <div className="flex items-center justify-end px-4 py-2 border-b border-border bg-[#0a0a0a]">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setRightPanelOpen(!rightPanelOpen)}
-            title={rightPanelOpen ? "Hide panel" : "Show panel"}
-          >
-            {rightPanelOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
-          </Button>
-        </div>
+        <ViewRenderer
+          directive={viewDirective}
+          onAction={handleViewAction}
 
-        {/* Chat Messages */}
-        <div className="flex-1 overflow-hidden">
-          <ChatMessages
-            messages={messages}
-            isLoading={isLoading}
-            error={error}
-            currentActivity={currentActivity}
-            activityLog={activityLog}
-            structuredBlocks={structuredBlocks}
-          />
-        </div>
+          chatSlot={
+            <div className="flex flex-col h-full">
+              <div className="flex-1 overflow-hidden">
+                <ChatMessages
+                  messages={messages}
+                  isLoading={isLoading}
+                  error={error}
+                  currentActivity={currentActivity}
+                  activityLog={activityLog}
+                  structuredBlocks={structuredBlocks}
+                />
+              </div>
+              <div className="bg-[#0f0f0f] border-t border-[#262626]">
+                <ChatInput
+                  input={input}
+                  handleInputChange={handleInputChange}
+                  handleSubmit={handleSubmit}
+                  isLoading={isLoading}
+                  onAttachmentsChange={setAttachments}
+                  onCancel={handleCancel}
+                />
+              </div>
+            </div>
+          }
 
-        {/* Chat Input */}
-        <div className="bg-[#0f0f0f] border-t border-[#262626]">
-          <ChatInput
-            input={input}
-            handleInputChange={handleInputChange}
-            handleSubmit={handleSubmit}
-            isLoading={isLoading}
-            onAttachmentsChange={setAttachments}
-            onCancel={handleCancel}
-          />
-        </div>
+          feedSlot={
+            <QueueView
+              activeItemId={activeQueueItemId}
+              onItemSelect={handleQueueItemSelect}
+              onCreateTask={handleCreateTask}
+              onBreakdown={handleBreakdown}
+              dismissedIds={dismissedQueueIds}
+            />
+          }
+
+          agentStripSlot={<AgentStrip onAgentFocus={handleAgentFocus} />}
+
+          focusSlot={
+            viewDirective.primary_entity ? (
+              <FocusView
+                entity={viewDirective.primary_entity}
+                chatSlot={
+                  <div className="flex flex-col h-full">
+                    <div className="flex-1 overflow-hidden">
+                      <ChatMessages
+                        messages={messages}
+                        isLoading={isLoading}
+                        error={error}
+                        currentActivity={currentActivity}
+                        activityLog={activityLog}
+                        structuredBlocks={structuredBlocks}
+                      />
+                    </div>
+                    <div className="bg-[#0f0f0f] border-t border-[#262626]">
+                      <ChatInput
+                        input={input}
+                        handleInputChange={handleInputChange}
+                        handleSubmit={handleSubmit}
+                        isLoading={isLoading}
+                        onAttachmentsChange={setAttachments}
+                        onCancel={handleCancel}
+                      />
+                    </div>
+                  </div>
+                }
+              />
+            ) : undefined
+          }
+        />
       </main>
-
-      {/* Right Panel */}
-      <aside
-        className={`
-          ${rightPanelOpen ? "flex" : "hidden"} flex-col w-80 bg-[#0f0f0f] border-l border-[#262626]
-          transition-all duration-300
-        `}
-      >
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Priority Feed
-          </h2>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4">
-          <AgentStrip onAgentFocus={handleAgentFocus} />
-          <QueueView
-            activeItemId={activeQueueItemId}
-            onItemSelect={handleQueueItemSelect}
-            onCreateTask={handleCreateTask}
-            onBreakdown={handleBreakdown}
-            dismissedIds={dismissedQueueIds}
-          />
-        </div>
-      </aside>
 
       {/* Mobile overlay */}
       {mobileMenuOpen && (
