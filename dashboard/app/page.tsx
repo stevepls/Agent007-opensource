@@ -455,6 +455,7 @@ export default function Dashboard() {
           updated_at: q.updated_at,
           due_date: q.due_date,
           tags: q.tags,
+          description: q.description || "",
         },
       };
 
@@ -596,9 +597,30 @@ export default function Dashboard() {
       ticket_review: "ticket review agent",
     };
     const label = labels[agentName] || agentName.replace(/_/g, " ") + " agent";
+
+    // Enter focus mode with the agent as the primary entity
+    setViewDirective({
+      ...EMPTY_DIRECTIVE,
+      mode: "focus",
+      primary_entity: {
+        type: "task",
+        id: `agent-${agentName}`,
+        data: {
+          title: label.charAt(0).toUpperCase() + label.slice(1),
+          description: `Background agent — click "Chat with Orchestrator" below to ask about its latest work.`,
+          status: "running",
+          project_name: "Agent007",
+          source_id: agentName,
+        },
+      },
+      layout: { canvas: "split", emphasis: "entity", feed: "minimized" },
+      chat: { visible: true, input_placeholder: `Ask about the ${label}...` },
+    });
+
+    // Also send the query to chat so it auto-loads results
     setInput(`What has the ${label} been doing? Show me its latest results and any items that need my attention.`);
     const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-    setTimeout(() => handleSubmit(fakeEvent), 150);
+    setTimeout(() => handleSubmit(fakeEvent), 200);
   }, [setInput, handleSubmit]);
 
   // Handle view protocol actions

@@ -95,6 +95,7 @@ class WorkItem:
     updated_at: datetime
     due_date: Optional[datetime]
     tags: List[str] = field(default_factory=list)
+    description: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise to a plain dict suitable for JSON responses."""
@@ -128,6 +129,7 @@ class WorkItem:
             "updated_at": self.updated_at.isoformat(),
             "due_date": self.due_date.isoformat() if self.due_date else None,
             "tags": self.tags,
+            "description": self.description,
         }
 
 
@@ -348,6 +350,9 @@ class QueueAggregator:
                 due_date=due_date,
             )
 
+            # Description (may be plain text or markdown)
+            description = str(task.get("description", "") or task.get("text_content", "") or "")
+
             return WorkItem(
                 id=f"clickup-{task_id}",
                 source="clickup",
@@ -364,6 +369,7 @@ class QueueAggregator:
                 updated_at=updated_at,
                 due_date=due_date,
                 tags=tags,
+                description=description[:1000],  # Truncate to avoid huge payloads
             )
         except Exception:
             logger.exception("Error converting ClickUp task %s", task.get("id"))
@@ -434,6 +440,7 @@ class QueueAggregator:
                 updated_at=updated_at,
                 due_date=due_date,
                 tags=tags,
+                description=str(ticket.get("description", "") or "")[:1000],
             )
         except Exception:
             logger.exception("Error converting Zendesk ticket %s", ticket.get("id"))
