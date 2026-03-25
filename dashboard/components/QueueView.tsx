@@ -391,7 +391,29 @@ function QueueView({
     }
   };
 
-  const fetchData = useCallback(async () => {
+  // ── Client-side cache ─────────────────────────────────────
+  // Stale-while-revalidate: show cached data immediately, fetch
+  // fresh data in the background. Cache key includes project scope.
+  const cacheRef = useRef<{
+    key: string;
+    queue: QueueItem[];
+    briefing: BriefingItemData[];
+    summary: QueueSummary | null;
+    timestamp: number;
+  } | null>(null);
+
+  const CACHE_TTL = 30_000; // 30s — show cache, refetch in background
+  const POLL_INTERVAL = 60_000; // 60s — poll for fresh data
+
+  const fetchData = useCallback(async (background = false) => {
+    const cacheKey = filterProject || "__all__";
+
+    // If cache is fresh and this is a poll, skip
+    if (background && cacheRef.current?.key === cacheKey) {
+      const age = Date.now() - cacheRef.current.timestamp;
+      if (age < CACHE_TTL) return;
+    }
+
     try {
       const queueParams = new URLSearchParams();
       if (filterProject) queueParams.set("project", filterProject);
@@ -402,30 +424,58 @@ function QueueView({
         fetch("/api/briefing?max_items=15"),
       ]);
 
-      // Process queue response
+      let newQueue: QueueItem[] | null = null;
+      let newSummary: QueueSummary | null = null;
+      let newBriefing: BriefingItemData[] | null = null;
+
       if (queueRes.status === "fulfilled" && queueRes.value.ok) {
         const data: QueueResponse = await queueRes.value.json();
-        setQueueItems(data.items || []);
-        setSummary(data.summary || null);
+        newQueue = data.items || [];
+        newSummary = data.summary || null;
       }
 
-      // Process briefing response
       if (briefingRes.status === "fulfilled" && briefingRes.value.ok) {
         const data = await briefingRes.value.json();
-        setBriefingItems(data.items || []);
+        newBriefing = data.items || [];
       }
+
+      // Update state
+      if (newQueue !== null) setQueueItems(newQueue);
+      if (newSummary !== null) setSummary(newSummary);
+      if (newBriefing !== null) setBriefingItems(newBriefing);
+
+      // Update cache
+      cacheRef.current = {
+        key: cacheKey,
+        queue: newQueue ?? queueItems,
+        briefing: newBriefing ?? briefingItems,
+        summary: newSummary ?? summary,
+        timestamp: Date.now(),
+      };
     } catch {
-      // Silently handle fetch errors
+      // Silently handle — stale cache still showing
     } finally {
       setLoading(false);
     }
   }, [activeProject]);
 
-  // Initial fetch + poll every 60 seconds
+  // Initial load: use cache if available, fetch in background
   useEffect(() => {
-    setLoading(true);
-    fetchData();
-    const interval = setInterval(fetchData, 60_000);
+    const cacheKey = filterProject || "__all__";
+    if (cacheRef.current?.key === cacheKey) {
+      // Show cached data immediately
+      setQueueItems(cacheRef.current.queue);
+      setBriefingItems(cacheRef.current.briefing);
+      setSummary(cacheRef.current.summary);
+      setLoading(false);
+      // Refresh in background
+      fetchData(true);
+    } else {
+      setLoading(true);
+      fetchData();
+    }
+
+    const interval = setInterval(() => fetchData(true), POLL_INTERVAL);
     return () => clearInterval(interval);
   }, [fetchData]);
 
