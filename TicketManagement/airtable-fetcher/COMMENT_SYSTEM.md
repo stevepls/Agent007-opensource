@@ -21,7 +21,7 @@ This system provides a unified interface for managing tickets with both Airtable
 ```bash
 # Activate environment first
 source src/venv/bin/activate
-export AIRTABLE_PERSONAL_ACCESS_TOKEN=REDACTED-AIRTABLE-PAT
+export AIRTABLE_PERSONAL_ACCESS_TOKEN=YOUR-AIRTABLE-PERSONAL-ACCESS-TOKEN
 export AIRTABLE_BASE_ID=app37XFdl4xoMbvx3
 export AIRTABLE_TABLE_ID=tblFXfLF3tGjW9IXm
 

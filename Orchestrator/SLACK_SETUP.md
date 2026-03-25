@@ -5,9 +5,9 @@
 **Location:** `~/.config/devops/slack-secrets.yml`
 
 ```yaml
-bot_token: REDACTED-SLACK-BOT-TOKEN
-app_token: REDACTED-SLACK-APP-TOKEN
-signing_secret: REDACTED-SLACK-SIGNING-SECRET
+bot_token: xoxb-YOUR-BOT-TOKEN
+app_token: xapp-YOUR-APP-TOKEN
+signing_secret: YOUR-SIGNING-SECRET
 ```
 
 **Status:** ✅ Tokens copied to `Orchestrator/.env`
